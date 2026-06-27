@@ -4,6 +4,21 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 014).** A new **`rendering`** module now realizes the first **output-out**
+> boundary — downstream **presentation**, not domain. It turns a domain-approved `TerminalOutput` into
+> human-facing text via a **read-only `RenderableDomainOutput` projection**, a **deterministic fake renderer**
+> (no provider), and a **mandatory validator** that preserves voice/uncertainty/limitations/freshness/
+> traceability/agency and refuses escalation/invention/hidden-uncertainty (safe non-render). **Allowed imports:**
+> `shared-kernel` + **read-only `decision-support` types** only. **Forbidden imports:** `observation`,
+> `reasoning`, `understanding`, `athlete`, `event-recording`. **No existing module imports `rendering`.**
+> **Rendering is presentation-only, not LLM-provider integration, and generated text is not domain authority:**
+> `decision-support` owns the `TerminalOutput`/`VoiceMode`; the renderer phrases only; the validator (not the
+> renderer) is the guarantee; rendering **mutates no aggregate, writes no event, persists nothing**, and no
+> **real LLM provider / prompt templates / UI / API / external call** exists. The module count is now **eight**
+> (the six domain modules + `event-recording` + `rendering`; the `reprojection-harness` remains a neutral
+> `__tests__` seam, not a module). No architecture decision below is superseded. The note below is the prior
+> (Impl 013) status.
+>
 > **Implementation status (post Impl 013).** The **`observation`** application boundary now includes a
 > **Manual Input Adapter** (`observation/application/manual-input-*`, `ingestManualInput`) — Aurora's first
 > real **"data in"** boundary. Its only domain output is an `ObservationSet`: it reuses `recordObservationSet`

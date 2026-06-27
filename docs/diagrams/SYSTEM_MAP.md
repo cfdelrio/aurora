@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 013):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 014):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -27,8 +27,13 @@
 > `ObservationSet` (verbatim words, explicit missing data, provenance `source: "manual"`, quality),
 > persists through `ObservationSetRepository`, and rejects the unrepresentable — **without interpreting,
 > detecting a `Signal`, reasoning, mutating athlete records, importing `event-recording`, or triggering
-> any downstream effect**. The remaining absences (**rendering/LLM boundary**/**UI/API entrypoint**/
-> external FIT ingestion/**production persistence & event store**/**event bus**/**full** athlete model/
+> any downstream effect**. Implementation 014 added the first real **"output out"** boundary — a
+> **deterministic `rendering` module** that turns a domain-approved `TerminalOutput` into human-facing text
+> via a fake renderer + a **mandatory validator**, preserving voice/uncertainty/limitations/freshness/
+> traceability/agency — **without becoming domain authority, selecting voice, escalating tone, inventing a
+> fact, mutating an aggregate, writing an event, or persisting anything**. The remaining absences (**real
+> LLM provider & prompts**/**UI/API entrypoint**/external FIT ingestion/**rendered-message persistence &
+> rendered-output events**/**production persistence & event store**/**event bus**/**full** athlete model/
 > **generic projection engine**/**full DecisionOutcome**/**production reprojection service & scheduler &
 > projection repository**/**event sourcing**/production service) are **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
@@ -77,6 +82,10 @@ flowchart LR
     U -. "proyecta (derivado, no fuente de verdad)" .-> UA
     UA -. "freshness clampa SafeVoiceCeiling → gate existente" .-> D
     D --> OUT
+    REND["Rendering ✅ Impl 014 (downstream, NO dominio)<br/>RenderableDomainOutput (proyección read-only)<br/>fake renderer determinístico + validator OBLIGATORIO<br/>preserva voz/incertidumbre/limitaciones/freshness/traza/agencia<br/>voz puede igualar o suavizar, NUNCA escalar<br/>NO autoridad · NO selecciona voz · NO muta · NO evento · NO persiste"]
+    HUMAN["Texto humano (presentación)<br/>RenderedMessage — NO es fuente de verdad"]
+    OUT -- "presentación: expresa el TerminalOutput (no decide, no escala voz)" --> REND
+    REND --> HUMAN
     OUT -. "el atleta decide (referenciado, no poseído): DecisionSupportCase guarda solo AthleteDecisionRef" .-> AD
     AD -. "AthleteDecision → SubjectiveObservation (adapter neutral); NO obediencia, NO score, NO Evidence directo" .-> O
 
@@ -129,6 +138,22 @@ persists **only** through `ObservationSetRepository`. Its outcomes are `accepted
 and **imports no downstream module or `event-recording`**. An optional `ObservationSetRecorded` is composed
 **only in a neutral harness** from a **ref-only** event candidate — neutral, not command execution. There
 is **no UI/API/LLM/external integration**. *Manual input is source material, never meaning.*
+
+[FACT] **Rendering — the first real "output out" boundary (Implementation 014).** It lives in
+`src/modules/rendering` and sits **downstream of `decision-support`**, drawn *after* the `TerminalOutput`.
+`decision-support` owns the `TerminalOutput` and the `VoiceMode`; rendering owns **phrasing only**: it reads
+a **read-only `RenderableDomainOutput`** projection and produces human-facing text via a **deterministic
+fake renderer** (no provider, no model, no randomness) that **must pass a mandatory validator** before
+becoming a `RenderedMessage`. The presentation arrow from the terminal output to rendering is **one-way**:
+there is **no arrow back** to Observation/Reasoning/Understanding/DecisionSupport, **no mutation** of any
+aggregate, and **no event-writing** arrow. **Voice may match or soften, never escalate**; `Inquiry` stays a
+question; `Withholding` stays a refusal; `Recommendation` preserves conditions/uncertainty/traceability/
+agency; invented facts/citations, hidden uncertainty/limitations, unsupported style/locale, and unsafe
+athlete-state/purpose/compliance language are **rejected** (safe non-render). A `RenderedMessage` is **not
+domain authority** — not `Evidence`/`Observation`/`Understanding`/`AthleteDecision`, not source truth (it
+re-enters only if the athlete separately reports it via the manual adapter). There is **no real LLM
+provider, prompt template, UI, API, or external call**, and **no rendered-message persistence or
+rendered-output event record**. *Generated text is a presentation artifact, never authority.*
 
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
@@ -214,6 +239,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 4 | **Understanding** | `understanding` | `UnderstandingProfile`, dimension-specific, `UnderstandingLevel`, survived challenge, surprise/staleness, `SafeVoiceCeiling` | ✅ Impl 004 |
 | 5 | **Decision Support / Voz** | `decision-support` | `DecisionSupportCase`, gates, `TraceabilityVerification`, `VoiceSelectionPolicy`, `VoiceMode` (Reflection/Framing/Warning/Recommendation), terminal outputs, preserved agency | ✅ Impl 005 |
 | — | **End-to-end proof** | `src/modules/__tests__` | First full chain composed; output `DecisionSupport` · `VoiceMode: Reflection` (not Recommendation) | ✅ Impl 006 |
+| 🗣 | **Rendering** *(downstream presentation, not a reasoning stage, not domain)* | `rendering` | `RenderableDomainOutput` (read-only projection) → deterministic fake renderer + **mandatory validator** → `RenderedMessage`/`RenderOutcome`; voice may match/soften, never escalate; Inquiry stays a question, Withholding a refusal; uncertainty/limitations/freshness/traceability preserved; invented facts/escalation/unsafe requests rejected (safe non-render). Not domain authority; mutates/persists/emits nothing; imports only `shared-kernel` + read-only `decision-support` types. **No** real LLM provider / prompt / UI / API / external call | ✅ Impl 014 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -300,6 +326,13 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | event candidate **≠** event command · `ObservationSetRecorded` **≠** downstream execution | The adapter returns a ref-only candidate; the harness records an inert occurrence; nothing executes. |
 | athlete-decision report as observation **≠** `AthleteDecisionRecord` mutation | A reported decision is recorded as a subjective observation only; the athlete-decision aggregate is untouched. |
 | Manual Input Adapter **≠** UI/API/LLM/external integration | It is an in-process `observation` boundary; how input is collected/submitted is future. |
+| rendering **≠** reasoning · generated text **≠** domain authority · renderer **≠** voice selector | Rendering is downstream presentation; `decision-support` owns voice + terminal output (Impl 014). |
+| `VoiceMode` **≠** style request · style request **≠** permission to escalate voice | A safe style affects phrasing only; "be decisive" is not a safe style → `unsupported-style-request`. |
+| fake renderer **≠** LLM provider · validator **≠** model quality | The renderer is deterministic and provider-free; the mandatory validator is the safety guarantee. |
+| renderable output **≠** raw reasoning internals | A `RenderableDomainOutput` is a read-only projection of a completed terminal output, not internals. |
+| rendered message **≠** `Evidence`/`Observation`/`Understanding`/`AthleteDecision` · **≠** source truth | A `RenderedMessage` is a presentation artifact; it re-enters only if the athlete reports it back manually. |
+| Recommendation rendering **≠** recommendation creation · Inquiry rendering **≠** answer · Withholding rendering **≠** advice | The renderer phrases what the domain decided; it never creates/answers/advises. |
+| traceability summary **≠** invented citation · rendering failure **≠** unsafe fallback | Summaries cite only present refs; a failure is a safe non-render, never unsafe text. |
 
 ---
 
@@ -309,10 +342,12 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-memory repositories**
 (Impl 010); **event/outcome records are an append-only, ref-only log** (Impl 011); **reprojection is a
 neutral check-only harness** (Impl 012); **a real manual "data in" boundary records faithful
-`ObservationSet`s** (Impl 013); the following are **deliberately absent**, not failures:
+`ObservationSet`s** (Impl 013); **a deterministic "output out" rendering boundary expresses terminal
+outputs as human-facing text** (Impl 014); the following are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
-- **No LLM rendering** boundary (generated text must never become domain truth) — the recommended next slice (Spec 014)
+- **No real LLM provider / prompt templates / external delivery** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014); a real provider goes behind the same validator; generated text must never become domain truth
+- **No rendered-message persistence and no rendered-output event records** — a `RenderedMessage` is returned as an output object only
 - **No event bus / publish-subscribe / handlers / async delivery** — event records are *stored, never delivered or executed*; `PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus messages
 - **No event sourcing / production event store / serialization format** — the `event-recording` log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
@@ -329,11 +364,12 @@ neutral check-only harness** (Impl 012); **a real manual "data in" boundary reco
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
-(domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), and Spec 013
-(manual input adapter) are done (Impl 007/008/009/010/011/012/013).** The next responsible missions (a
-**rendering/LLM boundary** for output-out, then a production entrypoint/transport backend, then the
-reasoning reinterpretation engine) add the rest without collapsing any distinction above. See the Core
-Completion Review for the full ledger.
+(domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), Spec 013
+(manual input adapter), and Spec 014 (rendering boundary) are done
+(Impl 007/008/009/010/011/012/013/014).** The next responsible missions (a rendered-message
+review/persistence boundary, then a real provider/surface behind the same validator, then a production
+transport/storage backend and the reasoning reinterpretation engine) add the rest without collapsing any
+distinction above. See the Core Completion Review for the full ledger.
 
 ---
 
@@ -382,6 +418,14 @@ Completion Review for the full ledger.
   `ObservationSetRecorded` is composed **only** in `src/modules/__tests__/manual-input-event-recording.test.ts`
   (neutral harness) from a ref-only candidate. There is **no `src/modules/{manual-input,ingestion}` and no
   `src/{adapters,api,ui,infrastructure}`** (structural guard).
+- **Rendering (Impl 014)** lives in `src/modules/rendering/` (`domain/` + a single public `index.ts`): the
+  `RenderableDomainOutput` + `renderableFromTerminalOutput`, `RenderingRequest`, `RenderedMessage`/
+  `RenderOutcome`, the closed `RenderingFailure` catalog, the `RenderingPolicy`, the **mandatory**
+  `RenderingValidator`, and the deterministic **fake renderer**. It **imports only `shared-kernel` +
+  read-only `decision-support` types** (`import type`) and **no domain module imports it** (structural
+  guard). The real-vs-fake composition is exercised in `src/modules/__tests__/decision-support-rendering.test.ts`
+  (neutral harness). There is **no `src/{llm,api,ui,infrastructure}` and no `src/modules/{llm,openai,provider}`**,
+  **no provider/network call**, and **no rendered-message repository or event** (structural guard).
 
 ---
 

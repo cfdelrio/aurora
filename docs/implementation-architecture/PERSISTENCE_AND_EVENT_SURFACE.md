@@ -40,10 +40,19 @@
 > `ObservationSet` (via `recordObservationSet`), persists through **`ObservationSetRepository`**, preserves
 > provenance (`source: "manual"`)/quality/verbatim words, represents missing data explicitly, and rejects
 > the unrepresentable (saving nothing). It **imports no `event-recording`**; an optional `ObservationSetRecorded`
-> is composed only in a neutral harness from a **ref-only** candidate. **Still future work:** a **production
-> scheduler**, **event bus**, **event sourcing**, a **projection repository** (§6), a **production
-> orchestration/service layer**, **UI/API/external (FIT/wearable) ingestion**, and any **production event
-> store / serialization format / DB / ORM / cache / persistence backend**. This paper is otherwise unchanged.
+> is composed only in a neutral harness from a **ref-only** candidate.
+> **(5) Impl 014** added the first **output-out** boundary — a **deterministic `rendering` module** that turns
+> a domain-approved `TerminalOutput` into human-facing text **downstream of the domain**: a `RenderableDomainOutput`
+> (read-only projection), a deterministic **fake renderer** (no provider), and a **mandatory validator** that
+> preserves voice/uncertainty/limitations/freshness/traceability/agency and refuses any draft that escalates
+> voice, strengthens a claim, hides uncertainty, or invents a fact/citation (safe non-render on failure). It
+> **persists no rendered message, writes no event, and mutates no aggregate**; it imports only `shared-kernel`
+> + read-only `decision-support` types.
+> **Still future work:** **rendered-message persistence** and **rendered-output event records**; a real
+> **LLM provider / prompt templates / UI / API / external delivery**; a **production scheduler**, **event bus**,
+> **event sourcing**, a **projection repository** (§6), a **production orchestration/service layer**, **external
+> (FIT/wearable) ingestion**, and any **production event store / serialization format / DB / ORM / cache /
+> persistence backend**. This paper is otherwise unchanged.
 
 ---
 
