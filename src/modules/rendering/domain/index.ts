@@ -64,3 +64,10 @@ export type {
 
 export { displayEligibilityOf } from "./display-eligibility.ts";
 export type { DisplayEligibility } from "./display-eligibility.ts";
+
+// Provider adapter seam (Impl 017) — constrained request, untrusted draft, closed failure catalog.
+export { PROVIDER_FAILURES, isProviderFailure } from "./provider-failure.ts";
+export type { ProviderFailure } from "./provider-failure.ts";
+export { providerRenderingRequestFrom } from "./provider-rendering-request.ts";
+export type { ProviderRenderingRequest, ProviderRenderingRequestOutcome } from "./provider-rendering-request.ts";
+export type { ProviderDraft, ProviderDraftOutcome } from "./provider-draft.ts";
