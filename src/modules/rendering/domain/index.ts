@@ -71,3 +71,19 @@ export type { ProviderFailure } from "./provider-failure.ts";
 export { providerRenderingRequestFrom } from "./provider-rendering-request.ts";
 export type { ProviderRenderingRequest, ProviderRenderingRequestOutcome } from "./provider-rendering-request.ts";
 export type { ProviderDraft, ProviderDraftOutcome } from "./provider-draft.ts";
+
+// Provider attempt audit (Impl 018) — auditability, not authority; safe summary, no raw draft retention.
+export { PROVIDER_ATTEMPT_STATUSES, isProviderAttemptStatus } from "./provider-attempt-status.ts";
+export type { ProviderAttemptStatus } from "./provider-attempt-status.ts";
+export {
+  PROVIDER_ATTEMPT_FAILURE_REASONS,
+  isProviderAttemptFailureReason,
+} from "./provider-attempt-failure-reason.ts";
+export type { ProviderAttemptFailureReason } from "./provider-attempt-failure-reason.ts";
+export type { ProviderDraftSummary } from "./provider-draft-summary.ts";
+export { ProviderAttemptRecord, providerAttemptRecordId, newProviderAttemptRecordId } from "./provider-attempt-record.ts";
+export type {
+  ProviderAttemptRecordId,
+  ProviderAttemptRecordState,
+  ProviderAttemptRequestSummary,
+} from "./provider-attempt-record.ts";
