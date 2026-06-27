@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 012):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 013):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -22,10 +22,15 @@
 > **not a production module**) that recomputes `UnderstandingAssessment` through the owning module,
 > recalculates freshness, detects candidates from event records (context only), and **reports**
 > drift/findings — **mutating nothing, executing no event, rebuilding nothing from the log, promoting no
-> freshness, and turning no projection into truth**. The remaining absences (UI/API/**production
-> persistence & event store**/LLM/**event bus**/FIT/**full** athlete model/**generic projection
-> engine**/**full DecisionOutcome**/**production reprojection service & scheduler & projection
-> repository**/**event sourcing**/production service) are **intentional**, not gaps. See
+> freshness, and turning no projection into truth**. Implementation 013 added the first real **"data in"**
+> boundary — an **`observation`-owned Manual Input Adapter** that records manual input faithfully as an
+> `ObservationSet` (verbatim words, explicit missing data, provenance `source: "manual"`, quality),
+> persists through `ObservationSetRepository`, and rejects the unrepresentable — **without interpreting,
+> detecting a `Signal`, reasoning, mutating athlete records, importing `event-recording`, or triggering
+> any downstream effect**. The remaining absences (**rendering/LLM boundary**/**UI/API entrypoint**/
+> external FIT ingestion/**production persistence & event store**/**event bus**/**full** athlete model/
+> **generic projection engine**/**full DecisionOutcome**/**production reprojection service & scheduler &
+> projection repository**/**event sourcing**/production service) are **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
@@ -64,6 +69,9 @@ flowchart LR
     UA["UnderstandingAssessment (projection / read model) ✅ Impl 008<br/>ProjectionFreshness: current/stale/partial/invalid/unknown<br/>derivedAt · sourceRefs (referencias, no verdad copiada)<br/>RefreshPolicy: pura · selectiva · conservadora<br/>no-current solo BAJA voz; invalid/unknown → ceiling none"]
     D["5 · Decision Support / Voz<br/>(module: decision-support) ✅<br/>DecisionSupportCase · gates · TraceabilityVerification<br/>VoiceSelectionPolicy · VoiceMode<br/>Reflection · Framing · Warning · Recommendation<br/>Agency preservada"]
     OUT["Salida demostrada (Impl 006)<br/>DecisionSupport · VoiceMode: Reflection<br/>(no Recommendation)"]
+
+    MIN["Entrada manual ✅ Impl 013 (observation/application)<br/>ManualInputSubmission → ingestManualInput<br/>accepted / partially-accepted / rejected<br/>palabras verbatim · missing data explícito · provenance source manual<br/>persiste vía ObservationSetRepository<br/>NO UI/API/LLM · NO interpreta · NO Signal · NO downstream"]
+    MIN -- "registra fielmente como ObservationSet (NO significado, NO Signal)" --> O
 
     O --> S --> R --> U
     U -. "proyecta (derivado, no fuente de verdad)" .-> UA
@@ -108,6 +116,19 @@ only**, and **reports** drift/findings. The dashed edges into it are **reads**, 
 `SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`. `check-only` is the only implemented
 mode; `refresh-derived`/`mark-stale` are reserved and throw. There is **no production `reprojection`
 module, scheduler, event sourcing, or projection repository**.
+
+[FACT] **Manual Input Adapter — the first real "data in" boundary (Implementation 013).** It lives in
+`observation/application` and is an **ingress into `ObservationSet`**, drawn *before* Observation/Signal/
+Reasoning. It records manual input **faithfully** — verbatim subjective `words`, **explicit** missing
+data, **provenance** (`source: "manual"`) and quality — via the existing `recordObservationSet`, and
+persists **only** through `ObservationSetRepository`. Its outcomes are `accepted` / `partially-accepted`
+(faithful entries only + reported limitations) / `rejected` (saves nothing). The ingress arrow shows
+**faithful recording, not interpretation**: there is **no arrow** from manual input to `Signal`,
+`Evidence`, `Hypothesis`, `Understanding`, or `DecisionSupport`; the adapter **detects no `Signal`**,
+**infers nothing** (no fatigue/readiness/impact), **invents no value**, **mutates no `AthleteDecisionRecord`**,
+and **imports no downstream module or `event-recording`**. An optional `ObservationSetRecorded` is composed
+**only in a neutral harness** from a **ref-only** event candidate — neutral, not command execution. There
+is **no UI/API/LLM/external integration**. *Manual input is source material, never meaning.*
 
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
@@ -186,6 +207,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 
 | # | Stage | Module | Holds | Implemented |
 |---|---|---|---|---|
+| ⌨ | **Entrada manual** *(ingress into ObservationSet, not a reasoning stage)* | `observation/application` | `ManualInputSubmission` → `ingestManualInput` → `accepted`/`partially-accepted`/`rejected`; verbatim words, explicit missing data, provenance `source: "manual"`, quality; persists via `ObservationSetRepository`. Records source material, never meaning; detects no Signal; imports no downstream module / `event-recording`. **No** UI/API/LLM/external integration | ✅ Impl 013 |
 | 1 | **Observación** | `observation` | `ObservationSet`, raw observations, Provenance/Source/Quality, self-report, missing data | ✅ Impl 001 |
 | 2 | **Señal** | `observation/signal` | `ContextualizedObservation`, `Signal`/`SignalRejection`, relevance-without-meaning, preserved traceability | ✅ Impl 002 |
 | 3 | **Reasoning** | `reasoning` | `Hypothesis`, `EvidenceCase`, claim confidence, falsifiers, lifecycle | ✅ Impl 003 |
@@ -271,6 +293,13 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | freshness recalculation **≠** freshness promotion | A run re-derives the same or a more cautious freshness; completing a run never makes a view `current`. |
 | stale/invalid finding **≠** recommendation · DecisionSupport review finding **≠** `TerminalOutput` | A finding is diagnostic; it creates no athlete-facing output and no terminal output. |
 | `AthleteDecision` outcome **≠** `SupportQuality` rewrite · purpose-related stale finding **≠** `Purpose` overwrite | Outcome never grades support; a purpose-change can mark a view stale but never edits `Purpose`/understanding. |
+| manual input **≠** meaning · adapter **≠** reasoning · saved `ObservationSet` **≠** `Signal` detection | The adapter records source material faithfully; it never interprets, never detects a signal (Impl 013). |
+| subjective words **≠** inferred fatigue/readiness · missing data **≠** invented value | Words are verbatim; missing data is an explicit observation; nothing is inferred or invented. |
+| partial acceptance **≠** silent interpretation · rejection **≠** accidental data loss | Ambiguity is a reported limitation or an explicit rejection (which saves nothing) — never a silent guess. |
+| source quality **≠** athlete quality | `ManualInputQuality`/`ObservationQuality` describe the *input record*, never the athlete. |
+| event candidate **≠** event command · `ObservationSetRecorded` **≠** downstream execution | The adapter returns a ref-only candidate; the harness records an inert occurrence; nothing executes. |
+| athlete-decision report as observation **≠** `AthleteDecisionRecord` mutation | A reported decision is recorded as a subjective observation only; the athlete-decision aggregate is untouched. |
+| Manual Input Adapter **≠** UI/API/LLM/external integration | It is an in-process `observation` boundary; how input is collected/submitted is future. |
 
 ---
 
@@ -279,10 +308,11 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 [FACT] The reasoning core is complete in code; `athlete` holds Purpose + AthleteDecision; projection
 freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-memory repositories**
 (Impl 010); **event/outcome records are an append-only, ref-only log** (Impl 011); **reprojection is a
-neutral check-only harness** (Impl 012); the following are **deliberately absent**, not failures:
+neutral check-only harness** (Impl 012); **a real manual "data in" boundary records faithful
+`ObservationSet`s** (Impl 013); the following are **deliberately absent**, not failures:
 
-- **No UI** · **No API** · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
-- **No LLM rendering** boundary (generated text must never become domain truth)
+- **No UI** · **No API** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
+- **No LLM rendering** boundary (generated text must never become domain truth) — the recommended next slice (Spec 014)
 - **No event bus / publish-subscribe / handlers / async delivery** — event records are *stored, never delivered or executed*; `PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus messages
 - **No event sourcing / production event store / serialization format** — the `event-recording` log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
@@ -299,10 +329,11 @@ neutral check-only harness** (Impl 012); the following are **deliberately absent
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
-(domain event/outcome records + traceability envelope), and Spec 012 (reprojection harness) are done
-(Impl 007/008/009/010/011/012).** The next responsible missions (a real input-adapter / ingestion
-boundary, then the reasoning reinterpretation engine, then a production recompute/transport backend) add
-the rest without collapsing any distinction above. See the Core Completion Review for the full ledger.
+(domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), and Spec 013
+(manual input adapter) are done (Impl 007/008/009/010/011/012/013).** The next responsible missions (a
+**rendering/LLM boundary** for output-out, then a production entrypoint/transport backend, then the
+reasoning reinterpretation engine) add the rest without collapsing any distinction above. See the Core
+Completion Review for the full ledger.
 
 ---
 
@@ -342,6 +373,15 @@ the rest without collapsing any distinction above. See the Core Completion Revie
   `applyFreshness`), is **check-only** (mutates nothing; `refresh-derived`/`mark-stale` reserved + throw),
   reads **event records as candidates/context only**, and **reports** drift/findings. There is **no
   production `reprojection` module, scheduler, event sourcing, or projection repository** (structural guard).
+- **Manual Input Adapter (Impl 013)** lives in `src/modules/observation/application/manual-input-*`,
+  exported additively from `observation/index.ts`. It is an **`observation`-owned ingress** whose only
+  domain output is an `ObservationSet`: it builds the existing `RawObservationInput`s, calls
+  `recordObservationSet`, and persists via `ObservationSetRepository`. It **imports only `observation` +
+  `shared-kernel`** — **no `event-recording`, `reasoning`, `understanding`, `decision-support`, or
+  `athlete`** (structural guard; `observation` stays `event-recording`-free). The optional
+  `ObservationSetRecorded` is composed **only** in `src/modules/__tests__/manual-input-event-recording.test.ts`
+  (neutral harness) from a ref-only candidate. There is **no `src/modules/{manual-input,ingestion}` and no
+  `src/{adapters,api,ui,infrastructure}`** (structural guard).
 
 ---
 

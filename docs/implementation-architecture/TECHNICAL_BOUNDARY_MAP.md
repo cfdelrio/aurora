@@ -4,6 +4,20 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 013).** The **`observation`** application boundary now includes a
+> **Manual Input Adapter** (`observation/application/manual-input-*`, `ingestManualInput`) — Aurora's first
+> real **"data in"** boundary. Its only domain output is an `ObservationSet`: it reuses `recordObservationSet`
+> and persists through **`ObservationSetRepository`**, preserving provenance (`source: "manual"`)/quality/
+> verbatim words, representing missing data explicitly, and rejecting the unrepresentable (saving nothing).
+> **Allowed imports:** `observation` domain/application + `shared-kernel` only. **Forbidden imports:**
+> `event-recording`, `reasoning`, `understanding`, `decision-support`, `athlete` — `observation` stays
+> `event-recording`-free; the optional `ObservationSetRecorded` is composed only in a **neutral harness**
+> (which may compose `observation` + `event-recording`). **Ingestion is not interpretation:** the adapter
+> detects no `Signal`, infers nothing, mutates no `AthleteDecisionRecord`, and triggers no downstream effect.
+> The dependency direction is unchanged (`observation` remains the upstream leaf importing only
+> `shared-kernel`); no architecture decision below is superseded; **no UI/API/LLM/external integration/DB/
+> event-bus/scheduler** exists. The note below is the prior (Impl 012) status.
+>
 > **Implementation status (post Impl 012).** A **neutral, check-only reprojection harness** now exists as
 > **test-support / coordination** under `src/modules/__tests__/reprojection-harness/` — **not a production
 > module** (no `src/modules/reprojection`). It is the cross-module coordinator (like the purpose/decision

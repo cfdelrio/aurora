@@ -34,10 +34,16 @@
 > and **reports** drift/findings. It **mutates no repository**, **never replays events as commands**,
 > **never rebuilds aggregates from the log** (empty repos → `event-record-only`/`missing-source`),
 > **never promotes freshness** or strengthens voice, and creates **no** `TerminalOutput`/recommendation/
-> `SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`. **Still future work:** a **production
+> `SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`.
+> **(4) Impl 013** added the first **manual ingress** using the repository ports — an **`observation`-owned
+> Manual Input Adapter** (`ingestManualInput`) that records manually supplied input faithfully as an
+> `ObservationSet` (via `recordObservationSet`), persists through **`ObservationSetRepository`**, preserves
+> provenance (`source: "manual"`)/quality/verbatim words, represents missing data explicitly, and rejects
+> the unrepresentable (saving nothing). It **imports no `event-recording`**; an optional `ObservationSetRecorded`
+> is composed only in a neutral harness from a **ref-only** candidate. **Still future work:** a **production
 > scheduler**, **event bus**, **event sourcing**, a **projection repository** (§6), a **production
-> orchestration/service layer**, and any **production event store / serialization format / DB / ORM /
-> cache / persistence backend**. This paper is otherwise unchanged.
+> orchestration/service layer**, **UI/API/external (FIT/wearable) ingestion**, and any **production event
+> store / serialization format / DB / ORM / cache / persistence backend**. This paper is otherwise unchanged.
 
 ---
 
