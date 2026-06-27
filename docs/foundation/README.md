@@ -1,5 +1,7 @@
 # Foundation
 
+> **Looking for the full map of Aurora's intellectual architecture?** Start at the canonical [Foundation Index](../README.md), which connects all seven discovery papers (foundation, domain, and architecture) in reading order.
+
 The Foundation documents establish why Aurora exists and what it stands for.
 
 They are not technical documentation. They are not product specs. They do not describe what Aurora does.
