@@ -50,11 +50,14 @@ test("event-recording imports only shared-kernel + its own module (no domain mod
 });
 
 test("no domain module imports event-recording in this slice", () => {
+  // Match an actual import specifier (`from "...event-recording..."`), not any quoted occurrence —
+  // a guard that merely names the module in a forbidden-list (e.g. Impl 013's adapter boundary test)
+  // is not an import. Intent: no domain module *imports* event-recording.
   for (const mod of DOMAIN_MODULES) {
     for (const f of collectTsFiles(join(modulesDir, mod))) {
       const src = readFileSync(f, "utf8");
       assert.equal(
-        /["'][^"']*event-recording[^"']*["']/.test(src),
+        /from\s+["'][^"']*event-recording[^"']*["']/.test(src),
         false,
         `${mod} must not import event-recording: ${f}`,
       );

@@ -14,3 +14,22 @@ export { detectSignals } from "./application/detect-signals.ts";
 export type { DetectSignalsInput } from "./application/detect-signals.ts";
 export type { ObservationSetRepository } from "./application/observation-set-repository.ts";
 export { InMemoryObservationSetRepository } from "./application/in-memory-observation-set-repository.ts";
+
+// Manual Input Adapter (Impl 013) — the first real "data in" boundary. Records source material as
+// ObservationSet; imports no event-recording / downstream module; detects no Signal; infers no meaning.
+export { ingestManualInput } from "./application/manual-input-adapter.ts";
+export type { IngestManualInputInput } from "./application/manual-input-adapter.ts";
+export type { ManualInputSubmission, ManualInputEntry } from "./application/manual-input-submission.ts";
+export {
+  MANUAL_INPUT_REJECTION_REASONS,
+  MANUAL_INPUT_LIMITATIONS,
+  MANUAL_INPUT_QUALITIES,
+  observationQualityStatusFor,
+} from "./application/manual-input-ingestion-outcome.ts";
+export type {
+  ManualInputIngestionOutcome,
+  ManualInputRejectionReason,
+  ManualInputLimitation,
+  ManualInputQuality,
+  ObservationSetRecordedCandidate,
+} from "./application/manual-input-ingestion-outcome.ts";
