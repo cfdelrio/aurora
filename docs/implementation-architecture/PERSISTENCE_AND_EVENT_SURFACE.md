@@ -46,13 +46,20 @@
 > (read-only projection), a deterministic **fake renderer** (no provider), and a **mandatory validator** that
 > preserves voice/uncertainty/limitations/freshness/traceability/agency and refuses any draft that escalates
 > voice, strengthens a claim, hides uncertainty, or invents a fact/citation (safe non-render on failure). It
-> **persists no rendered message, writes no event, and mutates no aggregate**; it imports only `shared-kernel`
-> + read-only `decision-support` types.
-> **Still future work:** **rendered-message persistence** and **rendered-output event records**; a real
-> **LLM provider / prompt templates / UI / API / external delivery**; a **production scheduler**, **event bus**,
-> **event sourcing**, a **projection repository** (§6), a **production orchestration/service layer**, **external
-> (FIT/wearable) ingestion**, and any **production event store / serialization format / DB / ORM / cache /
-> persistence backend**. This paper is otherwise unchanged.
+> writes no event and mutates no aggregate; it imports only `shared-kernel` + read-only `decision-support` types.
+> **(6) Impl 015** added a **rendered-message record/review repository** — **inside `rendering`** (not a new
+> module): an **append-only `RenderedMessageRecord`** (auditable presentation artifact, source-domain-output ref
+> preserved), an **append-only `RenderReview`** history (display-safety only) with **derived** current status and
+> **derived `DisplayEligibility`**, behind a **repository port + in-memory adapter** (deep-copy round-trip,
+> mutation isolation, validated reconstitution). Persistence is **auditability, not authority**: a record is not
+> source truth / `Evidence` / `Observation` / `Understanding` / `DecisionSupport` / `AthleteDecision`; approval
+> changes no domain (voice/traceability/freshness/`SupportQuality`); rejection invalidates nothing; failed
+> attempts are auditable but never display-eligible; a **`RenderedMessageRecord` is not an event record** —
+> **`rendering` imports no `event-recording`** and the **event catalog is not expanded**; nothing triggers delivery.
+> **Still future work:** **rendered-output event records**; **delivery / UI / API / a real LLM provider /
+> prompt templates**; a **production scheduler**, **event bus**, **event sourcing**, a **projection repository**
+> (§6), a **production orchestration/service layer**, **external (FIT/wearable) ingestion**, and any **production
+> event store / serialization format / DB / ORM / cache / persistence backend**. This paper is otherwise unchanged.
 
 ---
 

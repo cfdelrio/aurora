@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 014):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 015):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -31,11 +31,15 @@
 > **deterministic `rendering` module** that turns a domain-approved `TerminalOutput` into human-facing text
 > via a fake renderer + a **mandatory validator**, preserving voice/uncertainty/limitations/freshness/
 > traceability/agency — **without becoming domain authority, selecting voice, escalating tone, inventing a
-> fact, mutating an aggregate, writing an event, or persisting anything**. The remaining absences (**real
-> LLM provider & prompts**/**UI/API entrypoint**/external FIT ingestion/**rendered-message persistence &
-> rendered-output events**/**production persistence & event store**/**event bus**/**full** athlete model/
-> **generic projection engine**/**full DecisionOutcome**/**production reprojection service & scheduler &
-> projection repository**/**event sourcing**/production service) are **intentional**, not gaps. See
+> fact, mutating an aggregate, or writing an event**. Implementation 015 made the output-out cycle
+> **auditable**: an append-only **`RenderedMessageRecord`** + a display-safety **`RenderReview`** + a derived
+> **`DisplayEligibility`** (repository port + in-memory adapter, inside `rendering`) — **persistence is
+> auditability, not authority**: a record is never domain truth, approval strengthens nothing, rejection
+> invalidates nothing, failed attempts are never display-eligible, and nothing emits an event or triggers
+> delivery. The remaining absences (**delivery / UI / API**/**real LLM provider & prompts**/external FIT
+> ingestion/**rendered-output events**/**production persistence & event store**/**event bus**/**full**
+> athlete model/**generic projection engine**/**full DecisionOutcome**/**production reprojection service &
+> scheduler & projection repository**/**event sourcing**/production service) are **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
@@ -86,6 +90,8 @@ flowchart LR
     HUMAN["Texto humano (presentación)<br/>RenderedMessage — NO es fuente de verdad"]
     OUT -- "presentación: expresa el TerminalOutput (no decide, no escala voz)" --> REND
     REND --> HUMAN
+    RREC["Registro/Review de presentación ✅ Impl 015 (dentro de rendering)<br/>RenderedMessageRecord (append-only, auditable)<br/>RenderReview (display-safety) · status derivado<br/>DisplayEligibility derivada (no delivery, no aprobación de dominio)<br/>repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO muta dominio · NO evento · NO delivery"]
+    REND -- "registra/revisa artefacto de presentación (auditoría, no autoridad)" --> RREC
     OUT -. "el atleta decide (referenciado, no poseído): DecisionSupportCase guarda solo AthleteDecisionRef" .-> AD
     AD -. "AthleteDecision → SubjectiveObservation (adapter neutral); NO obediencia, NO score, NO Evidence directo" .-> O
 
@@ -152,8 +158,24 @@ agency; invented facts/citations, hidden uncertainty/limitations, unsupported st
 athlete-state/purpose/compliance language are **rejected** (safe non-render). A `RenderedMessage` is **not
 domain authority** — not `Evidence`/`Observation`/`Understanding`/`AthleteDecision`, not source truth (it
 re-enters only if the athlete separately reports it via the manual adapter). There is **no real LLM
-provider, prompt template, UI, API, or external call**, and **no rendered-message persistence or
-rendered-output event record**. *Generated text is a presentation artifact, never authority.*
+provider, prompt template, UI, API, or external call**. *Generated text is a presentation artifact, never authority.*
+
+[FACT] **Rendered-message record / review — the first auditable output-out cycle (Implementation 015).**
+**Inside `rendering`** (not a new module), downstream of the renderer: an **append-only `RenderedMessageRecord`**
+(auditable presentation artifact that **preserves the source domain output ref**, terminal-output kind,
+`VoiceMode`, validation/preservation flags, renderer kind, `createdAt`), an **append-only `RenderReview`**
+history (closed 5-decision / 11-reason catalogs; **display-safety only**) with **derived** current status,
+and a **derived `DisplayEligibility`** (rendered + `approved-for-display` + not superseded + source ref +
+flags intact). It lives behind a **repository port + in-memory adapter** (deep-copy round-trip, mutation
+isolation, validated reconstitution). The audit/review edge is **one-way**: **no arrow back** to the domain,
+**no mutation** of any output, **no event-writing** arrow, **no delivery**. **Persistence is auditability,
+not authority**: a record is **not** domain truth (`≠ Observation/Evidence/Understanding/DecisionSupport/
+AthleteDecision`); **approval** changes no `VoiceMode`/traceability/freshness/`SupportQuality` and creates no
+`Recommendation`; **rejection** invalidates nothing; **failed** attempts are auditable but never
+display-eligible/approvable; **revision/supersession** preserve the old record (no overwrite, no deletion);
+**display eligibility is not delivery**. **`rendering` imports no `event-recording`**, the **event catalog is
+not expanded**, the repo is **in-memory** (no production DB), and there is **no delivery/UI/API/provider**.
+*Persisting or approving rendered text improves auditability and display safety only.*
 
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
@@ -239,7 +261,8 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 4 | **Understanding** | `understanding` | `UnderstandingProfile`, dimension-specific, `UnderstandingLevel`, survived challenge, surprise/staleness, `SafeVoiceCeiling` | ✅ Impl 004 |
 | 5 | **Decision Support / Voz** | `decision-support` | `DecisionSupportCase`, gates, `TraceabilityVerification`, `VoiceSelectionPolicy`, `VoiceMode` (Reflection/Framing/Warning/Recommendation), terminal outputs, preserved agency | ✅ Impl 005 |
 | — | **End-to-end proof** | `src/modules/__tests__` | First full chain composed; output `DecisionSupport` · `VoiceMode: Reflection` (not Recommendation) | ✅ Impl 006 |
-| 🗣 | **Rendering** *(downstream presentation, not a reasoning stage, not domain)* | `rendering` | `RenderableDomainOutput` (read-only projection) → deterministic fake renderer + **mandatory validator** → `RenderedMessage`/`RenderOutcome`; voice may match/soften, never escalate; Inquiry stays a question, Withholding a refusal; uncertainty/limitations/freshness/traceability preserved; invented facts/escalation/unsafe requests rejected (safe non-render). Not domain authority; mutates/persists/emits nothing; imports only `shared-kernel` + read-only `decision-support` types. **No** real LLM provider / prompt / UI / API / external call | ✅ Impl 014 |
+| 🗣 | **Rendering** *(downstream presentation, not a reasoning stage, not domain)* | `rendering` | `RenderableDomainOutput` (read-only projection) → deterministic fake renderer + **mandatory validator** → `RenderedMessage`/`RenderOutcome`; voice may match/soften, never escalate; Inquiry stays a question, Withholding a refusal; uncertainty/limitations/freshness/traceability preserved; invented facts/escalation/unsafe requests rejected (safe non-render). Not domain authority; mutates/emits nothing; imports only `shared-kernel` + read-only `decision-support` types. **No** real LLM provider / prompt / UI / API / external call | ✅ Impl 014 |
+| 🗄 | **Rendered-message record / review** *(audit of presentation, not domain; inside rendering)* | `rendering` (`domain`+`application`) | Append-only `RenderedMessageRecord` (source ref/kind/voice/flags preserved) + append-only `RenderReview` (closed catalogs; display-safety) + derived `DisplayEligibility`; repository port + in-memory adapter (mutation isolation, validated reconstitution). Auditability not authority; approval/rejection touch no domain; failed never display-eligible; revision/supersession preserve the old record. **No** events / delivery / production DB / UI / API / provider | ✅ Impl 015 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -333,6 +356,11 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | rendered message **≠** `Evidence`/`Observation`/`Understanding`/`AthleteDecision` · **≠** source truth | A `RenderedMessage` is a presentation artifact; it re-enters only if the athlete reports it back manually. |
 | Recommendation rendering **≠** recommendation creation · Inquiry rendering **≠** answer · Withholding rendering **≠** advice | The renderer phrases what the domain decided; it never creates/answers/advises. |
 | traceability summary **≠** invented citation · rendering failure **≠** unsafe fallback | Summaries cite only present refs; a failure is a safe non-render, never unsafe text. |
+| rendered-message persistence **≠** domain authority · review approval **≠** stronger evidence | A record audits a presentation artifact; approval is display-safety only (Impl 015). |
+| display eligibility **≠** delivery · presentation review **≠** reasoning review | Eligibility is a derived read; review judges display, never the domain's truth. |
+| persisted rendered text **≠** `Observation`/`Evidence`/`Understanding`/`DecisionSupport`/`AthleteDecision` · source-ref preservation **≠** source-truth conversion | The record carries no domain field; keeping the ref does not make the text true. |
+| review rejection **≠** domain invalidation · revision **≠** overwrite · supersession **≠** deletion | The domain output is untouched; old records stay immutable and auditable. |
+| failed render audit **≠** displayable message · repository persistence **≠** production DB · rendered-message record **≠** event record | Failed attempts are never display-eligible; the repo is in-memory; the record emits no event. |
 
 ---
 
@@ -343,11 +371,12 @@ freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-
 (Impl 010); **event/outcome records are an append-only, ref-only log** (Impl 011); **reprojection is a
 neutral check-only harness** (Impl 012); **a real manual "data in" boundary records faithful
 `ObservationSet`s** (Impl 013); **a deterministic "output out" rendering boundary expresses terminal
-outputs as human-facing text** (Impl 014); the following are **deliberately absent**, not failures:
+outputs as human-facing text** (Impl 014); **rendered messages are conserved + reviewed as auditable
+presentation artifacts** (Impl 015); the following are **deliberately absent**, not failures:
 
-- **No UI** · **No API** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
+- **No UI** · **No API** · **No delivery** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
 - **No real LLM provider / prompt templates / external delivery** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014); a real provider goes behind the same validator; generated text must never become domain truth
-- **No rendered-message persistence and no rendered-output event records** — a `RenderedMessage` is returned as an output object only
+- **No rendered-output event records** — a `RenderedMessageRecord` is **not** an event record; `rendering` imports no `event-recording` and the catalog is not expanded (Impl 015)
 - **No event bus / publish-subscribe / handlers / async delivery** — event records are *stored, never delivered or executed*; `PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus messages
 - **No event sourcing / production event store / serialization format** — the `event-recording` log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
@@ -365,9 +394,9 @@ outputs as human-facing text** (Impl 014); the following are **deliberately abse
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
 (domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), Spec 013
-(manual input adapter), and Spec 014 (rendering boundary) are done
-(Impl 007/008/009/010/011/012/013/014).** The next responsible missions (a rendered-message
-review/persistence boundary, then a real provider/surface behind the same validator, then a production
+(manual input adapter), Spec 014 (rendering boundary), and Spec 015 (rendered-message record/review) are
+done (Impl 007/008/009/010/011/012/013/014/015).** The next responsible missions (a **delivery boundary
+or a provider adapter** behind the same validator — chosen explicitly, one at a time — then a production
 transport/storage backend and the reasoning reinterpretation engine) add the rest without collapsing any
 distinction above. See the Core Completion Review for the full ledger.
 
@@ -424,8 +453,15 @@ distinction above. See the Core Completion Review for the full ledger.
   `RenderingValidator`, and the deterministic **fake renderer**. It **imports only `shared-kernel` +
   read-only `decision-support` types** (`import type`) and **no domain module imports it** (structural
   guard). The real-vs-fake composition is exercised in `src/modules/__tests__/decision-support-rendering.test.ts`
-  (neutral harness). There is **no `src/{llm,api,ui,infrastructure}` and no `src/modules/{llm,openai,provider}`**,
-  **no provider/network call**, and **no rendered-message repository or event** (structural guard).
+  (neutral harness). There is **no `src/{llm,api,ui,infrastructure}` and no `src/modules/{llm,openai,provider}`**
+  and **no provider/network call** (structural guard).
+- **Rendered-message record / review (Impl 015)** also lives **inside `rendering`**: `domain/` adds
+  `rendered-message-record.ts` (+ `ids.ts`, `render-review.ts`, `display-eligibility.ts`) and `application/`
+  adds the `RenderedMessageRecordRepository` **port** + `InMemoryRenderedMessageRecordRepository`, surfaced
+  additively from `rendering/index.ts`. The repo files import only **own module + `shared-kernel`**
+  (persistence-boundary compliant); `rendering` still imports **no `event-recording`** and the event catalog
+  is **not expanded** (structural guard). The record is append-only/auditable, the review append-only, the
+  display eligibility derived — **auditability, not authority**; **no production DB / delivery / UI / API**.
 
 ---
 

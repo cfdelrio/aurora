@@ -4,6 +4,21 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 015).** The **`rendering`** module now also owns **rendered-message
+> record/review persistence** (inside `rendering/domain` + `rendering/application`, **not a new module**): an
+> append-only **`RenderedMessageRecord`** (auditable presentation artifact; source-domain-output ref preserved),
+> an append-only **`RenderReview`** (display-safety only; closed decision/reason catalogs) with derived status,
+> a derived **`DisplayEligibility`**, and a **`RenderedMessageRecordRepository` port + in-memory adapter**
+> (deep-copy round-trip, mutation isolation, validated reconstitution). **Allowed imports** unchanged:
+> `shared-kernel` + read-only `decision-support` types + own `rendering` domain/application. **Forbidden
+> imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**. **Persistence
+> is auditability, not authority:** a record is not domain truth; approval changes no domain (voice/traceability/
+> freshness/`SupportQuality`); rejection invalidates nothing; **display eligibility is derived, not delivery**;
+> a `RenderedMessageRecord` is **not** an event record (the event catalog is **not** expanded, no
+> `RenderedMessageRecorded`/`RenderReviewed`); there is **no production DB / delivery / UI / API / provider**.
+> Module count is still **eight** (Impl 015 added no module). No architecture decision below is superseded.
+> The note below is the prior (Impl 014) status.
+>
 > **Implementation status (post Impl 014).** A new **`rendering`** module now realizes the first **output-out**
 > boundary — downstream **presentation**, not domain. It turns a domain-approved `TerminalOutput` into
 > human-facing text via a **read-only `RenderableDomainOutput` projection**, a **deterministic fake renderer**
