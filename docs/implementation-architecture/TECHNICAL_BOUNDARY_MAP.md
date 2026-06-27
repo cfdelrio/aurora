@@ -4,6 +4,14 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 010).** Persistence is now realized as **repository ports +
+> in-memory adapters + validated `toState()`/`reconstitute()`** per aggregate (Spec/Impl 010), in each
+> module's `application/` layer — **no production DB/ORM/schema/migrations, no event bus, no cache, no
+> `src/infrastructure`, no `persistence`/`repositories` module, no technology chosen.** Repositories
+> *preserve* aggregates (validated reconstitution, state copies not live references); they **never create
+> meaning** and the **domain's `toState()` drives the store, never the reverse**. The lines below remain
+> the intended boundaries; the note below is the prior (Impl 009) status.
+>
 > **Implementation status (post Impl 009).** This map describes the *intended* boundaries; the code
 > now realizes them. Implemented modules: `observation` (001/002), `reasoning` (003), `understanding`
 > (004; **+ projection freshness on `UnderstandingAssessment`, 008**), `decision-support` (005),
