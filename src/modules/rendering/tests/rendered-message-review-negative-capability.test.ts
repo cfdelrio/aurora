@@ -52,11 +52,12 @@ test("the event catalog was not extended with rendered-message event types", () 
   assert.equal(catalog.includes("RenderReviewed"), false);
 });
 
-test("no rendered-message / review / delivery / provider / api / ui / infrastructure layer exists", () => {
+// `delivery` became an approved downstream module in Implementation 016 (test-only allowlist update);
+// it is no longer a forbidden future layer here.
+test("no rendered-message / review / provider / api / ui / infrastructure layer exists", () => {
   for (const forbidden of [
     join("modules", "rendered-message"),
     join("modules", "review"),
-    join("modules", "delivery"),
     join("modules", "llm"),
     join("modules", "provider"),
     "api",

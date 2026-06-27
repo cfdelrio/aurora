@@ -375,6 +375,8 @@ const modulesDir = join(here, ".."); // __tests__ -> modules
 // (imports only shared-kernel; no domain module imports it; not part of this e2e flow).
 // `rendering` is the downstream presentation boundary added in Implementation 014 (imports only
 // shared-kernel + read-only decision-support types; no domain module imports it; not part of this e2e flow).
+// `delivery` is the downstream exposure boundary added in Implementation 016 (imports only shared-kernel +
+// read-only rendering; no module imports it; test-only sink; not part of this e2e flow).
 const ALLOWED_MODULES = new Set([
   "observation",
   "reasoning",
@@ -383,6 +385,7 @@ const ALLOWED_MODULES = new Set([
   "athlete",
   "event-recording",
   "rendering",
+  "delivery",
 ]);
 const MODULE_SURFACES = ["observation/index", "reasoning/index", "understanding/index", "decision-support/index"];
 
