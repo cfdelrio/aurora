@@ -9,3 +9,7 @@ export { declarePurpose, changePurpose } from "./application/purpose-coordinator
 export type { DeclarePurposeInput, ChangePurposeInput } from "./application/purpose-coordinator.ts";
 export { recordAthleteDecision, amendAthleteDecision } from "./application/decision-coordinator.ts";
 export type { RecordDecisionInput, AmendDecisionInput } from "./application/decision-coordinator.ts";
+export type { AthleteRepository } from "./application/athlete-repository.ts";
+export { InMemoryAthleteRepository } from "./application/in-memory-athlete-repository.ts";
+export type { AthleteDecisionRecordRepository } from "./application/athlete-decision-record-repository.ts";
+export { InMemoryAthleteDecisionRecordRepository } from "./application/in-memory-athlete-decision-record-repository.ts";

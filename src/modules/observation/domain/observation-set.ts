@@ -41,6 +41,15 @@ export interface ObservationSetCreateInput {
   readonly expected?: readonly string[];
 }
 
+/** Persistence shape (adapter contract; NOT the primary public domain API). */
+export interface ObservationSetState {
+  readonly id: ObservationSetId;
+  readonly occasion: string;
+  readonly observations: readonly Observation[];
+  readonly supersessions: readonly SupersessionRecord[];
+  readonly expected: readonly string[];
+}
+
 export class ObservationSet {
   readonly id: ObservationSetId;
   readonly occasion: string;
@@ -73,6 +82,46 @@ export class ObservationSet {
       [],
       [],
       input.expected ?? [],
+    );
+  }
+
+  /** Persistence state export. Plain, serializable; exposes no mutable internal reference. */
+  toState(): ObservationSetState {
+    return Object.freeze({
+      id: this.id,
+      occasion: this.occasion,
+      observations: this._observations,
+      supersessions: this._supersessions,
+      expected: this._expected,
+    });
+  }
+
+  /** Rebuild from persisted state, validating invariants. Never a raw, unvalidated field bag. */
+  static reconstitute(state: ObservationSetState): ObservationSet {
+    if (typeof state.occasion !== "string" || state.occasion.length === 0) {
+      throw new Error("Cannot reconstitute an ObservationSet without a non-empty occasion");
+    }
+    if (!Array.isArray(state.observations)) {
+      throw new Error("Cannot reconstitute an ObservationSet without an observations array");
+    }
+    for (const o of state.observations) {
+      if (
+        o === null ||
+        typeof o !== "object" ||
+        o.provenance === undefined ||
+        typeof o.provenance.reference !== "string" ||
+        o.provenance.reference.length === 0 ||
+        o.quality === undefined
+      ) {
+        throw new Error("Cannot reconstitute an ObservationSet with an observation missing provenance/quality");
+      }
+    }
+    return new ObservationSet(
+      state.id,
+      state.occasion,
+      state.observations,
+      state.supersessions ?? [],
+      state.expected ?? [],
     );
   }
 

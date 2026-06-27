@@ -4,7 +4,11 @@
 // not a VoiceMode.
 
 export { UnderstandingProfile } from "./understanding-profile.ts";
-export type { InitializeProfileInput, StaleReason } from "./understanding-profile.ts";
+export type {
+  InitializeProfileInput,
+  StaleReason,
+  UnderstandingProfileState,
+} from "./understanding-profile.ts";
 export type { UnderstandingProfileId } from "./ids.ts";
 
 export { understandingDimension, dimensionKey } from "./understanding-dimension.ts";

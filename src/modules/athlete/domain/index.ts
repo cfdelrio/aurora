@@ -4,7 +4,7 @@
 // imports only shared-kernel; it never imports observation/reasoning/understanding/decision-support.
 
 export { Athlete } from "./athlete.ts";
-export type { CreateAthleteInput, CurrentPurposeView } from "./athlete.ts";
+export type { CreateAthleteInput, CurrentPurposeView, AthleteState } from "./athlete.ts";
 export type { AthleteId, PurposeVersionId } from "./ids.ts";
 export { newAthleteId, newPurposeVersionId } from "./ids.ts";
 
@@ -60,4 +60,4 @@ export type {
 } from "./athlete-decision.ts";
 
 export { AthleteDecisionRecord, athleteDecisionAmendment } from "./athlete-decision-record.ts";
-export type { AthleteDecisionAmendment } from "./athlete-decision-record.ts";
+export type { AthleteDecisionAmendment, AthleteDecisionRecordState } from "./athlete-decision-record.ts";

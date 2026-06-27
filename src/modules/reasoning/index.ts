@@ -13,3 +13,5 @@ export type {
   AttachSignalAsEvidenceInput,
   TransitionHypothesisInput,
 } from "./application/reasoning-coordinator.ts";
+export type { HypothesisRepository } from "./application/hypothesis-repository.ts";
+export { InMemoryHypothesisRepository } from "./application/in-memory-hypothesis-repository.ts";

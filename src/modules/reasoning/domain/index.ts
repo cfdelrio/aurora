@@ -24,6 +24,6 @@ export {
 export type { HypothesisLifecycleState, HypothesisRevision } from "./hypothesis-lifecycle.ts";
 
 export { Hypothesis } from "./hypothesis.ts";
-export type { OpenHypothesisInput, AttachEvidenceInput } from "./hypothesis.ts";
+export type { OpenHypothesisInput, AttachEvidenceInput, HypothesisState } from "./hypothesis.ts";
 
 export type { HypothesisId, EvidenceCaseId } from "./ids.ts";

@@ -50,6 +50,13 @@ interface AthleteProps {
   readonly history: readonly PurposeVersion[];
 }
 
+/** Persistence shape (adapter contract; NOT the primary public domain API). */
+export interface AthleteState {
+  readonly id: AthleteId;
+  readonly identityRef: string;
+  readonly history: readonly PurposeVersion[];
+}
+
 export class Athlete {
   readonly id: AthleteId;
   readonly identityRef: string;
@@ -157,5 +164,33 @@ export class Athlete {
 
   private toProps(): AthleteProps {
     return { id: this.id, identityRef: this.identityRef, history: this._history };
+  }
+
+  /** Persistence state export. Plain, serializable; exposes no mutable internal reference. */
+  toState(): AthleteState {
+    return Object.freeze({ id: this.id, identityRef: this.identityRef, history: this._history });
+  }
+
+  /** Rebuild from persisted state, re-validating each purpose version (athlete-sourced, well-formed)
+   *  and the append-only ordering. Reconstitution owns nothing inferred; only the given. */
+  static reconstitute(state: AthleteState): Athlete {
+    if (typeof state.identityRef !== "string" || state.identityRef.length === 0) {
+      throw new Error("Cannot reconstitute an Athlete without an identityRef");
+    }
+    if (!Array.isArray(state.history)) {
+      throw new Error("Cannot reconstitute an Athlete without a purpose history array");
+    }
+    let expectedVersion = 1;
+    for (const v of state.history) {
+      if (v === null || typeof v !== "object" || !Number.isInteger(v.version)) {
+        throw new Error("Cannot reconstitute an Athlete with a malformed PurposeVersion");
+      }
+      if (v.version !== expectedVersion) {
+        throw new Error("Cannot reconstitute an Athlete: purpose history must be contiguous and ordered");
+      }
+      requireValidPurpose(v.purpose);
+      expectedVersion += 1;
+    }
+    return new Athlete({ id: state.id, identityRef: state.identityRef, history: state.history });
   }
 }

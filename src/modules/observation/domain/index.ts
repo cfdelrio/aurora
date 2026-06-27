@@ -23,4 +23,5 @@ export type {
   Completeness,
   TimeRange,
   ObservationSetCreateInput,
+  ObservationSetState,
 } from "./observation-set.ts";

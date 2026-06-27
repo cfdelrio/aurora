@@ -12,3 +12,5 @@ export type {
 } from "./application/record-observation-set.ts";
 export { detectSignals } from "./application/detect-signals.ts";
 export type { DetectSignalsInput } from "./application/detect-signals.ts";
+export type { ObservationSetRepository } from "./application/observation-set-repository.ts";
+export { InMemoryObservationSetRepository } from "./application/in-memory-observation-set-repository.ts";

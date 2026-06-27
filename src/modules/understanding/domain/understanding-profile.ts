@@ -40,6 +40,13 @@ export interface InitializeProfileInput {
   readonly athleteRef: string;
 }
 
+/** Persistence shape (adapter contract; NOT the primary public domain API). */
+export interface UnderstandingProfileState {
+  readonly id: UnderstandingProfileId;
+  readonly athleteRef: string;
+  readonly dimensions: readonly DimensionUnderstanding[];
+}
+
 export class UnderstandingProfile {
   readonly id: UnderstandingProfileId;
   readonly athleteRef: string;
@@ -65,6 +72,34 @@ export class UnderstandingProfile {
       input.athleteRef,
       new Map(),
     );
+  }
+
+  /** Persistence state export. The dimension map is flattened to a plain, ordered array. */
+  toState(): UnderstandingProfileState {
+    return Object.freeze({
+      id: this.id,
+      athleteRef: this.athleteRef,
+      dimensions: Object.freeze([...this._dimensions.values()]),
+    });
+  }
+
+  /** Rebuild from persisted state. Dimension state is stored verbatim (the promotion policy already
+   *  ran at save time) -- reconstitution NEVER re-runs promotion/demotion from the stored level. */
+  static reconstitute(state: UnderstandingProfileState): UnderstandingProfile {
+    if (typeof state.athleteRef !== "string" || state.athleteRef.length === 0) {
+      throw new Error("Cannot reconstitute an UnderstandingProfile without an athleteRef");
+    }
+    if (!Array.isArray(state.dimensions)) {
+      throw new Error("Cannot reconstitute an UnderstandingProfile without a dimensions array");
+    }
+    const map = new Map<string, DimensionUnderstanding>();
+    for (const d of state.dimensions) {
+      if (d === null || typeof d !== "object" || d.dimension === undefined || typeof d.dimension.key !== "string") {
+        throw new Error("Cannot reconstitute an UnderstandingProfile with a malformed dimension");
+      }
+      map.set(d.dimension.key, d);
+    }
+    return new UnderstandingProfile(state.id, state.athleteRef, map);
   }
 
   updateFromOutcome(outcome: ReasoningOutcome): UnderstandingProfile {
