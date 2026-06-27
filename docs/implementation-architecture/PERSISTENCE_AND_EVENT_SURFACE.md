@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 012).** **Three parts of this paper are now realized.**
+> **Implementation status (post Impl 016).** **Seven parts of this paper are now realized.**
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -56,10 +56,25 @@
 > changes no domain (voice/traceability/freshness/`SupportQuality`); rejection invalidates nothing; failed
 > attempts are auditable but never display-eligible; a **`RenderedMessageRecord` is not an event record** —
 > **`rendering` imports no `event-recording`** and the **event catalog is not expanded**; nothing triggers delivery.
-> **Still future work:** **rendered-output event records**; **delivery / UI / API / a real LLM provider /
-> prompt templates**; a **production scheduler**, **event bus**, **event sourcing**, a **projection repository**
-> (§6), a **production orchestration/service layer**, **external (FIT/wearable) ingestion**, and any **production
-> event store / serialization format / DB / ORM / cache / persistence backend**. This paper is otherwise unchanged.
+> **(7) Impl 016** added a **delivery audit repository** — a **new downstream `delivery` module** that
+> **exposes** a *display-eligible* `RenderedMessageRecord` to a **deterministic test-only sink** and records
+> the attempt as an **auditable `DeliveryRecord`** behind a **repository port + in-memory adapter** (deep-copy
+> round-trip, mutation isolation, validated reconstitution). Delivery **verifies** eligibility by calling
+> `rendering`'s `displayEligibilityOf(record)` — it does **not** re-derive or reinterpret it — and the sink is
+> called **only** when the record is eligible *and* the target is the supported `test-sink`; ineligible
+> (not-reviewed / rejected / superseded / failed-render / missing-ref) requests and unsupported targets are
+> **blocked** without calling the sink. Persistence is **auditability, not authority**: a `DeliveryRecord` is
+> not source truth / `Evidence` / `Observation` / `Understanding` / `DecisionSupport` / `AthleteDecision`;
+> **delivery success is not evidence** and **delivery failure is not domain invalidation**; delivery **mutates
+> no rendered-message record and no domain aggregate** and **triggers no reasoning/reprojection/retry**. A
+> **`DeliveryRecord` is not an event record** — **`delivery` imports no `event-recording`** and the **event
+> catalog is not expanded**.
+> **Still future work:** **delivery event records / a delivery event surface**; a **real provider/channel
+> adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
+> provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
+> a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
+> ingestion**, and any **production event store / serialization format / DB / ORM / cache / persistence
+> backend**. This paper is otherwise unchanged.
 
 ---
 

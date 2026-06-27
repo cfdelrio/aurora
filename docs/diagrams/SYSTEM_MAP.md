@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 015):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 016):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -36,10 +36,19 @@
 > **`DisplayEligibility`** (repository port + in-memory adapter, inside `rendering`) — **persistence is
 > auditability, not authority**: a record is never domain truth, approval strengthens nothing, rejection
 > invalidates nothing, failed attempts are never display-eligible, and nothing emits an event or triggers
-> delivery. The remaining absences (**delivery / UI / API**/**real LLM provider & prompts**/external FIT
-> ingestion/**rendered-output events**/**production persistence & event store**/**event bus**/**full**
-> athlete model/**generic projection engine**/**full DecisionOutcome**/**production reprojection service &
-> scheduler & projection repository**/**event sourcing**/production service) are **intentional**, not gaps. See
+> delivery. Implementation 016 added the first **delivery / exposure** boundary — a **new downstream
+> `delivery` module** that **exposes** a *display-eligible* `RenderedMessageRecord` to a **deterministic
+> test-only sink** and records the attempt as an auditable **`DeliveryRecord`** (repository port + in-memory
+> adapter). Delivery **verifies** eligibility via `rendering`'s `displayEligibilityOf(record)` (it never
+> re-derives it), calls the sink **only** when eligible *and* the target is the supported `test-sink`, and
+> **blocks** every ineligible/unsupported request — **without becoming domain authority, mutating the
+> rendered record or any aggregate, emitting an event, or triggering reasoning/reprojection/retry**;
+> **delivery success is not evidence and delivery failure is not domain invalidation**. The remaining
+> absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
+> ingestion/**delivery & rendered-output events**/**production persistence & event store**/**event
+> bus**/**scheduler & retry**/**full** athlete model/**generic projection engine**/**full
+> DecisionOutcome**/**production reprojection service & projection repository**/**event sourcing**/production
+> service) are **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
@@ -92,6 +101,10 @@ flowchart LR
     REND --> HUMAN
     RREC["Registro/Review de presentación ✅ Impl 015 (dentro de rendering)<br/>RenderedMessageRecord (append-only, auditable)<br/>RenderReview (display-safety) · status derivado<br/>DisplayEligibility derivada (no delivery, no aprobación de dominio)<br/>repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO muta dominio · NO evento · NO delivery"]
     REND -- "registra/revisa artefacto de presentación (auditoría, no autoridad)" --> RREC
+    DELIV["Delivery / Exposición ✅ Impl 016 (módulo downstream, NO dominio, NO rendering)<br/>requestDelivery · verifica displayEligibilityOf(record) (NO re-deriva)<br/>solo expone records display-eligible · DeliveryTarget cerrado (solo test-sink soportado)<br/>InMemoryTestSink determinístico (NO provider/canal real)<br/>DeliveryOutcome/FailureReason cerrados · bloquea no-elegibles/target no soportado<br/>importa solo shared-kernel + rendering read-only · NO event-recording"]
+    DREC["DeliveryRecord (auditable) ✅ Impl 016<br/>repository port + in-memory adapter (mutation isolation)<br/>auditabilidad, NO autoridad · éxito ≠ evidencia · fallo ≠ invalidación de dominio<br/>NO muta rendered record/dominio · NO evento · NO retry/reprojection"]
+    RREC -- "expone SOLO si display-eligible (lectura; NO muta, NO aprueba dominio)" --> DELIV
+    DELIV -- "registra intento/resultado (auditoría, no autoridad)" --> DREC
     OUT -. "el atleta decide (referenciado, no poseído): DecisionSupportCase guarda solo AthleteDecisionRef" .-> AD
     AD -. "AthleteDecision → SubjectiveObservation (adapter neutral); NO obediencia, NO score, NO Evidence directo" .-> O
 
@@ -176,6 +189,25 @@ display-eligible/approvable; **revision/supersession** preserve the old record (
 **display eligibility is not delivery**. **`rendering` imports no `event-recording`**, the **event catalog is
 not expanded**, the repo is **in-memory** (no production DB), and there is **no delivery/UI/API/provider**.
 *Persisting or approving rendered text improves auditability and display safety only.*
+
+[FACT] **Delivery — the first exposure boundary (Implementation 016).** A **new downstream `delivery`
+module** (`src/modules/delivery`), drawn *after* rendered-message record/review/display-eligibility. It is
+**exposure, not rendering and not domain**: `rendering` owns display eligibility; delivery only **attempts
+to expose** an *already display-eligible* `RenderedMessageRecord` to a target and records the attempt.
+`requestDelivery` **verifies** eligibility by calling `rendering`'s `displayEligibilityOf(record)` — it
+**does not re-derive or reinterpret** it — and the deterministic **`InMemoryTestSink`** is called **only**
+when the record is eligible *and* the target is the supported **`test-sink`**; **not-reviewed / rejected /
+superseded / failed-render / missing-ref** records and **unsupported/reserved targets** are **blocked**
+without calling the sink (raw rendering reasons retained, mapped to a closed `DeliveryFailureReason`). The
+exposure edge is **one-way**: **no arrow back** to Observation/Reasoning/Understanding/DecisionSupport/
+Rendering, **no mutation** of the rendered record or any aggregate, **no event-writing** arrow. A
+**`DeliveryRecord`** is **auditability, not authority** — not source truth / `Evidence` / `Observation` /
+`Understanding` / `DecisionSupport` / `AthleteDecision`; **delivery success is not evidence** and **delivery
+failure is not domain invalidation**; the audit repo is a **port + in-memory adapter** (mutation isolation,
+validated reconstitution). **`delivery` imports only `shared-kernel` + read-only `rendering`** (no
+`event-recording`), the **event catalog is not expanded**, and there is **no delivery event record, real
+provider/channel, UI/API, scheduler, retry, or event bus**. *A delivered message is still a presentation
+artifact, never authority; exposing it never makes it true.*
 
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
@@ -263,6 +295,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | — | **End-to-end proof** | `src/modules/__tests__` | First full chain composed; output `DecisionSupport` · `VoiceMode: Reflection` (not Recommendation) | ✅ Impl 006 |
 | 🗣 | **Rendering** *(downstream presentation, not a reasoning stage, not domain)* | `rendering` | `RenderableDomainOutput` (read-only projection) → deterministic fake renderer + **mandatory validator** → `RenderedMessage`/`RenderOutcome`; voice may match/soften, never escalate; Inquiry stays a question, Withholding a refusal; uncertainty/limitations/freshness/traceability preserved; invented facts/escalation/unsafe requests rejected (safe non-render). Not domain authority; mutates/emits nothing; imports only `shared-kernel` + read-only `decision-support` types. **No** real LLM provider / prompt / UI / API / external call | ✅ Impl 014 |
 | 🗄 | **Rendered-message record / review** *(audit of presentation, not domain; inside rendering)* | `rendering` (`domain`+`application`) | Append-only `RenderedMessageRecord` (source ref/kind/voice/flags preserved) + append-only `RenderReview` (closed catalogs; display-safety) + derived `DisplayEligibility`; repository port + in-memory adapter (mutation isolation, validated reconstitution). Auditability not authority; approval/rejection touch no domain; failed never display-eligible; revision/supersession preserve the old record. **No** events / delivery / production DB / UI / API / provider | ✅ Impl 015 |
+| 📤 | **Delivery / exposure** *(downstream exposure, not rendering, not domain)* | `delivery` (`domain`+`application`) | `requestDelivery` verifies `displayEligibilityOf(record)` (never re-derives), exposes only display-eligible records to a deterministic `InMemoryTestSink`, records an auditable `DeliveryRecord` (closed `DeliveryTarget`/`DeliveryOutcome`/`DeliveryFailureReason`; only `test-sink` supported); repository port + in-memory adapter (mutation isolation, validated reconstitution). Blocks not-reviewed/rejected/superseded/failed-render/missing-ref/unsupported-target without calling the sink. Success ≠ evidence; failure ≠ domain invalidation; mutates no rendered record/aggregate; imports only `shared-kernel` + read-only `rendering`. **No** event-recording / event catalog expansion / real provider/channel / UI / API / scheduler / retry / event bus / production DB | ✅ Impl 016 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -361,6 +394,14 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | persisted rendered text **≠** `Observation`/`Evidence`/`Understanding`/`DecisionSupport`/`AthleteDecision` · source-ref preservation **≠** source-truth conversion | The record carries no domain field; keeping the ref does not make the text true. |
 | review rejection **≠** domain invalidation · revision **≠** overwrite · supersession **≠** deletion | The domain output is untouched; old records stay immutable and auditable. |
 | failed render audit **≠** displayable message · repository persistence **≠** production DB · rendered-message record **≠** event record | Failed attempts are never display-eligible; the repo is in-memory; the record emits no event. |
+| delivery **≠** rendering · delivery **≠** domain reasoning · display eligibility **≠** delivery | Delivery is downstream exposure; `rendering` owns eligibility; delivery only exposes an already-eligible record (Impl 016). |
+| delivery verifies `displayEligibilityOf` **≠** delivery re-derives eligibility | Delivery calls rendering's derivation and maps its raw reasons; it never reinterprets safety with a parallel rule set. |
+| `DeliveryRecord` **≠** `Evidence`/`Observation`/`Understanding`/`AthleteDecision`/`DecisionSupport` | A delivery record carries no domain field and no domain-write handle; it is an audit entry, not a domain artifact. |
+| delivery success **≠** support validation · delivery failure **≠** domain invalidation | A delivered/failed outcome never grades `SupportQuality`/voice/traceability and never invalidates the domain output. |
+| `test-sink` **≠** real provider/channel · `InMemoryTestSink` **≠** email/SMS/push/WhatsApp/UI/API | The sink is deterministic and in-process; a real channel would later implement the same `DeliverySink` interface. |
+| delivery audit **≠** event record · delivery repository **≠** production DB · no delivery event **≠** missing auditability | A `DeliveryRecord` is not a `DomainEventRecord`; the repo is in-memory; auditability comes from the record, not from events. |
+| accepted/delivered outcome **≠** athlete outcome · delivered text **≠** source truth | A delivery result is not the athlete's decision/outcome; delivered text re-enters only if the athlete reports it via the manual adapter. |
+| delivery retry/scheduler **≠** implemented · `accepted-for-delivery` **≠** produced this slice | No retry/scheduler/event-bus exists; `accepted-for-delivery` is a reserved (future two-phase) outcome, not produced by the single-shot service. |
 
 ---
 
@@ -372,11 +413,14 @@ freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-
 neutral check-only harness** (Impl 012); **a real manual "data in" boundary records faithful
 `ObservationSet`s** (Impl 013); **a deterministic "output out" rendering boundary expresses terminal
 outputs as human-facing text** (Impl 014); **rendered messages are conserved + reviewed as auditable
-presentation artifacts** (Impl 015); the following are **deliberately absent**, not failures:
+presentation artifacts** (Impl 015); **a downstream delivery boundary exposes display-eligible messages to a
+deterministic test sink + audit records** (Impl 016); the following are **deliberately absent**, not failures:
 
-- **No UI** · **No API** · **No delivery** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
-- **No real LLM provider / prompt templates / external delivery** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014); a real provider goes behind the same validator; generated text must never become domain truth
-- **No rendered-output event records** — a `RenderedMessageRecord` is **not** an event record; `rendering` imports no `event-recording` and the catalog is not expanded (Impl 015)
+- **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
+- **No real LLM provider / prompt templates** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014); a real provider goes behind the same validator; generated text must never become domain truth
+- **No real delivery provider/channel** — the delivery boundary is proven with a **deterministic `InMemoryTestSink`** (Impl 016); a real channel would implement the same `DeliverySink` interface behind the same eligibility gate; **delivery success/failure never affects domain state**
+- **No rendered-output or delivery event records** — a `RenderedMessageRecord`/`DeliveryRecord` is **not** an event record; `rendering` and `delivery` import no `event-recording` and the catalog is not expanded (Impl 015/016)
+- **No scheduler / retry / background-job layer** — `requestDelivery` is synchronous and deterministic; retries/cancellation lifecycles are deferred (Impl 016)
 - **No event bus / publish-subscribe / handlers / async delivery** — event records are *stored, never delivered or executed*; `PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus messages
 - **No event sourcing / production event store / serialization format** — the `event-recording` log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
@@ -394,11 +438,12 @@ presentation artifacts** (Impl 015); the following are **deliberately absent**, 
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
 (domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), Spec 013
-(manual input adapter), Spec 014 (rendering boundary), and Spec 015 (rendered-message record/review) are
-done (Impl 007/008/009/010/011/012/013/014/015).** The next responsible missions (a **delivery boundary
-or a provider adapter** behind the same validator — chosen explicitly, one at a time — then a production
-transport/storage backend and the reasoning reinterpretation engine) add the rest without collapsing any
-distinction above. See the Core Completion Review for the full ledger.
+(manual input adapter), Spec 014 (rendering boundary), Spec 015 (rendered-message record/review), and Spec
+016 (delivery boundary) are done (Impl 007/008/009/010/011/012/013/014/015/016).** The next responsible
+missions (a **provider adapter** behind the same rendering validator, or a **delivery event surface**
+recording delivery occurrences as ref-only events — chosen explicitly, one at a time — then a real
+channel/transport and storage backend and the reasoning reinterpretation engine) add the rest without
+collapsing any distinction above. See the Core Completion Review for the full ledger.
 
 ---
 
@@ -462,6 +507,19 @@ distinction above. See the Core Completion Review for the full ledger.
   (persistence-boundary compliant); `rendering` still imports **no `event-recording`** and the event catalog
   is **not expanded** (structural guard). The record is append-only/auditable, the review append-only, the
   display eligibility derived — **auditability, not authority**; **no production DB / delivery / UI / API**.
+- **Delivery (Impl 016)** lives in `src/modules/delivery/` (`domain/` + `application/` + a single public
+  `index.ts`): `domain/` adds the ids, the closed `DeliveryTarget`/`DeliveryOutcome`/`DeliveryFailureReason`,
+  `DeliveryRequest`, `DeliveryEligibilityCheck` (+ the raw-reason→failure-reason mapping), the `DeliverySink`
+  interface + deterministic `InMemoryTestSink`, and the auditable `DeliveryRecord` (validated `toState`/
+  `reconstitute`); `application/` adds the `DeliveryRecordRepository` **port** + `InMemoryDeliveryRecordRepository`
+  + the `requestDelivery` service. It **imports only `shared-kernel` + read-only `rendering`** (the rendering
+  import lives only in `delivery-service.ts`, keeping the `-repository`/`in-memory-` files persistence-boundary
+  compliant); it imports **no** `observation`/`reasoning`/`understanding`/`decision-support`/`athlete`/
+  `event-recording`, **`rendering` does not import `delivery`**, and **no upstream module imports `delivery`**
+  (structural guards). Two **documented test-only** blocker fixes landed: `delivery` was added to the e2e
+  `ALLOWED_MODULES` set, and the Impl 015 forbidden-layer test dropped its now-obsolete `delivery` entry.
+  There is **no `src/{api,ui,infrastructure}` and no `src/modules/{provider,channel,notification,scheduler,
+  event-bus,llm}`**, **no real channel/provider**, and **no event catalog expansion** (structural guard).
 
 ---
 

@@ -4,6 +4,30 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 016).** A new **`delivery`** module now realizes the first
+> **delivery / exposure** boundary — **downstream exposure**, not rendering and not domain. It **exposes** a
+> *display-eligible* `RenderedMessageRecord` to a target and records the attempt: `requestDelivery` **verifies**
+> eligibility by calling `rendering`'s **`displayEligibilityOf(record)`** (it does **not** re-derive or
+> reinterpret it), calls a **deterministic `InMemoryTestSink`** **only** when the record is eligible *and* the
+> target is the supported **`test-sink`**, and **blocks** every ineligible (not-reviewed / rejected /
+> superseded / failed-render / missing-ref) or unsupported-target request without calling the sink. The
+> attempt is persisted as an auditable **`DeliveryRecord`** behind a **`DeliveryRecordRepository` port +
+> in-memory adapter** (deep-copy round-trip, mutation isolation, validated reconstitution). **Allowed
+> imports:** `shared-kernel` + **read-only `rendering`** types/functions + own `delivery` domain/application.
+> **Forbidden imports:** `observation`/`reasoning`/`understanding`/`decision-support`/`athlete`/**`event-recording`**.
+> **`rendering` must not import `delivery`**, and **no upstream module imports `delivery`**. **Delivery is
+> exposure, not authority:** a `DeliveryRecord` is not domain truth (`≠ Observation/Evidence/Understanding/
+> DecisionSupport/AthleteDecision`); **delivery success is not evidence** and **delivery failure is not domain
+> invalidation**; delivery **mutates no rendered-message record and no aggregate**, **triggers no
+> reasoning/reprojection/retry**, and the **test sink is not a real provider/channel**. A `DeliveryRecord` is
+> **not** an event record (the event catalog is **not** expanded), and there is **no delivery event / real
+> provider/channel / UI / API / scheduler / retry / event bus / production DB**. The delivery audit repository
+> lives **inside `delivery/application`**. Two **documented test-only** blocker fixes landed (the e2e
+> `ALLOWED_MODULES` set gained `delivery`; the Impl 015 forbidden-layer test dropped its obsolete `delivery`
+> entry). Module count is now **nine** (the six domain modules + `event-recording` + `rendering` + `delivery`;
+> the `reprojection-harness` remains a neutral `__tests__` seam, not a module). No architecture decision below
+> is superseded. The note below is the prior (Impl 015) status.
+>
 > **Implementation status (post Impl 015).** The **`rendering`** module now also owns **rendered-message
 > record/review persistence** (inside `rendering/domain` + `rendering/application`, **not a new module**): an
 > append-only **`RenderedMessageRecord`** (auditable presentation artifact; source-domain-output ref preserved),
