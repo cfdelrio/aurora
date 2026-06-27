@@ -32,3 +32,32 @@ export type {
 
 export { revealedPurposeSignal } from "./revealed-purpose.ts";
 export type { RevealedPurposeSignal } from "./revealed-purpose.ts";
+
+// AthleteDecision slice (Impl 009): athlete-owned, append-only decision feedback. The decision is
+// the athlete's; decision-support may only REFERENCE it. It re-enters reasoning as an Observation
+// (via a neutral adapter outside athlete) -- never directly as Signal/Evidence/Understanding.
+export type { AthleteDecisionId } from "./athlete-decision-id.ts";
+export { newAthleteDecisionId } from "./athlete-decision-id.ts";
+
+export { decisionChoice } from "./decision-choice.ts";
+export type { DecisionChoice, DecisionChoiceInput } from "./decision-choice.ts";
+
+export { decisionRationale } from "./decision-rationale.ts";
+export type { DecisionRationale } from "./decision-rationale.ts";
+
+export { decisionContext } from "./decision-context.ts";
+export type { DecisionContext, DecisionContextInput } from "./decision-context.ts";
+
+export { decisionOutcomeRef } from "./decision-outcome-ref.ts";
+export type { DecisionOutcomeRef } from "./decision-outcome-ref.ts";
+
+export { athleteDecision, withOutcomeRef, athleteDecisionRefOf } from "./athlete-decision.ts";
+export type {
+  AthleteDecision,
+  AthleteDecisionInput,
+  AthleteDecisionRef,
+  DecisionReportSource,
+} from "./athlete-decision.ts";
+
+export { AthleteDecisionRecord, athleteDecisionAmendment } from "./athlete-decision-record.ts";
+export type { AthleteDecisionAmendment } from "./athlete-decision-record.ts";

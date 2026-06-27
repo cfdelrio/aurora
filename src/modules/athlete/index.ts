@@ -7,3 +7,5 @@
 export * from "./domain/index.ts";
 export { declarePurpose, changePurpose } from "./application/purpose-coordinator.ts";
 export type { DeclarePurposeInput, ChangePurposeInput } from "./application/purpose-coordinator.ts";
+export { recordAthleteDecision, amendAthleteDecision } from "./application/decision-coordinator.ts";
+export type { RecordDecisionInput, AmendDecisionInput } from "./application/decision-coordinator.ts";
