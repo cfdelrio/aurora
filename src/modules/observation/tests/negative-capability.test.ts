@@ -4,7 +4,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import * as observationModule from "../index.ts";
+// The INTAKE surface (domain/index.ts) must stay meaning-free even after Spec 002 added a
+// `signal` sub-boundary to the wider observation module. These assertions target the intake
+// surface specifically — that is where "records without interpreting" is guaranteed.
+// (Module-wide bans on Hypothesis/Evidence/Impact/Understanding/DecisionSupport are covered by
+// tests/signal/signal-negative-capability.test.ts.)
+import * as intakeSurface from "../domain/index.ts";
 import {
   measuredObservation,
   missingDataObservation,
@@ -35,22 +40,22 @@ const FORBIDDEN_FIELDS = [
   "verdict",
 ];
 
-test("the module's public surface exposes intake only — no signal/hypothesis/evidence/inference", () => {
-  const exported = Object.keys(observationModule);
-  assert.ok(exported.length > 0, "module should export intake operations");
+test("the INTAKE surface exposes intake only — no signal/hypothesis/evidence/inference", () => {
+  const exported = Object.keys(intakeSurface);
+  assert.ok(exported.length > 0, "intake surface should export intake operations");
   for (const name of exported) {
     assert.equal(
       FORBIDDEN_SURFACE.test(name),
       false,
-      `module must not export anything matching meaning/inference: '${name}'`,
+      `intake surface must not export anything matching meaning/inference: '${name}'`,
     );
   }
 });
 
-test("the module cannot create a Signal, Hypothesis, or Evidence (no such constructors exist)", () => {
-  const surface = observationModule as unknown as Record<string, unknown>;
+test("the INTAKE surface cannot create a Signal, Hypothesis, or Evidence (no such constructors exist)", () => {
+  const surface = intakeSurface as unknown as Record<string, unknown>;
   for (const name of ["Signal", "signal", "Hypothesis", "hypothesis", "EvidenceCase", "evidence"]) {
-    assert.equal(surface[name], undefined, `must not provide '${name}'`);
+    assert.equal(surface[name], undefined, `intake must not provide '${name}'`);
   }
 });
 
