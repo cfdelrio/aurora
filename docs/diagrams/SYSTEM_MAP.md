@@ -4,13 +4,16 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 007):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 008):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module** — Aurora's first real *given*
-> upstream context (declared, versioned, append-only purpose). The remaining absences
-> (UI/API/DB/LLM/event-bus/FIT/**full** athlete model/production service) are **intentional**, not
-> gaps. See [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
+> upstream context (declared, versioned, append-only purpose). Implementation 008 made **projection
+> freshness explicit** on `UnderstandingAssessment` (a derived view can never quietly become a fact;
+> non-current freshness only lowers the voice, via the existing `SafeVoiceCeiling`). The remaining
+> absences (UI/API/DB/LLM/event-bus/FIT/**full** athlete model/**generic projection engine**/
+> production service) are **intentional**, not gaps. See
+> [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
 > source of truth** for the system map. Edit the map here.
@@ -43,11 +46,15 @@ flowchart LR
     O["1 · Observación<br/>(module: observation)<br/>ObservationSet · observaciones crudas<br/>Provenance / Source / Quality<br/>Self-report · Missing data"]
     S["2 · Señal<br/>(module: observation/signal)<br/>ContextualizedObservation<br/>Signal / SignalRejection<br/>Relevancia sin significado<br/>Trazabilidad preservada"]
     R["3 · Reasoning<br/>(module: reasoning)<br/>Hypothesis · EvidenceCase<br/>ClaimConfidence · Falsificadores<br/>Lifecycle"]
-    U["4 · Understanding<br/>(module: understanding)<br/>UnderstandingProfile<br/>Dimensiones específicas · UnderstandingLevel<br/>Survived challenge<br/>Surprise / Staleness · SafeVoiceCeiling"]
+    U["4 · Understanding<br/>(module: understanding)<br/>UnderstandingProfile (aggregate = fuente de verdad)<br/>Dimensiones específicas · UnderstandingLevel · Survived challenge<br/>Surprise / Staleness · SafeVoiceCeiling"]
+    UA["UnderstandingAssessment (projection / read model) ✅ Impl 008<br/>ProjectionFreshness: current/stale/partial/invalid/unknown<br/>derivedAt · sourceRefs (referencias, no verdad copiada)<br/>RefreshPolicy: pura · selectiva · conservadora<br/>no-current solo BAJA voz; invalid/unknown → ceiling none"]
     D["5 · Decision Support / Voz<br/>(module: decision-support) ✅<br/>DecisionSupportCase · gates · TraceabilityVerification<br/>VoiceSelectionPolicy · VoiceMode<br/>Reflection · Framing · Warning · Recommendation<br/>Agency preservada"]
     OUT["Salida demostrada (Impl 006)<br/>DecisionSupport · VoiceMode: Reflection<br/>(no Recommendation)"]
 
-    O --> S --> R --> U --> D --> OUT
+    O --> S --> R --> U
+    U -. "proyecta (derivado, no fuente de verdad)" .-> UA
+    UA -. "freshness clampa SafeVoiceCeiling → gate existente" .-> D
+    D --> OUT
     OUT -. "la decisión del atleta vuelve como nueva observación (AthleteDecision, aún no implementado)" .-> O
 
     ATH -. context .-> O
@@ -64,6 +71,17 @@ flowchart LR
 **selective staleness** applied by a neutral adapter (**never a direct mutation, never a global
 reset**), and reaches `decision-support` as a `PurposeContext` the `PurposeGate` evaluates (**purpose
 context ≠ voice** — the case still selects the `VoiceMode`).
+
+[FACT] **Projection freshness (Implementation 008).** `UnderstandingAssessment` is a **projection /
+read model** of the `UnderstandingProfile` aggregate (the source of truth) — **not** a fact. It carries
+explicit `ProjectionFreshness` (`current`/`stale`/`partial`/`invalid`/`unknown`), `derivedAt`, and
+`sourceRefs` (references, never copied truth). Non-current freshness can **only lower** the voice;
+`invalid`/`unknown` clamp `SafeVoiceCeiling` to `none` (→ `Withholding`). Freshness reaches
+`decision-support` **only through the clamped `SafeVoiceCeiling`** — the consumer was **not modified**
+and reads no freshness directly. The `RefreshPolicy` is **pure, deterministic, selective**
+(by source-ref intersection) and **conservative**; **refresh = recompute** a new view, never edit the
+old one. There is **no generic projection engine and no top-level `projection` module** — freshness is
+local to `understanding` for this one projection.
 
 [FACT] **End-to-end proof (Implementation 006).** A single synthetic chain runs all five stages and
 lands on `DecisionSupport` with `VoiceMode: Reflection`. A single `supported` outcome earns
@@ -97,6 +115,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 5 | **Decision Support / Voz** | `decision-support` | `DecisionSupportCase`, gates, `TraceabilityVerification`, `VoiceSelectionPolicy`, `VoiceMode` (Reflection/Framing/Warning/Recommendation), terminal outputs, preserved agency | ✅ Impl 005 |
 | — | **End-to-end proof** | `src/modules/__tests__` | First full chain composed; output `DecisionSupport` · `VoiceMode: Reflection` (not Recommendation) | ✅ Impl 006 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
+| ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 
 ---
 
@@ -127,26 +146,36 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | revealed behavior **≠** declared purpose | Behavior may create an inquiry/hypothesis about a mismatch; it never silently overwrites the athlete's declared purpose. |
 | purpose context **≠** decision-support voice | Purpose feeds the `PurposeGate`; the case still selects the `VoiceMode`. |
 | selective staleness **≠** global understanding reset | A purpose change stales only the named dimension(s); other dimensions stay fresh. |
+| projection (`UnderstandingAssessment`) **≠** source of truth | The `UnderstandingProfile` aggregate is the truth; the assessment is its derived, labeled view (Impl 008). |
+| `ProjectionFreshness` **≠** traceability | Freshness says *how safe to consume*; `sourceRefs`/trace say *what it came from* — different axes. |
+| projection `sourceRefs` **≠** copied source state | References back to real artifacts, never embedded/re-authored truth. |
+| refresh **≠** mutate the old projection | Refresh *recomputes* a new view; `applyFreshness` never edits the old one (it stays auditable). |
+| stale/partial/invalid/unknown **≠** permission to recommend | Non-current freshness can only *constrain*; invalid/unknown → ceiling `none` → `Withholding`. |
+| `SafeVoiceCeiling` clamp **≠** decision-support owning freshness | The consumer reads the clamped ceiling; it never reads freshness — `decision-support` was not modified. |
+| local freshness slice **≠** generic projection engine | Freshness lives in `understanding` for one projection; no engine / no `projection` module exists. |
 
 ---
 
 ## What the System Still Does Not Have (intentional)
 
-[FACT] The reasoning core is complete in code and `athlete` now exists Purpose-first; the following
-are **deliberately absent**, not failures:
+[FACT] The reasoning core is complete in code, `athlete` exists Purpose-first, and projection
+freshness is explicit on `UnderstandingAssessment`; the following are **deliberately absent**, not
+failures:
 
-- **No UI** · **No API** · **No DB / persistence**
+- **No UI** · **No API** · **No DB / persistence** · **No cache**
 - **No LLM rendering** boundary (generated text must never become domain truth)
-- **No event bus** (`PurposeChanged` is a returned/derived value, not a bus event)
+- **No event bus** (`PurposeChanged` and refresh triggers are returned/derived values, not bus events)
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
 - **No *full* `athlete` model** — the Purpose-first slice is implemented; **inferred state, capacity,
   readiness, fatigue, constraints, and path-dependent memory are not** (risk still enters as a placeholder)
 - **No reinterpretation engine** (the `PurposeReinterpretationStatus` type ships; the engine does not)
-- **No production orchestration service** (cross-module purpose seams live in the neutral test harness)
+- **No generic projection engine and no top-level `projection` module** — freshness is local to
+  `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
+- **No production orchestration service** (cross-module purpose/refresh seams live in the neutral test harness)
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
-likely to erode them are introduced. **Spec 007 (purpose change) is done (Impl 007).** The next
-responsible missions (Spec 008 projection refresh, Spec 009 athlete-decision loop, reasoning
+likely to erode them are introduced. **Spec 007 (purpose change) and Spec 008 (projection freshness)
+are done (Impl 007/008).** The next responsible missions (Spec 009 athlete-decision loop, reasoning
 purpose-version awareness, then persistence/event surface and input adapters) add the rest without
 collapsing any distinction above. See the Core Completion Review for the full ledger.
 

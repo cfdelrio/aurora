@@ -4,13 +4,18 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
-> **Implementation status (post Impl 007).** This map describes the *intended* boundaries; the code
+> **Implementation status (post Impl 008).** This map describes the *intended* boundaries; the code
 > now realizes them. Implemented modules: `observation` (001/002), `reasoning` (003), `understanding`
-> (004), `decision-support` (005), end-to-end composition (006), and `athlete` — **Purpose-first only**
-> (007: declared, versioned, append-only purpose; no inferred state/capacity/constraints/path-memory yet).
-> Every dependency rule below holds in code, including `athlete` as an upstream leaf that imports only
-> `shared-kernel`. No architecture decision here is superseded. For the implemented-vs-absent ledger see
-> [`CORE_COMPLETION_REVIEW.md`](./CORE_COMPLETION_REVIEW.md) and [`../diagrams/SYSTEM_MAP.md`](../diagrams/SYSTEM_MAP.md).
+> (004; **+ projection freshness on `UnderstandingAssessment`, 008**), `decision-support` (005),
+> end-to-end composition (006), and `athlete` — **Purpose-first only** (007: declared, versioned,
+> append-only purpose; no inferred state/capacity/constraints/path-memory yet). Projection freshness
+> (§5 here) is now realized **locally in `understanding`**: `UnderstandingAssessment` is a read model
+> carrying explicit freshness + source references, non-current freshness only lowers the voice (via the
+> existing `safeVoiceCeiling`), and refresh recomputes — **no generic projection engine, no top-level
+> `projection` module, no persistence**. Every dependency rule below holds in code, including `athlete`
+> as an upstream leaf that imports only `shared-kernel`, and projections remaining read models (never
+> sources of truth). No architecture decision here is superseded. For the implemented-vs-absent ledger
+> see [`CORE_COMPLETION_REVIEW.md`](./CORE_COMPLETION_REVIEW.md) and [`../diagrams/SYSTEM_MAP.md`](../diagrams/SYSTEM_MAP.md).
 
 ---
 
