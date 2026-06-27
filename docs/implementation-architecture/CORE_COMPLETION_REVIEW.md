@@ -8,9 +8,9 @@
 |---|---|
 | **Status** | Review / Consolidation · *Accepted snapshot* |
 | **Phase** | Review (no implementation) |
-| **Covers** | Implementations 001–006 (core) · **updated for 007 (Purpose-first `athlete`) and 008 (projection freshness)** |
-| **Validation at writing** | core: `145/145` · post-007: `175/175` · **post-008: `tsc --noEmit` clean · `node --test` 196/196 pass** |
-| **Modules** | `observation`, `reasoning`, `understanding` (now with projection freshness), `decision-support`, **`athlete` (Purpose-first)** (+ `shared-kernel`) |
+| **Covers** | Implementations 001–006 (core) · **updated for 007 (Purpose-first `athlete`), 008 (projection freshness), 009 (AthleteDecision feedback)** |
+| **Validation at writing** | core: `145/145` · post-007: `175/175` · post-008: `196/196` · **post-009: `tsc --noEmit` clean · `node --test` 212/212 pass** |
+| **Modules** | `observation`, `reasoning`, `understanding` (now with projection freshness), `decision-support`, **`athlete` (Purpose + AthleteDecision)** (+ `shared-kernel`) |
 
 [FACT] **Central question:** *What exactly has Aurora's reasoning core proven in code, what does it intentionally not do yet, and what boundaries must future work not violate?*
 
@@ -71,6 +71,32 @@
 
 ---
 
+## Update — Implementation 009 (AthleteDecision Feedback Loop)
+
+[FACT] **Implementation 009** closed the decision feedback loop: an athlete-owned, append-only `AthleteDecision` slice was added **inside `athlete`**, and a neutral harness adapter re-enters a reported decision as a `SubjectiveObservation` — **no `decision-support` / `observation` / `reasoning` / `understanding` change**.
+
+[FACT] **Now true:**
+- `AthleteDecision` is **implemented inside `athlete`** (athlete-owned, append-only); the `AthleteDecisionRef` placeholder is **retired** (it now references a real decision).
+- New `athlete` surface: `AthleteDecisionId`, `AthleteDecision` (+ athlete-local `AthleteDecisionRef`, `DecisionReportSource`), `DecisionChoice`, `DecisionRationale`, `DecisionContext`, `DecisionOutcomeRef`, `AthleteDecisionRecord` (+ `amend`/supersede). Coordinators: `recordAthleteDecision`, `amendAthleteDecision`.
+- **`DecisionSupportCase` records only an `AthleteDecisionRef`** — it references the decision, never owns or mutates it.
+- The decision is **append-only**: corrections **amend/supersede**, the original stays auditable; `DecisionChoice` keeps a **modification** as free text (no binary compliance); `DecisionRationale` is athlete-reported context, not truth.
+- **`DecisionOutcomeRef` is a reference only** — no full `DecisionOutcome` object; "no outcome" is the default.
+- The decision **re-enters as a `SubjectiveObservation`** (via the neutral `__tests__` adapter, since `athlete` must not import `observation`) — an `Observation`, **never** `Signal`/`Evidence`/`Hypothesis`/`Understanding`. Future learning still passes the full ladder.
+- **`divergedFromSupport` is neutral factual metadata**, not a compliance score; **good/bad outcome does not grade `SupportQuality`**.
+- **Still absent (intentional):** no full `DecisionOutcome` object, no pattern engine, no compliance/obedience/shame/reward scoring, no outcome-based validation, no UI/API/DB/event-bus/persistence/LLM/training-plan.
+
+[FACT] **Distinctions this update makes explicit** (do not collapse):
+- **`AthleteDecision` ≠ Aurora output** — it is the athlete's fact, not Aurora's product.
+- **`AthleteDecisionRef` ≠ ownership** — a reference recorded after the fact.
+- **divergence ≠ noncompliance**, **following ≠ obedience-success**, **not-following ≠ failure** — no valence anywhere.
+- **`DecisionOutcomeRef` ≠ outcome judgement** — a handle to a separate, later observation.
+- **`AthleteDecision → Observation` ≠ `AthleteDecision → Evidence`** — re-entry is observation only.
+- **`SupportQuality` ≠ outcome quality** — integrity at the time of support.
+- **decision pattern ≠ athlete label** — a pattern must become a falsifiable hypothesis first.
+- **decision rationale ≠ declared-purpose overwrite** — behavior never rewrites purpose.
+
+[ASSUMPTION] The headline: **the athlete's decision now returns as athlete-owned learning material — referenced not owned, re-entering only as `Observation` through the ladder — with no obedience tracking, no shame, and no outcome-based grading of the support.**
+
 ## How to Read This Document
 
 | Tag | Meaning |
@@ -89,7 +115,7 @@
 - **The first full output is `Reflection`, not `Recommendation`.** The end-to-end integration test proves a complete chain that lands on a modest voice.
 - **The system demonstrates restraint *by construction*.** Even with complete traceability and clean gates, a single chain tops out at Reflection because the understanding ceiling caps the voice — restraint is structural, not a runtime preference.
 - **The current suite proves the core can compose without overreaching.** 145 tests pass, including module-boundary tests, negative-capability ("defining") tests, and the end-to-end Reflection proof.
-- **What does not exist yet:** no UI, API, DB / persistence, LLM rendering, event bus, notification layer, Garmin/FIT adapter, or production orchestration service. The `athlete` module now exists **but only as a Purpose-first slice** (Impl 007) — full Athlete (state/capacity/constraints/path-memory) is still absent. These are **intentional absences** (see §6), not gaps left by mistake.
+- **What does not exist yet:** no UI, API, DB / persistence, LLM rendering, event bus, notification layer, Garmin/FIT adapter, or production orchestration service. The `athlete` module now holds **Purpose (Impl 007) + AthleteDecision (Impl 009)** — but **full Athlete** (state/capacity/constraints/path-memory), a **full `DecisionOutcome` object**, a **pattern engine**, and any **compliance/outcome-based validation** are still absent. These are **intentional absences** (see §6), not gaps left by mistake.
 
 [ASSUMPTION] The one-sentence claim this review defends: **Aurora can run the full reasoning core end-to-end and still refuse to overreach.**
 
@@ -138,9 +164,10 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 [FACT] Implements `DecisionOpportunity`, `DecisionSupportCase` (aggregate root), the five gates (`EvidenceGate`, `UnderstandingGate`, `PurposeGate`, `RiskGate`, `AgencyGate`), `TraceabilityVerification` (`verifyTraceability`), `VoiceSelectionPolicy` (`selectTerminalOutput`), `VoiceMode`, terminal outputs (`DecisionSupport`/`Inquiry`/`Withholding`), `RiskAssessment`, `PurposeContext`, `SupportQuality`, and `AthleteDecisionRef`. Coordinators: `openDecisionSupportCase`, `evaluateDecisionSupportCase`, `recordAthleteDecisionRef`.
 - **Clarify:** **voice is gated, not derived** — `VoiceSelectionInputs` carries **no claim-confidence field**, so confidence→voice is unrepresentable; **`Recommendation` is hard to construct** — it requires `confident` ceiling + complete traceability + all gates passing; **`AthleteDecision` is referenced, not owned** — only an `AthleteDecisionRef` field exists, recorded after the fact, and `SupportQuality` reflects gate integrity, not outcome.
 
-### `athlete` *(Purpose-first slice — Implementation 007)*
-[FACT] Implements a thin `Athlete` aggregate root (+ `AthleteId`) owning an **append-only `PurposeHistory`** of immutable `PurposeVersion`s; `Purpose`/`DeclaredPurpose`, `PurposeStatus`, `PurposeSource`, `PurposeChangeReason`; `PurposeVersionRef`; `PurposeChanged` (a derived/returned value, **no event bus**); `PurposeReinterpretationStatus` + result value type (**type only — no engine**); a `RevealedPurposeSignal` placeholder. Coordinators: `declarePurpose`, `changePurpose`. Imports **only `shared-kernel`**.
-- **Clarify:** **`Athlete` owns declared context, not inferred truth** — no state/capacity/readiness/fatigue/constraints/path-memory; **purpose changes the future lens, it does not repaint the past** — history is append-only, prior reasoning is never rewritten; **`athlete` reaches no downstream module** — purpose flows to `decision-support` (as `PurposeContext`) and to `understanding` (as selective staleness) only through **neutral harness/application adapters**, never by `athlete` importing them; **declared ≠ revealed** — only an athlete-sourced declaration creates a version.
+### `athlete` *(Purpose — Impl 007 · AthleteDecision — Impl 009)*
+[FACT] Implements a thin `Athlete` aggregate root (+ `AthleteId`) owning an **append-only `PurposeHistory`** of immutable `PurposeVersion`s; `Purpose`/`DeclaredPurpose`, `PurposeStatus`, `PurposeSource`, `PurposeChangeReason`; `PurposeVersionRef`; `PurposeChanged` (a derived/returned value, **no event bus**); `PurposeReinterpretationStatus` + result value type (**type only — no engine**); a `RevealedPurposeSignal` placeholder. **Plus the AthleteDecision slice (Impl 009):** `AthleteDecisionId`, `AthleteDecision` (+ athlete-local `AthleteDecisionRef`, `DecisionReportSource`), `DecisionChoice`, `DecisionRationale`, `DecisionContext`, `DecisionOutcomeRef`, `AthleteDecisionRecord` (append-only; `amend`/supersede). Coordinators: `declarePurpose`, `changePurpose`, `recordAthleteDecision`, `amendAthleteDecision`. Imports **only `shared-kernel`**.
+- **Clarify (Purpose):** **`Athlete` owns declared context, not inferred truth** — no state/capacity/readiness/fatigue/constraints/path-memory; **purpose changes the future lens, it does not repaint the past** — history is append-only, prior reasoning is never rewritten; **`athlete` reaches no downstream module** — purpose flows to `decision-support` (as `PurposeContext`) and to `understanding` (as selective staleness) only through **neutral harness/application adapters**; **declared ≠ revealed**.
+- **Clarify (AthleteDecision, Impl 009):** the decision is **athlete-owned** and **append-only** (corrections amend/supersede, original retained); `DecisionSupportCase` records **only an `AthleteDecisionRef`** (referenced, never owned); a `DecisionChoice` keeps a **modification** as free text (**no binary compliance**), and `divergedFromSupport` is **neutral fact, not a score**; there is **no compliance/obedience/shame/reward field**; `DecisionOutcomeRef` is a **reference only** (no full outcome object); the decision **re-enters as a `SubjectiveObservation`** via a neutral adapter (`athlete` never imports `observation`) — **never** directly as Signal/Evidence/Understanding.
 
 ---
 
@@ -170,6 +197,10 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 | 18 | A stale/invalid projection earning a `Recommendation` | `Recommendation` needs `confident`; non-current freshness caps below it (→ `Withholding` for invalid/unknown); integration test |
 | 19 | Refresh mutating an old projection / inventing traceability | `applyFreshness` returns a new frozen assessment; the old stays auditable; source refs derive only from the real trace (Impl 008 tests) |
 | 20 | A trigger globally staling unrelated projections | `projectionRefreshPolicy` is selective by source-ref intersection; non-matching → `keep-current` (Impl 008 refresh-policy tests) |
+| 21 | `DecisionSupportCase` owning the athlete's decision | the case holds only an `AthleteDecisionRef`; the `AthleteDecision` lives in `athlete`; integration test asserts no decision object on the case (Impl 009) |
+| 22 | An `AthleteDecision` becoming `Evidence`/`Understanding` directly | the only re-entry is `decisionAsObservation` → `SubjectiveObservation`; no decision→Evidence/Understanding adapter exists; the ladder is intact (Impl 009 tests) |
+| 23 | Obedience/compliance scoring of a decision | `AthleteDecision` carries no compliance/obedience/noncompliance/shame/reward field; `divergedFromSupport` is neutral; following ≠ success, not-following ≠ failure (Impl 009 negative tests) |
+| 24 | An outcome retroactively grading the support | `DecisionOutcomeRef` is separate; recording a (divergent) decision leaves `SupportQuality` unchanged — integrity-at-the-time (Impl 009 test) |
 
 ---
 
@@ -211,7 +242,9 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 | API | **Intentional** | No external entrypoint boundary specified yet. |
 | LLM rendering boundary | **Intentional** | Deliberately absent so generated text never becomes domain truth. |
 | Notification layer | **Intentional** | Delivery is out of scope. |
-| `AthleteDecision` feedback loop | **Intentional** | Only an `AthleteDecisionRef` placeholder exists (Spec 009 territory). |
+| `AthleteDecision` feedback loop | **Implemented (Impl 009)** | Athlete-owned, append-only `AthleteDecision` in `athlete`; referenced (not owned) by the case; re-enters as `SubjectiveObservation`. The `AthleteDecisionRef` placeholder is **retired**. |
+| Full `DecisionOutcome` object / pattern engine | **Intentional** | Only `DecisionOutcomeRef` exists; outcome modeling and decision-pattern→hypothesis inference are deferred. |
+| Compliance / obedience / outcome-based validation | **Intentional (forbidden)** | No score is produced; the outcome never grades `SupportQuality`. |
 | Training-plan generator | **Intentional** | Explicitly forbidden at this stage. |
 | Real-world ingestion adapter | **Intentional** | Synthetic fixture only. |
 
@@ -228,7 +261,9 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 | `ReasoningOutcome` adapter (`reasoningOutcomeFrom`, local to `understanding`) | Lets understanding consume reasoning **outcomes** without importing reasoning internals (type-only import) | Keeps claim confidence + raw evidence out of understanding; "understanding earned from tested outcomes" | Stable cross-module outcome contract / event when an event surface lands |
 | `PurposeContext` placeholder (input to `decision-support`) | **Partly retired (Impl 007).** A real, versioned purpose now exists in `athlete`; the decision-support input is still a passed-in `PurposeContext` value (no `decision-support`→`athlete` import) | Lets `PurposeGate` run without `decision-support` importing/owning purpose | A production coordinator that snapshots current purpose into `PurposeContext` (the harness adapter is the current seam) |
 | `RiskAssessment` placeholder (input to `decision-support`) | No diagnostic/risk engine yet | Lets `RiskGate` run (caution-only) without inventing risk inside the case | Real risk assessment service, still caution-only |
-| `AthleteDecisionRef` (field on `DecisionSupportCase`) | The athlete acts *after* support; the loop is not built | Keeps the decision **referenced, never owned**; `SupportQuality` ≠ outcome | The `AthleteDecision` feedback loop (Spec 009), re-entering as observation |
+| `AthleteDecisionRef` (field on `DecisionSupportCase`) | **Retired as a placeholder (Impl 009).** It now references a real, athlete-owned `AthleteDecision` in `athlete` | Keeps the decision **referenced, never owned**; `SupportQuality` ≠ outcome | — (the loop is built; production persistence/event surface is the remaining piece) |
+| `DecisionOutcomeRef` (reference only, Impl 009) | The outcome is later/separate; a full `DecisionOutcome` object is deferred | Keeps outcome distinct from the decision; outcome never grades support | A specialized `DecisionOutcome`/observation type when outcome modeling is specified |
+| Decision harness adapters (`src/modules/__tests__/decision-observation-adapter.ts`) | Converting `AthleteDecision` → `SubjectiveObservation` / adapting the ref needs `observation`/`decision-support`; `athlete` must not import them | Keeps `athlete` a pure upstream leaf; re-entry is observation-only (Impl 006 precedent) | A production application service when a real entrypoint is specified |
 | Purpose harness adapters (`src/modules/__tests__/purpose-adapters.ts`) | Converting purpose → `PurposeContext` / applying `PurposeChanged` → `markUnderstandingStale` requires importing downstream; `athlete` must not | Keeps `athlete` a pure upstream leaf; coordination lives outside it (Impl 006 precedent) | A production application service when a real entrypoint is specified |
 | `ProjectionRefreshPolicy` applied via harness/caller (Impl 008) | Refresh has no scheduler/event surface yet; the policy is a pure decision | Keeps refresh deterministic and selective without infrastructure; `understanding` owns freshness, the caller applies triggers | An event-driven/maintained refresh when the event surface + persistence land |
 | `PurposeReinterpretationStatus` / result (type only) | The reinterpretation *engine* is deferred | Gives a stable shape for future reinterpretation without deciding statuses now | A reinterpretation pipeline once reasoning is purpose-version-aware |
@@ -248,8 +283,9 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 3. **`understanding` consumes reasoning *outcomes*, not raw `Signal`s** — only via the `ReasoningOutcome` adapter; never reads claim confidence or raw evidence.
 4. **`decision-support` consumes `reasoning` and `understanding`, not vice versa** — the upstream modules must never import `decision-support`.
 5. **`athlete` is the upstream context of meaning** — it imports only `shared-kernel` and must never import `observation`/`reasoning`/`understanding`/`decision-support` (the *given* must not depend on the *inferred*). Purpose reaches downstream only through neutral adapters/inputs, never by `athlete` reaching out.
-6. **`Athlete` must not own inferred state or capacity** — those remain projections (defeasible, traceable), never authoritative attributes; the Purpose-first slice holds only the *given* (declared, versioned purpose).
+6. **`Athlete` must not own inferred state or capacity** — those remain projections (defeasible, traceable), never authoritative attributes; the slice holds only the *given* (declared, versioned purpose; athlete-recorded decisions).
 7. **A purpose change never rewrites the past** — `PurposeHistory` is append-only; prior reasoning is never edited/auto-falsified; understanding is staled *selectively* through a coordinator, never reset globally, and never mutated by `athlete` directly.
+7b. **The athlete owns the decision; Aurora references and learns, never grades (Impl 009)** — `AthleteDecision` is athlete-owned and append-only; `decision-support` records only an `AthleteDecisionRef`; the decision re-enters **only as `Observation`** (then the full ladder), never as Evidence/Understanding directly; **no compliance/obedience scoring**, and the outcome never grades `SupportQuality`.
 8. **UI / LLM must not become domain authority** — generated text is a rendering of domain values, never their source of truth.
 9. **Persistence must not turn projections into facts** — a stored `CurrentState`/`UnderstandingLevel` must keep its staleness/confidence; never a plain attribute.
 10. **A projection is a derived view, never a source of truth (Impl 008)** — it carries explicit freshness + source references; non-current freshness can only *lower* downstream assertiveness; refresh *recomputes* (never edits the old view); a trigger stales *selectively*, never globally. Consumers honor freshness through the owning module's output (e.g. the clamped `safeVoiceCeiling`), not by owning refresh.
@@ -269,27 +305,26 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
    - *Delivered:* explicit `ProjectionFreshness` (5 states) + `derivedAt` + source refs on `UnderstandingAssessment`; a pure, selective, conservative `ProjectionRefreshPolicy`; non-current freshness only lowers the ceiling (invalid/unknown → `none` → Withholding); `decision-support` unchanged.
    - *Deferred (carried forward):* a generic projection kernel/engine; `ImpactAssessment` as a second projection; event-driven/persisted refresh; `Inquiry`-on-unknown (currently Withholding).
 
-1. **Spec 009 — AthleteDecision Feedback Loop** *(recommended next)*
-   - *Why:* Closes the cycle — the athlete's decision returns as a future observation; replaces the `AthleteDecisionRef` placeholder.
-   - *Must not:* let `DecisionSupportCase` own the decision; judge decision quality by outcome.
-   - *Depends on:* decision-support (done); an observation re-entry path; an `athlete` reference (now available, Purpose-first).
+0c. **✅ Spec 009 — AthleteDecision Feedback Loop — DONE (Impl 009).**
+   - *Delivered:* athlete-owned, append-only `AthleteDecision` in `athlete` (choice/rationale/context/source; amend-supersede); `DecisionSupportCase` references only an `AthleteDecisionRef`; re-entry as `SubjectiveObservation` via a neutral adapter; no compliance/obedience scoring; outcome never grades `SupportQuality`. The `AthleteDecisionRef` placeholder is retired.
+   - *Deferred (carried forward):* a full `DecisionOutcome` object; a decision-pattern→hypothesis engine; a feedback/interaction bounded context if interaction history grows.
 
-2. **Reasoning Purpose-Version Awareness & Reinterpretation Engine** *(the deferred half of Spec 007)*
-   - *Why:* Impl 007 ships `PurposeVersionRef` and the reinterpretation *status type* but not the engine; this makes reasoning version-aware and produces real reinterpretation verdicts on a purpose change.
+1. **Reasoning Purpose-Version Awareness & Reinterpretation Engine** *(the deferred half of Spec 007 — recommended next)*
+   - *Why:* Impl 007 ships `PurposeVersionRef` and the reinterpretation *status type* but not the engine; this makes reasoning version-aware and produces real reinterpretation verdicts on a purpose change. It can reuse the Impl 008 freshness/refresh machinery (a purpose change is a `RefreshTrigger`).
    - *Must not:* rewrite or auto-falsify prior hypotheses — reinterpretation is a new, traceable artifact.
-   - *Depends on:* `athlete` (Purpose-first, done) + `reasoning` (done).
+   - *Depends on:* `athlete` (Purpose-first, done) + `reasoning` (done) + projection freshness (done).
 
-4. **Implementation Architecture — Persistence and Event Surface**
+2. **Implementation Architecture — Persistence and Event Surface**
    - *Why:* Everything is in-memory and immutable-by-operation; durable storage and a public/internal event split are needed before real ingestion. `PurposeChanged` becoming a *public* domain event belongs here.
    - *Must not:* turn projections into stored facts; expose internal process events as public contracts; bypass aggregates.
    - *Depends on:* the Boundary Map's open questions (§11 there); chosen after the domain loops are clearer.
 
-5. **Input Adapter Spec — Synthetic / Manual / Garmin FIT**
+3. **Input Adapter Spec — Synthetic / Manual / Garmin FIT**
    - *Why:* Replaces the synthetic fixture with a real ingestion boundary that produces faithful, provenance-bearing `ObservationSet`s.
    - *Must not:* assign meaning at ingestion; drop provenance/quality; let the parser reason.
    - *Depends on:* observation (done); a persistence decision for what it writes.
 
-[DECISION] **Recommended next mission: Spec 009 — AthleteDecision Feedback Loop.** With purpose now real (Impl 007) and projection freshness in place (Impl 008), the highest-leverage next step closes the cycle the model has specified but never exercised: the athlete's decision re-enters as a future observation, *referenced never owned*, replacing the `AthleteDecisionRef` placeholder — depending only on cores already built (no premature commitment to persistence, transport, or UI).
+[DECISION] **Recommended next mission: Reasoning Purpose-Version Awareness & Reinterpretation Engine** (the deferred half of Spec 007). With purpose real (007), projection freshness in place (008), and the decision loop closed (009), the remaining specified-but-unexercised loop is **reinterpretation**: making `reasoning` purpose-version-aware and producing real reinterpretation verdicts when purpose changes — reusing the Impl 008 refresh machinery, depending only on cores already built, and **never rewriting or auto-falsifying** prior hypotheses (reinterpretation is a new, traceable artifact). Persistence/event surface and input adapters remain the larger follow-ups once the domain loops are fully exercised.
 
 ---
 
@@ -299,7 +334,7 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 That the reasoning core can run **end-to-end with restraint**: raw observations become signals without becoming meaning, signals become evidence only inside falsifiable hypotheses, tested outcomes earn dimension-specific understanding without repetition or confidence leaking in, and a gated decision-support case turns all of it into a *modest, traceable, agency-preserving* `Reflection` — refusing to recommend even when the chain is complete and the gates are clean. The dangerous collapses (data→meaning, inference→attribute, claim-strength→voice) are unrepresentable, defended by negative-capability and boundary tests.
 
 [ASSUMPTION] **What has Aurora not proven yet?**
-Anything involving **real data, durability, transport, or the full feedback cycle**: real ingestion (FIT/manual), persistence, a production orchestration entrypoint, the **full** `athlete` model (state/capacity/constraints/path-memory), risk from real data, reasoning that is **purpose-version-aware** with a reinterpretation engine, a **generic projection engine** (`ImpactAssessment`, event-driven/persisted refresh), and the `AthleteDecision` loop that makes the system *learn over time*. Purpose itself **is** now a real, versioned upstream source (Impl 007), and **projection freshness is explicit** on `UnderstandingAssessment` (Impl 008 — non-current freshness only lowers the voice). The linear path is proven and **two loops are partly exercised** (purpose-change selective staleness, projection freshness/refresh — both no-rewrite); the remaining **loops** (surprise-driven revision, deep purpose reinterpretation, decision feedback) are specified in the model but not yet exercised in code.
+Anything involving **real data, durability, and transport**: real ingestion (FIT/manual), persistence, a production orchestration entrypoint, the **full** `athlete` model (state/capacity/constraints/path-memory), risk from real data, reasoning that is **purpose-version-aware** with a reinterpretation engine, a **generic projection engine** (`ImpactAssessment`, event-driven/persisted refresh), and a **full `DecisionOutcome` / decision-pattern engine**. Purpose **is** a real, versioned upstream source (Impl 007), **projection freshness is explicit** (Impl 008 — non-current only lowers the voice), and the **decision feedback loop is built** (Impl 009 — the athlete's decision returns as `Observation`, referenced not owned, with no obedience scoring). The linear path is proven and **three loops are now exercised** (purpose-change selective staleness, projection freshness/refresh, and decision feedback — all no-rewrite); the remaining loops (surprise-driven revision, **deep purpose reinterpretation**, and learning *over time* from accumulated decisions/outcomes) are specified in the model but not yet exercised in code.
 
 [ASSUMPTION] **What is the most dangerous next shortcut?**
 **Adding UI / LLM / advice-rendering before purpose, persistence, and the feedback boundaries are specified.** A rendering or recommendation surface introduced now would be the fastest way to let generated text become domain truth, derive voice from convenience instead of gates, and reintroduce the exact collapses the core was built to prevent — and it would not look wrong from the inside. The discipline that produced restraint by construction must hold precisely when a demo-able surface becomes tempting: **build the loops and the boundaries before the voice has a mouth.**
@@ -310,7 +345,7 @@ Anything involving **real data, durability, transport, or the full feedback cycl
 
 [FACT] Run at the time of writing, with no implementation modified:
 - `npm run typecheck` (`tsc --noEmit`) — **clean**.
-- `npm test` (`node --test "src/**/*.test.ts"`) — **196 / 196 pass**, 0 fail (was 145 at the 006 baseline; +30 for Impl 007, +21 for Impl 008), including all module/negative/boundary tests, the Implementation 006 end-to-end Reflection proof, and the Impl 007/008 purpose + projection-freshness tests.
+- `npm test` (`node --test "src/**/*.test.ts"`) — **212 / 212 pass**, 0 fail (was 145 at the 006 baseline; +30 for Impl 007, +21 for Impl 008, +16 for Impl 009), including all module/negative/boundary tests, the Implementation 006 end-to-end Reflection proof, and the Impl 007/008/009 purpose + projection-freshness + decision-feedback tests.
 
 ---
 
@@ -318,10 +353,10 @@ Anything involving **real data, durability, transport, or the full feedback cycl
 
 > **"What is closed, what is still deliberately absent, and what must future work not collapse?"**
 
-[ASSUMPTION] Answerable from this page: **closed** — the five-stage reasoning core (§2–3) with twenty structural guarantees (§4), an end-to-end Reflection proof (§5), a **Purpose-first `athlete`** module (Impl 007) giving Aurora real, versioned, append-only declared context, and **explicit projection freshness** on `UnderstandingAssessment` (Impl 008) so a derived view can never quietly become a fact; **deliberately absent** — UI/API/DB/LLM/event-bus, real ingestion, persistence, a production service, the **full** `athlete` model (state/capacity/constraints/path-memory), a reinterpretation engine, a **generic projection engine**/`ImpactAssessment`, and the risk/decision-feedback sources, each a placeholder or intentional gap (§6–7); **must not collapse** — observation into meaning, inference into attribute, claim-strength into voice, the upstream→downstream dependency direction, **purpose's past into its present** (declared ≠ inferred; append-only; no rewrite), and **a projection into a source of truth** (freshness explicit; non-current only constrains; refresh recomputes) (§4, §8). The core is complete and restrained, with purpose a real upstream source and freshness explicit; what remains is the deeper loops, the boundaries, and the real world — to be added without eroding any of the above.
+[ASSUMPTION] Answerable from this page: **closed** — the five-stage reasoning core (§2–3) with twenty-four structural guarantees (§4), an end-to-end Reflection proof (§5), a **Purpose `athlete`** module (Impl 007) giving Aurora real, versioned, append-only declared context, **explicit projection freshness** on `UnderstandingAssessment` (Impl 008) so a derived view can never quietly become a fact, and the **AthleteDecision feedback loop** (Impl 009) so the athlete's decision returns as referenced-not-owned `Observation` with no obedience scoring; **deliberately absent** — UI/API/DB/LLM/event-bus, real ingestion, persistence, a production service, the **full** `athlete` model (state/capacity/constraints/path-memory), a reinterpretation engine, a **generic projection engine**/`ImpactAssessment`, a **full `DecisionOutcome`/pattern engine**, and the risk source, each a placeholder or intentional gap (§6–7); **must not collapse** — observation into meaning, inference into attribute, claim-strength into voice, the upstream→downstream dependency direction, **purpose's past into its present** (declared ≠ inferred; append-only; no rewrite), **a projection into a source of truth** (freshness explicit; non-current only constrains; refresh recomputes), and **the athlete's decision into Aurora's verdict** (referenced not owned; Observation-only re-entry; no obedience/outcome grading) (§4, §8). The core is complete and restrained, with purpose real, freshness explicit, and the decision loop closed; what remains is the deeper loops, the boundaries, and the real world — to be added without eroding any of the above.
 
 ---
 
-*This is the first Review / Consolidation paper after the reasoning core was completed in code. It summarizes Implementations 001–006 and is **updated for Implementation 007 (Purpose-first `athlete`) and Implementation 008 (projection freshness)**; it makes no new domain or architectural decisions and modifies no module.*
+*This is the first Review / Consolidation paper after the reasoning core was completed in code. It summarizes Implementations 001–006 and is **updated for Implementation 007 (Purpose-first `athlete`), 008 (projection freshness), and 009 (AthleteDecision feedback)**; it makes no new domain or architectural decisions and modifies no module.*
 
 *Inputs: [Foundation Index](../README.md) · [Domain Modeling Index](../domain-modeling/README.md) · [Technical Boundary Map](./TECHNICAL_BOUNDARY_MAP.md) · [System Map](../diagrams/SYSTEM_MAP.md) · [Spec 001](../specs/001-observation-set-intake.md) · [Spec 002](../specs/002-signal-detection.md) · [Spec 003](../specs/003-hypothesis-lifecycle.md) · [Spec 004](../specs/004-understanding-update.md) · [Spec 005](../specs/005-decision-support-voice.md) · [Spec 006](../specs/006-end-to-end-responsible-reflection.md)*

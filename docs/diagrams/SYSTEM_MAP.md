@@ -4,15 +4,17 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 008):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 009):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
-> Implementation 007 added a thin, **Purpose-first `athlete` module** — Aurora's first real *given*
-> upstream context (declared, versioned, append-only purpose). Implementation 008 made **projection
-> freshness explicit** on `UnderstandingAssessment` (a derived view can never quietly become a fact;
-> non-current freshness only lowers the voice, via the existing `SafeVoiceCeiling`). The remaining
-> absences (UI/API/DB/LLM/event-bus/FIT/**full** athlete model/**generic projection engine**/
-> production service) are **intentional**, not gaps. See
+> Implementation 007 added a thin, **Purpose-first `athlete` module** (declared, versioned, append-only
+> purpose). Implementation 008 made **projection freshness explicit** on `UnderstandingAssessment`
+> (a derived view can never quietly become a fact; non-current freshness only lowers the voice, via the
+> existing `SafeVoiceCeiling`). Implementation 009 closed the **AthleteDecision feedback loop** — the
+> athlete's decision returns as athlete-owned `Observation`, **referenced not owned**, with no obedience
+> scoring or outcome-based validation. The remaining absences (UI/API/DB/LLM/event-bus/FIT/**full**
+> athlete model/**generic projection engine**/**full DecisionOutcome**/production service) are
+> **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
@@ -35,8 +37,9 @@
 
 ```mermaid
 flowchart LR
-    subgraph ATH["Athlete (context, not a stage) — Purpose-first ✅ Impl 007"]
+    subgraph ATH["Athlete (context, not a stage) — Purpose ✅ Impl 007 · AthleteDecision ✅ Impl 009"]
       A2["Purpose (declarado, versionado, append-only)<br/>PurposeHistory · PurposeVersion · PurposeChanged"]
+      AD["AthleteDecision (athlete-owned, append-only) ✅ Impl 009<br/>DecisionChoice · DecisionRationale · DecisionContext<br/>DecisionOutcomeRef (solo referencia) · amend/supersede<br/>divergedFromSupport = hecho neutral, NO score"]
       A1["Identidad (ref only, slice fino)"]
       A3["Constraints (aún no implementado)"]
       A4["Path-dependent memory (aún no implementado)"]
@@ -55,7 +58,8 @@ flowchart LR
     U -. "proyecta (derivado, no fuente de verdad)" .-> UA
     UA -. "freshness clampa SafeVoiceCeiling → gate existente" .-> D
     D --> OUT
-    OUT -. "la decisión del atleta vuelve como nueva observación (AthleteDecision, aún no implementado)" .-> O
+    OUT -. "el atleta decide (referenciado, no poseído): DecisionSupportCase guarda solo AthleteDecisionRef" .-> AD
+    AD -. "AthleteDecision → SubjectiveObservation (adapter neutral); NO obediencia, NO score, NO Evidence directo" .-> O
 
     ATH -. context .-> O
     A2 -. "PurposeVersionRef como contexto (Hypothesis.purposeContextRef), no evidencia" .-> R
@@ -82,6 +86,17 @@ and reads no freshness directly. The `RefreshPolicy` is **pure, deterministic, s
 (by source-ref intersection) and **conservative**; **refresh = recompute** a new view, never edit the
 old one. There is **no generic projection engine and no top-level `projection` module** — freshness is
 local to `understanding` for this one projection.
+
+[FACT] **AthleteDecision feedback loop (Implementation 009).** The athlete's decision is an
+**athlete-owned, append-only** `AthleteDecision` inside `athlete` — `decision-support` records **only an
+`AthleteDecisionRef`** (referenced, never owned). The loop's return arrow goes **back to Observation**:
+a reported decision re-enters as a `SubjectiveObservation` via a **neutral harness adapter** (`athlete`
+imports no `observation`), then travels the **full ladder** (Signal → EvidenceCase → Hypothesis →
+Understanding) — **never** jumping straight to Signal/Evidence/Understanding. `divergedFromSupport` is
+**neutral fact, not a compliance score**; following ≠ obedience-success, not-following ≠ failure; a
+**modification is first-class** (no binary compliance); `DecisionOutcomeRef` is a **reference only** (no
+full outcome object), and a **good/bad outcome never grades `SupportQuality`** (integrity-at-the-time).
+There is **no compliance/obedience scoring and no outcome-based validation**.
 
 [FACT] **End-to-end proof (Implementation 006).** A single synthetic chain runs all five stages and
 lands on `DecisionSupport` with `VoiceMode: Reflection`. A single `supported` outcome earns
@@ -116,6 +131,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | — | **End-to-end proof** | `src/modules/__tests__` | First full chain composed; output `DecisionSupport` · `VoiceMode: Reflection` (not Recommendation) | ✅ Impl 006 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
+| ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
 
 ---
 
@@ -153,31 +169,42 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | stale/partial/invalid/unknown **≠** permission to recommend | Non-current freshness can only *constrain*; invalid/unknown → ceiling `none` → `Withholding`. |
 | `SafeVoiceCeiling` clamp **≠** decision-support owning freshness | The consumer reads the clamped ceiling; it never reads freshness — `decision-support` was not modified. |
 | local freshness slice **≠** generic projection engine | Freshness lives in `understanding` for one projection; no engine / no `projection` module exists. |
+| `AthleteDecision` **≠** Aurora output | The decision is the athlete's fact, not Aurora's product (Impl 009). |
+| `AthleteDecisionRef` **≠** ownership | A reference recorded after the fact; `decision-support` never owns/mutates the decision. |
+| divergence **≠** noncompliance · following **≠** obedience-success · not-following **≠** failure | `divergedFromSupport` is neutral fact; no valence/score is produced. |
+| `DecisionOutcomeRef` **≠** outcome judgement | A handle to a separate, later observation; the outcome never grades the support. |
+| `AthleteDecision → Observation` **≠** `AthleteDecision → Evidence` | Re-entry is observation-only; the full ladder runs afterward. |
+| `SupportQuality` **≠** outcome quality | Integrity at the time of support; a good/bad outcome does not change it. |
+| decision pattern **≠** athlete label | A pattern must become a falsifiable hypothesis; no personality tag / compliance profile. |
+| decision rationale **≠** declared-purpose overwrite | Rationale may prompt inquiry/hypothesis; purpose changes only by athlete declaration/acceptance. |
 
 ---
 
 ## What the System Still Does Not Have (intentional)
 
-[FACT] The reasoning core is complete in code, `athlete` exists Purpose-first, and projection
+[FACT] The reasoning core is complete in code; `athlete` holds Purpose + AthleteDecision; projection
 freshness is explicit on `UnderstandingAssessment`; the following are **deliberately absent**, not
 failures:
 
 - **No UI** · **No API** · **No DB / persistence** · **No cache**
 - **No LLM rendering** boundary (generated text must never become domain truth)
-- **No event bus** (`PurposeChanged` and refresh triggers are returned/derived values, not bus events)
+- **No event bus** (`PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus events)
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
-- **No *full* `athlete` model** — the Purpose-first slice is implemented; **inferred state, capacity,
+- **No *full* `athlete` model** — Purpose + AthleteDecision slices are implemented; **inferred state, capacity,
   readiness, fatigue, constraints, and path-dependent memory are not** (risk still enters as a placeholder)
+- **No compliance/obedience scoring and no outcome-based validation** (Impl 009): `divergedFromSupport` is
+  neutral fact; the outcome never grades `SupportQuality`; **no full `DecisionOutcome` object / no pattern engine**
 - **No reinterpretation engine** (the `PurposeReinterpretationStatus` type ships; the engine does not)
 - **No generic projection engine and no top-level `projection` module** — freshness is local to
   `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
-- **No production orchestration service** (cross-module purpose/refresh seams live in the neutral test harness)
+- **No production orchestration service** (cross-module purpose/refresh/decision seams live in the neutral test harness)
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
-likely to erode them are introduced. **Spec 007 (purpose change) and Spec 008 (projection freshness)
-are done (Impl 007/008).** The next responsible missions (Spec 009 athlete-decision loop, reasoning
-purpose-version awareness, then persistence/event surface and input adapters) add the rest without
-collapsing any distinction above. See the Core Completion Review for the full ledger.
+likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness), and
+Spec 009 (athlete-decision feedback) are done (Impl 007/008/009).** The next responsible missions
+(reasoning purpose-version awareness & reinterpretation engine, then persistence/event surface and
+input adapters) add the rest without collapsing any distinction above. See the Core Completion Review
+for the full ledger.
 
 ---
 
@@ -190,12 +217,12 @@ collapsing any distinction above. See the Core Completion Review for the full le
 - Dependencies flow up the ladder only: `observation → reasoning → understanding → decision-support`,
   with `Athlete` and `Understanding` as cross-cutting contexts. Lower modules never import higher ones
   (enforced by dependency-boundary tests in each module's `tests/`).
-- `athlete` (Impl 007) is an **upstream leaf**: it imports only `shared-kernel` and **never** imports
-  `observation`/`reasoning`/`understanding`/`decision-support`. Purpose reaches downstream through
-  **explicit seams** — a `PurposeVersionRef` context handle into `Hypothesis.purposeContextRef`, a
-  `PurposeContext` into `decision-support`, and selective `markUnderstandingStale("purpose-change")`
-  into `understanding` — applied by neutral harness/application adapters, not by `athlete` reaching out
-  (enforced by `athlete`'s boundary test).
+- `athlete` (Impl 007 + 009) is an **upstream leaf**: it imports only `shared-kernel` and **never** imports
+  `observation`/`reasoning`/`understanding`/`decision-support`. Purpose and decisions reach downstream
+  through **explicit seams** — a `PurposeVersionRef` context handle into `Hypothesis.purposeContextRef`, a
+  `PurposeContext` into `decision-support`, selective `markUnderstandingStale("purpose-change")` into
+  `understanding`, and an `AthleteDecision` → `SubjectiveObservation` re-entry — all applied by neutral
+  harness/application adapters, not by `athlete` reaching out (enforced by `athlete`'s boundary test).
 
 ---
 
