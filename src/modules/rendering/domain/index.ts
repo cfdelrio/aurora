@@ -36,3 +36,31 @@ export { validateDraft } from "./rendering-validator.ts";
 export type { ValidateDraftInput } from "./rendering-validator.ts";
 
 export { fakeRender, fakeRenderText, render } from "./fake-renderer.ts";
+
+// Rendered-message review / persistence (Impl 015) — auditable presentation records, downstream only.
+export {
+  renderedMessageRecordId,
+  newRenderedMessageRecordId,
+  renderReviewId,
+  newRenderReviewId,
+} from "./ids.ts";
+export type { RenderedMessageRecordId, RenderReviewId } from "./ids.ts";
+
+export {
+  RENDER_REVIEW_DECISIONS,
+  APPENDABLE_REVIEW_DECISIONS,
+  RENDER_REVIEW_REASONS,
+  isRenderReviewReason,
+  renderReview,
+} from "./render-review.ts";
+export type { RenderReview, RenderReviewDecision, RenderReviewReason, ReviewerKind } from "./render-review.ts";
+
+export { RenderedMessageRecord } from "./rendered-message-record.ts";
+export type {
+  RenderedMessageRecordState,
+  RenderingStatus,
+  PreservedFlags,
+} from "./rendered-message-record.ts";
+
+export { displayEligibilityOf } from "./display-eligibility.ts";
+export type { DisplayEligibility } from "./display-eligibility.ts";
