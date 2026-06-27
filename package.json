@@ -1,0 +1,24 @@
+{
+  "name": "aurora",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Aurora — sports performance reasoning. Domain-first; code records, it does not interpret.",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "check": "npm run typecheck && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/cfdelrio/aurora"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^5.9.3"
+  }
+}
