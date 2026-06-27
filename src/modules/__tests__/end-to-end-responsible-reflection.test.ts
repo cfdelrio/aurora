@@ -370,7 +370,8 @@ test("the produced output is the SUCCESS case: Reflection is the correct, modest
 // ----------------------------------------------------------------------------------------------
 const here = dirname(fileURLToPath(import.meta.url));
 const modulesDir = join(here, ".."); // __tests__ -> modules
-const ALLOWED_MODULES = new Set(["observation", "reasoning", "understanding", "decision-support"]);
+// `athlete` is the approved upstream-context module added in Implementation 007 (Purpose-first).
+const ALLOWED_MODULES = new Set(["observation", "reasoning", "understanding", "decision-support", "athlete"]);
 const MODULE_SURFACES = ["observation/index", "reasoning/index", "understanding/index", "decision-support/index"];
 
 function collectTsFiles(dir: string): string[] {
