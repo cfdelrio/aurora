@@ -4,10 +4,12 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 
-> **Note on the source image:** a rendered PNG of this map was provided. The binary asset is not
-> committed here (it was not available as a file to this tooling); if you want the raster too, drop
-> it at [`aurora-system-map.png`](./aurora-system-map.png) and it will sit beside this document.
-> This Markdown/Mermaid version is the canonical, diffable source of truth for the map's content.
+> **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
+> source of truth** for the system map. Edit the map here.
+>
+> **The PNG is a derived export, not a source.** A rendered raster (`aurora-system-map.png`) may be
+> added beside this file *later*, once a corrected, final version exists — strictly as a derived
+> render of this document, never as the principal artifact. It is intentionally not committed now.
 
 ---
 
