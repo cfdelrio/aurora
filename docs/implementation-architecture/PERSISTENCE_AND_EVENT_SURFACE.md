@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 011).** **Two parts of this paper are now realized.**
+> **Implementation status (post Impl 012).** **Three parts of this paper are now realized.**
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -24,13 +24,20 @@
 > new **dependency-neutral `event-recording` module**: one `DomainEventRecord` (categories
 > `occurrence`/`outcome`) over a **closed 26-type catalog**, a reusable `TraceabilityEnvelope`,
 > **ref-only** `EventPayloadRef` payloads, an **append-only** `DomainEventRecordLog` + repository port +
-> in-memory adapter, and `causation`/`correlation` as lineage/grouping only. The module imports **only
-> `shared-kernel`**; no domain module imports it. Records are **append-only, ref-only, non-command,
-> non-bus**: appending executes nothing; payloads carry refs, never copied aggregate state; records do
-> **not** replace aggregate repositories. **Still future work:** the **reprojection harness** (§7, Spec
-> 012), a **projection repository** (§6), and any **event bus / production event store / serialization
-> format / production DB / ORM / cache / persistence backend / event sourcing**. This paper is otherwise
-> unchanged.
+> in-memory adapter, and `causation`/`correlation` as lineage/grouping only. Records are **append-only,
+> ref-only, non-command, non-bus**: appending executes nothing; payloads carry refs, never copied
+> aggregate state; records do **not** replace aggregate repositories.
+> **(3) Impl 012** realized §1.6/§7 — a **neutral, check-only reprojection harness** (test-support under
+> `src/modules/__tests__/reprojection-harness/`, **not a production module**): it recomputes
+> `UnderstandingAssessment` through the owning `understanding` function, **recalculates** the 5-state
+> freshness, **verifies** traceability, **detects candidates** from `DomainEventRecord`s (context only),
+> and **reports** drift/findings. It **mutates no repository**, **never replays events as commands**,
+> **never rebuilds aggregates from the log** (empty repos → `event-record-only`/`missing-source`),
+> **never promotes freshness** or strengthens voice, and creates **no** `TerminalOutput`/recommendation/
+> `SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`. **Still future work:** a **production
+> scheduler**, **event bus**, **event sourcing**, a **projection repository** (§6), a **production
+> orchestration/service layer**, and any **production event store / serialization format / DB / ORM /
+> cache / persistence backend**. This paper is otherwise unchanged.
 
 ---
 

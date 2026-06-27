@@ -4,6 +4,22 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 012).** A **neutral, check-only reprojection harness** now exists as
+> **test-support / coordination** under `src/modules/__tests__/reprojection-harness/` — **not a production
+> module** (no `src/modules/reprojection`). It is the cross-module coordinator (like the purpose/decision
+> adapters): it composes `understanding`, `event-recording`, and read access to repositories, and **no
+> production module depends on it**. It **recomputes** `UnderstandingAssessment` *through the owning module's
+> existing function*, **recalculates** freshness, reads **event records as candidates/context only**, and
+> **reports** drift/findings. **Reprojection is not event sourcing and not a write path:** `check-only` is
+> the only implemented mode (it mutates no repository, appends no record, creates no `TerminalOutput`/
+> recommendation/`SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`); it never replays events
+> as commands and never rebuilds aggregates from the log (empty repos → `event-record-only`/`missing-source`);
+> `refresh-derived`/`mark-stale` are reserved and throw. The support-seam picture is now: **repositories
+> preserve aggregate *state* (Impl 010) · event records preserve *occurrence history* (Impl 011) ·
+> reprojection *recomputes derived views and reports drift/freshness* (Impl 012) — none replaces the
+> others.** No architecture decision below is superseded; **no scheduler / event bus / event sourcing /
+> projection repository / production service layer** exists. The note below is the prior (Impl 011) status.
+>
 > **Implementation status (post Impl 011).** A new **dependency-neutral `event-recording` module** now
 > realizes the **event surface** (§8 here) and the persistence paper's event records: an **append-only,
 > ref-only** `DomainEventRecord` (categories `occurrence`/`outcome`) over a **closed catalog**, with a

@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 011):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 012):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -18,9 +18,14 @@
 > **append-only, ref-only** `DomainEventRecord` log (categories `occurrence`/`outcome`) with a
 > `TraceabilityEnvelope`, recording *what happened* **without** becoming a command, copied state, a
 > projection, source truth, a bus, or event sourcing — **complementing** the aggregate repositories, not
-> replacing them. The remaining absences (UI/API/**production persistence & event store**/LLM/**event
-> bus**/FIT/**full** athlete model/**generic projection engine**/**full DecisionOutcome**/**reprojection
-> harness**/**event sourcing**/production service) are **intentional**, not gaps. See
+> replacing them. Implementation 012 added a **neutral check-only reprojection harness** (test-support,
+> **not a production module**) that recomputes `UnderstandingAssessment` through the owning module,
+> recalculates freshness, detects candidates from event records (context only), and **reports**
+> drift/findings — **mutating nothing, executing no event, rebuilding nothing from the log, promoting no
+> freshness, and turning no projection into truth**. The remaining absences (UI/API/**production
+> persistence & event store**/LLM/**event bus**/FIT/**full** athlete model/**generic projection
+> engine**/**full DecisionOutcome**/**production reprojection service & scheduler & projection
+> repository**/**event sourcing**/production service) are **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
@@ -75,6 +80,7 @@ flowchart LR
     subgraph SEAMS["Support seams (no son etapas del razonamiento)"]
       PERSIST["Persistencia ✅ Impl 010<br/>repository ports + in-memory adapters<br/>toState()/reconstitute() validado<br/>guarda el estado del aggregate (copias, no refs vivas)<br/>responde: ¿qué ES el aggregate ahora?"]
       EVREC["event-recording ✅ Impl 011<br/>DomainEventRecord (occurrence/outcome) · catálogo cerrado<br/>TraceabilityEnvelope · EventPayloadRef (ref-only)<br/>log append-only · causation=linaje / correlation=grupo<br/>responde: ¿qué PASÓ? — NO comando, NO bus, NO ejecución"]
+      REPRO["reprojection-harness ✅ Impl 012<br/>(test-support neutral, NO módulo productivo)<br/>check-only · recompute UnderstandingAssessment vía understanding<br/>recalcula freshness · detecta candidatos desde event records (contexto)<br/>reporta drift/findings · NO muta, NO ejecuta, NO reconstruye, NO promueve<br/>responde: ¿qué vistas derivadas recomputar / marcar stale?"]
     end
 
     LADDER["Etapas 1–5 + Athlete (ocurrencias)"]
@@ -84,7 +90,24 @@ flowchart LR
     LADDER -. "ocurrencias → registro (append-only, ref-only); NO ejecuta nada" .-> EVREC
     LADDER -. "aggregates ⇄ estado (round-trip validado)" .-> PERSIST
     EVREC -. "complementa, NO reemplaza, los repositories" .- PERSIST
+    PERSIST -. "estado actual del aggregate (read)" .-> REPRO
+    EVREC -. "candidatos/contexto (NO replay, NO comando, NO rebuild)" .-> REPRO
+    REPRO -. "recompute vía understanding (no razona, no muta)" .- U
+    REPRO -. "reporta drift/freshness/findings (no overwrite, no output)" .-> REPRO
 ```
+
+[FACT] **Reprojection is a neutral, check-only support seam (Implementation 012), not a stage and not a
+production module.** It lives under `src/modules/__tests__/reprojection-harness/`. It answers *"given
+current aggregate/source state and occurrence history, what derived views should be recomputed or
+considered stale?"* — it **recomputes** `UnderstandingAssessment` **through the owning `understanding`
+function** (it coordinates, it does not reason), **recalculates** the 5-state freshness (re-deriving only
+the **same or a more cautious** view — never promoting), reads **event records as candidates/context
+only**, and **reports** drift/findings. The dashed edges into it are **reads**, not control flow: a run
+**executes no event, rebuilds no aggregate from the log** (empty repos → `event-record-only`/
+`missing-source`), **mutates no repository**, and creates **no** `TerminalOutput`/recommendation/
+`SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`. `check-only` is the only implemented
+mode; `refresh-derived`/`mark-stale` are reserved and throw. There is **no production `reprojection`
+module, scheduler, event sourcing, or projection repository**.
 
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
@@ -174,6 +197,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
 | 💾 | **Persistence** *(seam around aggregates, not a stage)* | each module's `application/` | Validated `toState()`/`reconstitute()` + repository ports (`save`/`findById`/`exists`) + in-memory adapters for the 6 boundaries; state copies (deep-copied), invalid-state rejected, round-trip preserves invariants/traceability/freshness/history. **No** DB/ORM/schema/migrations / event bus / cache / `infrastructure` / projection repository | ✅ Impl 010 |
 | 🧾 | **Event recording** *(seam beside persistence, not a stage)* | `event-recording` | `DomainEventRecord` (occurrence/outcome) over a closed 26-type catalog; `TraceabilityEnvelope`; **ref-only** `EventPayloadRef`; **append-only** `DomainEventRecordLog` + repository port + in-memory adapter; causation=lineage, correlation=grouping; validated on construct *and* reconstitute. Records *what happened* (refs, never copied state); **complements**, never replaces, the repositories. **No** event bus / publish-subscribe / handlers / async delivery / DB / schema / serialization / event sourcing; imports only `shared-kernel`; no domain module imports it | ✅ Impl 011 |
+| 🔁 | **Reprojection** *(neutral check-only seam, not a stage, not a module)* | `__tests__/reprojection-harness` | `runReprojection` + `ReprojectionRun`/`Result`/`Finding`/`Mode`/`Target`/`InputSet`; recomputes `UnderstandingAssessment` via the owning module; recalculates freshness; pure event→candidate map; reports drift/findings. `check-only` only (`refresh-derived`/`mark-stale` reserved + throw). **Mutates nothing**, executes no event, rebuilds no aggregate from the log, promotes no freshness, creates no output. **No** production `reprojection` module / scheduler / event sourcing / projection repository / service layer; no domain module imports it | ✅ Impl 012 |
 
 ---
 
@@ -238,6 +262,15 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | `AthleteDecisionRecorded` event **≠** compliance score | The record carries no obedience/compliance/outcome-correctness field. |
 | `ProjectionFreshnessChanged` event **≠** projection made current | It carries a freshness *status label*; it cannot assert a view `current`. |
 | event record **≠** aggregate repository | Records answer *what happened?*; repositories answer *what is the aggregate now?* — complementary seams, neither replaces the other. |
+| reprojection harness **≠** production service | Impl 012 is a neutral test-support seam under `__tests__/`; no production `reprojection` module/service exists. |
+| check-only **≠** a write path | The only implemented mode reads and reports; `refresh-derived`/`mark-stale` are reserved and throw. |
+| reprojection **≠** event sourcing | A run recomputes derived views from current state; it never rebuilds aggregates from the event log (`reconstitute` is the rebuild path). |
+| event records as candidates **≠** event execution | Events identify *what to check* via a pure map; appending/considering them executes nothing. |
+| recomputed projection **≠** source truth | A recompute is a labeled view; the `UnderstandingProfile` aggregate remains the truth. |
+| drift report **≠** overwrite | Divergence is reported (`changed` + differences); the stored view/repository is never overwritten. |
+| freshness recalculation **≠** freshness promotion | A run re-derives the same or a more cautious freshness; completing a run never makes a view `current`. |
+| stale/invalid finding **≠** recommendation · DecisionSupport review finding **≠** `TerminalOutput` | A finding is diagnostic; it creates no athlete-facing output and no terminal output. |
+| `AthleteDecision` outcome **≠** `SupportQuality` rewrite · purpose-related stale finding **≠** `Purpose` overwrite | Outcome never grades support; a purpose-change can mark a view stale but never edits `Purpose`/understanding. |
 
 ---
 
@@ -245,8 +278,8 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 
 [FACT] The reasoning core is complete in code; `athlete` holds Purpose + AthleteDecision; projection
 freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-memory repositories**
-(Impl 010); **event/outcome records are an append-only, ref-only log** (Impl 011); the following are
-**deliberately absent**, not failures:
+(Impl 010); **event/outcome records are an append-only, ref-only log** (Impl 011); **reprojection is a
+neutral check-only harness** (Impl 012); the following are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
 - **No LLM rendering** boundary (generated text must never become domain truth)
@@ -260,16 +293,16 @@ freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-
 - **No reinterpretation engine** (the `PurposeReinterpretationStatus` type ships; the engine does not)
 - **No generic projection engine and no top-level `projection` module** — freshness is local to
   `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
-- **No reprojection harness** — recomputing derived state from sources/records is Spec 012
-- **No production orchestration service** (cross-module purpose/refresh/decision/record seams live in the neutral test harness)
+- **No production reprojection service / scheduler / projection repository** — reprojection is proven as a *neutral check-only harness* (Impl 012); a production recompute service, an event-driven/scheduled refresh, and a projection store are deferred
+- **No production orchestration service** (cross-module purpose/refresh/decision/record/reprojection seams live in the neutral test harness)
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
-Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), and Spec 011
-(domain event/outcome records + traceability envelope) are done (Impl 007/008/009/010/011).** The next
-responsible missions (Spec 012 reprojection harness, then the reasoning reinterpretation engine, then a
-real persistence/ingestion/transport backend) add the rest without collapsing any distinction above. See
-the Core Completion Review for the full ledger.
+Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
+(domain event/outcome records + traceability envelope), and Spec 012 (reprojection harness) are done
+(Impl 007/008/009/010/011/012).** The next responsible missions (a real input-adapter / ingestion
+boundary, then the reasoning reinterpretation engine, then a production recompute/transport backend) add
+the rest without collapsing any distinction above. See the Core Completion Review for the full ledger.
 
 ---
 
@@ -301,6 +334,14 @@ the Core Completion Review for the full ledger.
   `shared-kernel`**. Application/harness coordination composes records from domain refs; the records are
   append-only, ref-only, and inert — they **complement** the repositories, never replace them, and there is
   **no event bus, handler, async delivery, or event sourcing**.
+- **Reprojection (Impl 012)** lives in `src/modules/__tests__/reprojection-harness/` as a **neutral
+  test-support / coordination seam — not a production module**. It is the cross-module coordinator (like the
+  purpose/decision adapters): it imports the modules it coordinates (`understanding`, `event-recording`,
+  read access to repositories) and **no production module imports it** (enforced by a structural guard). It
+  **recomputes only through the owning module's functions** (`produceUnderstandingAssessment`,
+  `applyFreshness`), is **check-only** (mutates nothing; `refresh-derived`/`mark-stale` reserved + throw),
+  reads **event records as candidates/context only**, and **reports** drift/findings. There is **no
+  production `reprojection` module, scheduler, event sourcing, or projection repository** (structural guard).
 
 ---
 
