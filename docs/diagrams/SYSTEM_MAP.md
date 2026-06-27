@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 016):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 017):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -43,8 +43,15 @@
 > re-derives it), calls the sink **only** when eligible *and* the target is the supported `test-sink`, and
 > **blocks** every ineligible/unsupported request — **without becoming domain authority, mutating the
 > rendered record or any aggregate, emitting an event, or triggering reasoning/reprojection/retry**;
-> **delivery success is not evidence and delivery failure is not domain invalidation**. The remaining
-> absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
+> **delivery success is not evidence and delivery failure is not domain invalidation**. Implementation 017
+> added a **provider adapter seam** *inside* `rendering` — a **deterministic fake provider** that replaces
+> **only** the draft-text step behind the **unchanged mandatory `validateDraft`**: a provider produces an
+> **untrusted `ProviderDraft`**, and a `RenderedMessage` exists **only** if that draft passes the validator;
+> an unsafe request is refused **before** the provider call and any provider failure/unsafe draft **degrades
+> to safe non-rendering**. The provider **never** selects/changes `VoiceMode`, creates a `TerminalOutput`/
+> `Recommendation`/`RenderedMessage`/record, persists/reviews/marks-display-eligible/delivers, emits an
+> event, or mutates the domain — and **no real provider SDK/API/network/prompt and no new provider/LLM
+> module** exist. The remaining absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
 > ingestion/**delivery & rendered-output events**/**production persistence & event store**/**event
 > bus**/**scheduler & retry**/**full** athlete model/**generic projection engine**/**full
 > DecisionOutcome**/**production reprojection service & projection repository**/**event sourcing**/production
@@ -98,6 +105,9 @@ flowchart LR
     REND["Rendering ✅ Impl 014 (downstream, NO dominio)<br/>RenderableDomainOutput (proyección read-only)<br/>fake renderer determinístico + validator OBLIGATORIO<br/>preserva voz/incertidumbre/limitaciones/freshness/traza/agencia<br/>voz puede igualar o suavizar, NUNCA escalar<br/>NO autoridad · NO selecciona voz · NO muta · NO evento · NO persiste"]
     HUMAN["Texto humano (presentación)<br/>RenderedMessage — NO es fuente de verdad"]
     OUT -- "presentación: expresa el TerminalOutput (no decide, no escala voz)" --> REND
+    PROV["Provider seam ✅ Impl 017 (DENTRO de rendering, fake/test-only)<br/>FakeProviderAdapter determinístico · reemplaza SOLO el paso draft-text<br/>ProviderRenderingRequest (constrained: sin chain-of-thought / handle / override)<br/>ProviderDraft = texto NO confiable · NO selecciona voz · NO crea TerminalOutput/Recommendation<br/>request inseguro → rechazado ANTES de llamar al provider<br/>NO SDK/API/network/prompt · NO persiste/review/display/delivery/evento/dominio"]
+    PROV -- "draft NO confiable → validateDraft OBLIGATORIO (la autoridad)" --> REND
+    PROV -. "provider failure / draft inseguro → safe non-rendering (sin RenderedMessage)" .-> PROV
     REND --> HUMAN
     RREC["Registro/Review de presentación ✅ Impl 015 (dentro de rendering)<br/>RenderedMessageRecord (append-only, auditable)<br/>RenderReview (display-safety) · status derivado<br/>DisplayEligibility derivada (no delivery, no aprobación de dominio)<br/>repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO muta dominio · NO evento · NO delivery"]
     REND -- "registra/revisa artefacto de presentación (auditoría, no autoridad)" --> RREC
@@ -209,6 +219,27 @@ validated reconstitution). **`delivery` imports only `shared-kernel` + read-only
 provider/channel, UI/API, scheduler, retry, or event bus**. *A delivered message is still a presentation
 artifact, never authority; exposing it never makes it true.*
 
+[FACT] **Provider adapter seam — the safest way to add a generation provider (Implementation 017).**
+*Inside* `rendering` (not a new module), the provider seam replaces **only** the draft-text step the
+`FakeRenderer` performs: `requestProviderRendering` builds a **constrained `ProviderRenderingRequest`** from
+the authoritative `RenderingRequest` (carrying only domain-approved fields — no raw reasoning, no
+chain-of-thought, no mutable handle, no override-voice/hide-uncertainty/prompt-injection field), asks a
+`ProviderAdapter` (the deterministic **`FakeProviderAdapter`**) for an **untrusted `ProviderDraft`**, and
+feeds that draft into the **unchanged mandatory `validateDraft({ draft, renderable, request })`**. **A
+`RenderedMessage` exists only if the validator passes** — the provider can never construct one. The seam is
+**one-way and constrain-only**: an **unsafe request is refused before the provider call** (closed
+`ProviderFailure`: `unsupported-style`/`unsupported-locale`/`unsafe-provider-request`), a provider failure
+maps to a closed reason (`provider-unavailable`/`-timeout`/`-rate-limited` are **fake-configurable**, no real
+semantics), and a **validation failure** maps to `provider-output-failed-validation` with the underlying
+`RenderingFailure[]` — **every** failure path **degrades to safe non-rendering**. The provider **selects no
+voice**, creates no `TerminalOutput`/`Recommendation`/`RenderedMessage`/`RenderedMessageRecord`, and
+**persists/reviews/marks-display-eligible/delivers/emits-an-event/mutates nothing**; there is **no arrow**
+from the provider to DecisionSupport/Observation/Reasoning/Understanding/Athlete, to the record/review, to
+display eligibility, or to delivery. The seam imports only its own `rendering` surfaces + read-only
+`decision-support` *types*; **no module outside `rendering` imports it**, and there is **no real provider
+SDK/API/network/prompt and no `provider`/`llm` top-level module**. *A provider drafts; the validator decides;
+the domain stays the source of truth.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -296,6 +327,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🗣 | **Rendering** *(downstream presentation, not a reasoning stage, not domain)* | `rendering` | `RenderableDomainOutput` (read-only projection) → deterministic fake renderer + **mandatory validator** → `RenderedMessage`/`RenderOutcome`; voice may match/soften, never escalate; Inquiry stays a question, Withholding a refusal; uncertainty/limitations/freshness/traceability preserved; invented facts/escalation/unsafe requests rejected (safe non-render). Not domain authority; mutates/emits nothing; imports only `shared-kernel` + read-only `decision-support` types. **No** real LLM provider / prompt / UI / API / external call | ✅ Impl 014 |
 | 🗄 | **Rendered-message record / review** *(audit of presentation, not domain; inside rendering)* | `rendering` (`domain`+`application`) | Append-only `RenderedMessageRecord` (source ref/kind/voice/flags preserved) + append-only `RenderReview` (closed catalogs; display-safety) + derived `DisplayEligibility`; repository port + in-memory adapter (mutation isolation, validated reconstitution). Auditability not authority; approval/rejection touch no domain; failed never display-eligible; revision/supersession preserve the old record. **No** events / delivery / production DB / UI / API / provider | ✅ Impl 015 |
 | 📤 | **Delivery / exposure** *(downstream exposure, not rendering, not domain)* | `delivery` (`domain`+`application`) | `requestDelivery` verifies `displayEligibilityOf(record)` (never re-derives), exposes only display-eligible records to a deterministic `InMemoryTestSink`, records an auditable `DeliveryRecord` (closed `DeliveryTarget`/`DeliveryOutcome`/`DeliveryFailureReason`; only `test-sink` supported); repository port + in-memory adapter (mutation isolation, validated reconstitution). Blocks not-reviewed/rejected/superseded/failed-render/missing-ref/unsupported-target without calling the sink. Success ≠ evidence; failure ≠ domain invalidation; mutates no rendered record/aggregate; imports only `shared-kernel` + read-only `rendering`. **No** event-recording / event catalog expansion / real provider/channel / UI / API / scheduler / retry / event bus / production DB | ✅ Impl 016 |
+| 🔌 | **Provider adapter seam** *(draft source behind rendering, fake/test-only, not a stage, not a module)* | `rendering` (`domain`+`application`) | `requestProviderRendering` builds a constrained `ProviderRenderingRequest` (rejects unsafe style/locale/empty before any call), `ProviderAdapter`/deterministic `FakeProviderAdapter` returns an untrusted `ProviderDraft`, then the **unchanged `validateDraft`** decides; `RenderedMessage` only if it passes. Closed `ProviderFailure` (network-flavored members fake-configurable); validation failure → `provider-output-failed-validation` + underlying `RenderingFailure[]`; every failure → safe non-rendering. Provider selects no voice, creates no `TerminalOutput`/`Recommendation`/`RenderedMessage`/record, persists/reviews/marks-display-eligible/delivers/emits/mutates nothing; imports only own `rendering` surfaces + read-only `decision-support` types. **No** real SDK / API / network / prompt templates / provider-LLM module / persistence / events / delivery side effect | ✅ Impl 017 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -402,6 +434,12 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | delivery audit **≠** event record · delivery repository **≠** production DB · no delivery event **≠** missing auditability | A `DeliveryRecord` is not a `DomainEventRecord`; the repo is in-memory; auditability comes from the record, not from events. |
 | accepted/delivered outcome **≠** athlete outcome · delivered text **≠** source truth | A delivery result is not the athlete's decision/outcome; delivered text re-enters only if the athlete reports it via the manual adapter. |
 | delivery retry/scheduler **≠** implemented · `accepted-for-delivery` **≠** produced this slice | No retry/scheduler/event-bus exists; `accepted-for-delivery` is a reserved (future two-phase) outcome, not produced by the single-shot service. |
+| provider draft **≠** rendered message · provider adapter **≠** renderer authority | A `ProviderDraft` is untrusted text; only `validateDraft` produces a `RenderedMessage` — the validator, not the provider, is the authority (Impl 017). |
+| provider draft **≠** domain truth · **≠** `TerminalOutput`/`Recommendation`/`Evidence`/`Observation`/`Understanding`/`AthleteDecision` | A provider draft carries no domain field/write path; it never becomes any domain artifact. |
+| provider draft **≠** rendered-message record · provider success **≠** display eligibility · provider success **≠** delivery | A successful provider rendering produces a transient `RenderedMessage` only; it records/reviews/marks-eligible/delivers nothing. |
+| provider failure **≠** domain invalidation · validation failure **≠** review rejection | A provider/validation failure degrades to safe non-rendering; it leaves the domain output and the review/record untouched. |
+| fake provider **≠** real provider integration · provider seam **≠** SDK/API/network/prompt implementation | The seam is deterministic and in-process; a real adapter would implement the same `ProviderAdapter` port behind the same validator, later. |
+| provider request **≠** raw private reasoning | `ProviderRenderingRequest` carries only domain-approved fields; chain-of-thought / hypotheses / mutable handles / override fields are unrepresentable. |
 
 ---
 
@@ -414,10 +452,12 @@ neutral check-only harness** (Impl 012); **a real manual "data in" boundary reco
 `ObservationSet`s** (Impl 013); **a deterministic "output out" rendering boundary expresses terminal
 outputs as human-facing text** (Impl 014); **rendered messages are conserved + reviewed as auditable
 presentation artifacts** (Impl 015); **a downstream delivery boundary exposes display-eligible messages to a
-deterministic test sink + audit records** (Impl 016); the following are **deliberately absent**, not failures:
+deterministic test sink + audit records** (Impl 016); **a provider adapter seam inside `rendering` lets a
+deterministic fake provider draft text behind the unchanged mandatory validator** (Impl 017); the following
+are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
-- **No real LLM provider / prompt templates** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014); a real provider goes behind the same validator; generated text must never become domain truth
+- **No real LLM provider / SDK / prompt templates** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), and Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`; a real provider would implement the same `ProviderAdapter` port behind the same validator; **no real SDK/API/network/prompt-templates-as-code and no `provider`/`llm` module** exist; generated/drafted text must never become domain truth
 - **No real delivery provider/channel** — the delivery boundary is proven with a **deterministic `InMemoryTestSink`** (Impl 016); a real channel would implement the same `DeliverySink` interface behind the same eligibility gate; **delivery success/failure never affects domain state**
 - **No rendered-output or delivery event records** — a `RenderedMessageRecord`/`DeliveryRecord` is **not** an event record; `rendering` and `delivery` import no `event-recording` and the catalog is not expanded (Impl 015/016)
 - **No scheduler / retry / background-job layer** — `requestDelivery` is synchronous and deterministic; retries/cancellation lifecycles are deferred (Impl 016)
@@ -438,12 +478,13 @@ deterministic test sink + audit records** (Impl 016); the following are **delibe
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
 (domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), Spec 013
-(manual input adapter), Spec 014 (rendering boundary), Spec 015 (rendered-message record/review), and Spec
-016 (delivery boundary) are done (Impl 007/008/009/010/011/012/013/014/015/016).** The next responsible
-missions (a **provider adapter** behind the same rendering validator, or a **delivery event surface**
-recording delivery occurrences as ref-only events — chosen explicitly, one at a time — then a real
-channel/transport and storage backend and the reasoning reinterpretation engine) add the rest without
-collapsing any distinction above. See the Core Completion Review for the full ledger.
+(manual input adapter), Spec 014 (rendering boundary), Spec 015 (rendered-message record/review), Spec
+016 (delivery boundary), and Spec 017 (provider adapter seam) are done
+(Impl 007/008/009/010/011/012/013/014/015/016/017).** The next responsible missions (a **real provider
+integration boundary** behind the same `ProviderAdapter` port + unchanged validator, or a **provider-attempt
+audit** / **delivery event surface** recording occurrences as ref-only events — chosen explicitly, one at a
+time — then a real channel/transport and storage backend and the reasoning reinterpretation engine) add the
+rest without collapsing any distinction above. See the Core Completion Review for the full ledger.
 
 ---
 
@@ -520,6 +561,16 @@ collapsing any distinction above. See the Core Completion Review for the full le
   `ALLOWED_MODULES` set, and the Impl 015 forbidden-layer test dropped its now-obsolete `delivery` entry.
   There is **no `src/{api,ui,infrastructure}` and no `src/modules/{provider,channel,notification,scheduler,
   event-bus,llm}`**, **no real channel/provider**, and **no event catalog expansion** (structural guard).
+- **Provider adapter seam (Impl 017)** lives **inside `rendering`** (no new module): `domain/`
+  (`provider-rendering-request.ts` + the `providerRenderingRequestFrom` guard, `provider-draft.ts`,
+  `provider-failure.ts`) and `application/` (`provider-adapter.ts` port, `fake-provider-adapter.ts`,
+  `provider-rendering-service.ts`), surfaced additively from `rendering/index.ts`. The provider files import
+  only their own `rendering` surfaces + read-only `decision-support` *types* (type-only); they import **no**
+  `observation`/`reasoning`/`understanding`/`athlete`/`event-recording`/`delivery`, and **no module outside
+  `rendering` imports the seam** (structural guards). The service reuses the **unchanged** `validateDraft`;
+  there is **no `src/{providers,prompts,api,ui,infrastructure}` and no `src/modules/{provider,llm,openai,
+  anthropic,model}`**, **no SDK/network/`process.env`/prompt token** (structural guard), and the slice was
+  **additive** — **no documented blocker was needed**.
 
 ---
 

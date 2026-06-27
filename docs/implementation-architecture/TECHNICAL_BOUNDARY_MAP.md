@@ -4,6 +4,26 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 017).** The **`rendering`** module now also owns a **provider adapter
+> seam** (inside `rendering/domain` + `rendering/application`, **not a new module**): a constrained
+> **`ProviderRenderingRequest`** (+ `providerRenderingRequestFrom` guard), an untrusted **`ProviderDraft`**, a
+> closed **`ProviderFailure`** catalog, a **`ProviderAdapter`** port, a deterministic **`FakeProviderAdapter`**,
+> and a **`requestProviderRendering`** service. The provider **replaces only the draft-text step** the
+> `FakeRenderer` performs: it produces an untrusted draft that becomes a `RenderedMessage` **only** by passing
+> the **unchanged mandatory `validateDraft`** — the validator, not the provider, remains the authority.
+> **Allowed imports** unchanged: `shared-kernel` + read-only `decision-support` *types* + own `rendering`
+> domain/application. **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/
+> **`event-recording`**/**`delivery`**; **no module outside `rendering` imports the provider seam**. **The
+> provider is a draft source, not authority:** it **never** selects/changes `VoiceMode`, creates a
+> `TerminalOutput`/`Recommendation`/`RenderedMessage`/`RenderedMessageRecord`, persists/reviews/marks-display-
+> eligible/delivers, emits an event, or mutates the domain; an **unsafe request is refused before the provider
+> call** and any provider failure/unsafe draft **degrades to safe non-rendering** (a validation failure →
+> `provider-output-failed-validation` + the underlying `RenderingFailure[]`). The seam is **fake/test-only**:
+> **no real SDK/API/network/`process.env`/prompt-templates-as-code**, and **no `provider`/`llm`/`openai`/
+> `anthropic`/`model` top-level module**. Module count is still **nine** (Impl 017 added no module). The slice
+> was **additive** — **no documented blocker was needed**. No architecture decision below is superseded. The
+> note below is the prior (Impl 016) status.
+>
 > **Implementation status (post Impl 016).** A new **`delivery`** module now realizes the first
 > **delivery / exposure** boundary — **downstream exposure**, not rendering and not domain. It **exposes** a
 > *display-eligible* `RenderedMessageRecord` to a target and records the attempt: `requestDelivery` **verifies**

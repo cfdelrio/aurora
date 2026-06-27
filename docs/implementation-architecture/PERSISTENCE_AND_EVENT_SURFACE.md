@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 016).** **Seven parts of this paper are now realized.**
+> **Implementation status (post Impl 017).** **Seven parts of this paper are now realized.**
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -69,7 +69,15 @@
 > no rendered-message record and no domain aggregate** and **triggers no reasoning/reprojection/retry**. A
 > **`DeliveryRecord` is not an event record** — **`delivery` imports no `event-recording`** and the **event
 > catalog is not expanded**.
-> **Still future work:** **delivery event records / a delivery event surface**; a **real provider/channel
+> **(Impl 017 — provider adapter seam; no persistence change.)** Impl 017 added a **provider adapter seam
+> inside `rendering`** (a deterministic **fake provider** behind the unchanged mandatory `validateDraft`): a
+> provider produces an **untrusted `ProviderDraft`**, and a `RenderedMessage` exists **only** if that draft
+> passes `validateDraft`. This slice **adds no persistence**: **provider drafts are not persisted** (they are
+> not source truth and not event records), **only validated `RenderedMessage`s** may *later* be persisted as
+> rendered-message records (Impl 015), and provider success/failure **triggers no review / display-eligibility /
+> delivery / event / domain mutation**. **Provider attempts are not persisted**; **provider events remain
+> future**; **a real provider SDK/API/network/prompt and a production DB/schema remain future.**
+> **Still future work:** **provider-attempt persistence / provider events**; **delivery event records / a delivery event surface**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
