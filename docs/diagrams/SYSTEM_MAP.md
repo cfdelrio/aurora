@@ -4,11 +4,13 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Core Completion Review):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 007):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
-> The remaining absences (UI/API/DB/LLM/event-bus/FIT/athlete module/production service) are
-> **intentional**, not gaps. See [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
+> Implementation 007 added a thin, **Purpose-first `athlete` module** — Aurora's first real *given*
+> upstream context (declared, versioned, append-only purpose). The remaining absences
+> (UI/API/DB/LLM/event-bus/FIT/**full** athlete model/production service) are **intentional**, not
+> gaps. See [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
 > source of truth** for the system map. Edit the map here.
@@ -30,12 +32,12 @@
 
 ```mermaid
 flowchart LR
-    subgraph ATH["Athlete (context, not a stage)"]
-      A1["Identidad"]
-      A2["Purpose"]
-      A3["Constraints"]
-      A4["Path-dependent memory"]
-      A5["El atleta no es sus métricas"]
+    subgraph ATH["Athlete (context, not a stage) — Purpose-first ✅ Impl 007"]
+      A2["Purpose (declarado, versionado, append-only)<br/>PurposeHistory · PurposeVersion · PurposeChanged"]
+      A1["Identidad (ref only, slice fino)"]
+      A3["Constraints (aún no implementado)"]
+      A4["Path-dependent memory (aún no implementado)"]
+      A5["Athlete posee contexto declarado, no verdad inferida"]
     end
 
     O["1 · Observación<br/>(module: observation)<br/>ObservationSet · observaciones crudas<br/>Provenance / Source / Quality<br/>Self-report · Missing data"]
@@ -49,9 +51,19 @@ flowchart LR
     OUT -. "la decisión del atleta vuelve como nueva observación (AthleteDecision, aún no implementado)" .-> O
 
     ATH -. context .-> O
-    ATH -. context .-> R
-    ATH -. context .-> D
+    A2 -. "PurposeVersionRef como contexto (Hypothesis.purposeContextRef), no evidencia" .-> R
+    A2 -. "PurposeChanged → staleness selectiva (vía adapter), no mutación directa" .-> U
+    A2 -. "Purpose → purposeContext; PurposeGate exige alineación con purpose actual" .-> D
 ```
+
+[FACT] **Athlete / Purpose is now an implemented upstream context (Impl 007), Purpose-only.** It is
+**not** a pipeline stage and **not** the full Athlete aggregate. The edges from `Purpose` are
+**explicit seams**, not hidden coupling: `athlete` imports no downstream module; purpose reaches
+`reasoning` as a `PurposeVersionRef` *context handle* (carried in the existing
+`Hypothesis.purposeContextRef` slot — **context, not evidence**), reaches `understanding` only as
+**selective staleness** applied by a neutral adapter (**never a direct mutation, never a global
+reset**), and reaches `decision-support` as a `PurposeContext` the `PurposeGate` evaluates (**purpose
+context ≠ voice** — the case still selects the `VoiceMode`).
 
 [FACT] **End-to-end proof (Implementation 006).** A single synthetic chain runs all five stages and
 lands on `DecisionSupport` with `VoiceMode: Reflection`. A single `supported` outcome earns
@@ -84,6 +96,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 4 | **Understanding** | `understanding` | `UnderstandingProfile`, dimension-specific, `UnderstandingLevel`, survived challenge, surprise/staleness, `SafeVoiceCeiling` | ✅ Impl 004 |
 | 5 | **Decision Support / Voz** | `decision-support` | `DecisionSupportCase`, gates, `TraceabilityVerification`, `VoiceSelectionPolicy`, `VoiceMode` (Reflection/Framing/Warning/Recommendation), terminal outputs, preserved agency | ✅ Impl 005 |
 | — | **End-to-end proof** | `src/modules/__tests__` | First full chain composed; output `DecisionSupport` · `VoiceMode: Reflection` (not Recommendation) | ✅ Impl 006 |
+| ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 
 ---
 
@@ -99,7 +112,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 
 ## Distinctions the Map Must Not Collapse
 
-[FACT] Four pairs the code keeps as distinct, unrepresentable-to-confuse concepts:
+[FACT] Pairs the code keeps as distinct, unrepresentable-to-confuse concepts:
 
 | Distinct concepts | Why they are not the same |
 |---|---|
@@ -107,24 +120,35 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | `Signal` **≠** `Evidence` | A `Signal` asserts only *possible relevance to a future question*. It becomes an `EvidenceCase` **only** when attached inside a `Hypothesis` — there is no standalone evidence. |
 | `ClaimConfidence` **≠** `UnderstandingLevel` | Confidence is *in a claim* (calibrated, defeasible, per-hypothesis); understanding level is *in Aurora's grasp of this athlete* (per-dimension, earned by survived challenge). The `ReasoningOutcome` adapter deliberately drops claim confidence so it cannot leak into understanding. |
 | `DecisionSupportCase` **≠** `AthleteDecision` | Aurora owns the *integrity of support*; the athlete owns the *decision*. The case only **references** an `AthleteDecision` after the fact (`AthleteDecisionRef`); it never owns one. |
+| thin `Athlete`/`Purpose` module **≠** full `Athlete` aggregate | Only the Purpose slice is implemented (Impl 007); state/capacity/constraints/path-memory are not. |
+| declared `Purpose` **≠** inferred athlete state | `athlete` owns the *given* (athlete-declared/accepted, versioned); it never holds readiness/capacity/fatigue/current-state. |
+| `PurposeChanged` **≠** reasoning rewrite | A purpose change appends history and may stale understanding selectively; it never edits or auto-falsifies prior hypotheses. |
+| `PurposeVersionRef` **≠** proof old reasoning used the new purpose | It is a context handle tagging which purpose was in force; it does not retroactively re-evaluate past reasoning. |
+| revealed behavior **≠** declared purpose | Behavior may create an inquiry/hypothesis about a mismatch; it never silently overwrites the athlete's declared purpose. |
+| purpose context **≠** decision-support voice | Purpose feeds the `PurposeGate`; the case still selects the `VoiceMode`. |
+| selective staleness **≠** global understanding reset | A purpose change stales only the named dimension(s); other dimensions stay fresh. |
 
 ---
 
 ## What the System Still Does Not Have (intentional)
 
-[FACT] The reasoning core is complete in code; the following are **deliberately absent**, not failures:
+[FACT] The reasoning core is complete in code and `athlete` now exists Purpose-first; the following
+are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No DB / persistence**
 - **No LLM rendering** boundary (generated text must never become domain truth)
-- **No event bus**
+- **No event bus** (`PurposeChanged` is a returned/derived value, not a bus event)
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
-- **No real `athlete` module** (purpose/risk/constraints enter as placeholders)
-- **No production orchestration service** (the end-to-end seam is an integration test harness)
+- **No *full* `athlete` model** — the Purpose-first slice is implemented; **inferred state, capacity,
+  readiness, fatigue, constraints, and path-dependent memory are not** (risk still enters as a placeholder)
+- **No reinterpretation engine** (the `PurposeReinterpretationStatus` type ships; the engine does not)
+- **No production orchestration service** (cross-module purpose seams live in the neutral test harness)
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
-likely to erode them are introduced. The next responsible missions (Spec 007 purpose change, Spec 008
-projection refresh, Spec 009 athlete-decision loop, then persistence/event surface and input adapters)
-add these without collapsing any distinction above. See the Core Completion Review for the full ledger.
+likely to erode them are introduced. **Spec 007 (purpose change) is done (Impl 007).** The next
+responsible missions (Spec 008 projection refresh, Spec 009 athlete-decision loop, reasoning
+purpose-version awareness, then persistence/event surface and input adapters) add the rest without
+collapsing any distinction above. See the Core Completion Review for the full ledger.
 
 ---
 
@@ -137,6 +161,12 @@ add these without collapsing any distinction above. See the Core Completion Revi
 - Dependencies flow up the ladder only: `observation → reasoning → understanding → decision-support`,
   with `Athlete` and `Understanding` as cross-cutting contexts. Lower modules never import higher ones
   (enforced by dependency-boundary tests in each module's `tests/`).
+- `athlete` (Impl 007) is an **upstream leaf**: it imports only `shared-kernel` and **never** imports
+  `observation`/`reasoning`/`understanding`/`decision-support`. Purpose reaches downstream through
+  **explicit seams** — a `PurposeVersionRef` context handle into `Hypothesis.purposeContextRef`, a
+  `PurposeContext` into `decision-support`, and selective `markUnderstandingStale("purpose-change")`
+  into `understanding` — applied by neutral harness/application adapters, not by `athlete` reaching out
+  (enforced by `athlete`'s boundary test).
 
 ---
 
