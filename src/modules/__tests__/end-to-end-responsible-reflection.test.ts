@@ -373,6 +373,8 @@ const modulesDir = join(here, ".."); // __tests__ -> modules
 // `athlete` is the approved upstream-context module added in Implementation 007 (Purpose-first).
 // `event-recording` is the dependency-neutral occurrence-log module added in Implementation 011
 // (imports only shared-kernel; no domain module imports it; not part of this e2e flow).
+// `rendering` is the downstream presentation boundary added in Implementation 014 (imports only
+// shared-kernel + read-only decision-support types; no domain module imports it; not part of this e2e flow).
 const ALLOWED_MODULES = new Set([
   "observation",
   "reasoning",
@@ -380,6 +382,7 @@ const ALLOWED_MODULES = new Set([
   "decision-support",
   "athlete",
   "event-recording",
+  "rendering",
 ]);
 const MODULE_SURFACES = ["observation/index", "reasoning/index", "understanding/index", "decision-support/index"];
 
