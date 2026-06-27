@@ -12,7 +12,26 @@ import type { ReasoningOutcome } from "./reasoning-outcome.ts";
 import { applyOutcome, markStaleDimension } from "./update-policy.ts";
 import type { UnderstandingLevel } from "./understanding-level.ts";
 import type { UnderstandingAssessment } from "./understanding-assessment.ts";
-import { deriveSafeVoiceCeiling } from "./understanding-assessment.ts";
+import { clampCeilingByFreshness, deriveSafeVoiceCeiling } from "./understanding-assessment.ts";
+import type { ProjectionFreshness, StalenessReason } from "./projection-freshness.ts";
+import { currentFreshness, projectionFreshness } from "./projection-freshness.ts";
+import { projectionLimitations, projectionSourceRef, projectionTrace } from "./projection-source-ref.ts";
+import type { ProjectionSourceRef } from "./projection-source-ref.ts";
+
+function freshnessFromStaleness(staleness: { status: string; reason?: string; since?: Timestamp }): ProjectionFreshness {
+  if (staleness.status !== "stale") {
+    return currentFreshness();
+  }
+  const reason: StalenessReason =
+    staleness.reason === "purpose-change"
+      ? "purpose-change"
+      : staleness.reason === "staleness"
+        ? "time-decay"
+        : "context-changed"; // constraint-change / context-shift / anything else
+  return staleness.since === undefined
+    ? projectionFreshness("stale", [reason])
+    : projectionFreshness("stale", [reason], staleness.since);
+}
 
 export type StaleReason = "staleness" | "purpose-change" | "constraint-change" | "context-shift";
 
@@ -82,7 +101,7 @@ export class UnderstandingProfile {
   }
 
   /** A read-only assessment for a dimension. Never recommends, never selects a voice. */
-  assess(dimensionKey: string): UnderstandingAssessment | undefined {
+  assess(dimensionKey: string, at?: Timestamp): UnderstandingAssessment | undefined {
     const d = this._dimensions.get(dimensionKey);
     if (d === undefined) {
       return undefined;
@@ -94,14 +113,28 @@ export class UnderstandingProfile {
         ? [`stale: ${d.staleness.reason}`]
         : []),
     ];
-    return Object.freeze({
+    // Freshness is the single freshness-based lowering: compute a freshness-FREE base ceiling, then
+    // clamp by freshness (derived from staleness). This reproduces the prior stale/fragility result
+    // without double-counting, and lets richer freshness states (set later) lower it further.
+    const freshness = freshnessFromStaleness(d.staleness);
+    const baseCeiling = deriveSafeVoiceCeiling(d.level, d.fragility, { status: "fresh" });
+    const safeVoiceCeiling = clampCeilingByFreshness(baseCeiling, freshness);
+    const refs: ProjectionSourceRef[] = [
+      projectionSourceRef("understanding-profile", String(this.id)),
+      ...d.traces.map((t) => projectionSourceRef("hypothesis", String(t.hypothesisId))),
+    ];
+    const base = {
       dimension: d.dimension,
       level: d.level,
       fragility: d.fragility,
       staleness: d.staleness,
-      safeVoiceCeiling: deriveSafeVoiceCeiling(d.level, d.fragility, d.staleness),
+      safeVoiceCeiling,
       reasons: Object.freeze(reasons),
       trace: d.traces,
-    });
+      freshness,
+      sourceRefs: projectionTrace(refs),
+      limitations: projectionLimitations(),
+    };
+    return Object.freeze(at === undefined ? base : { ...base, derivedAt: at });
   }
 }

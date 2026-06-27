@@ -21,12 +21,14 @@ export function updateUnderstandingFromOutcome(input: UpdateFromOutcomeInput): U
 export interface ProduceAssessmentInput {
   readonly profile: UnderstandingProfile;
   readonly dimensionKey: string;
+  /** when this assessment is derived; populates the projection's derived-at (optional) */
+  readonly at?: Timestamp;
 }
 
 export function produceUnderstandingAssessment(
   input: ProduceAssessmentInput,
 ): UnderstandingAssessment | undefined {
-  return input.profile.assess(input.dimensionKey);
+  return input.profile.assess(input.dimensionKey, input.at);
 }
 
 export interface MarkStaleInput {
