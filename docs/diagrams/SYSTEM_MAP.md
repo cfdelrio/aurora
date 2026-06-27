@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 010):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 011):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -14,9 +14,13 @@
 > obedience scoring. Implementation 010 added **persistence ports + in-memory repositories + validated
 > `toState()`/`reconstitute()`** so every aggregate round-trips without corrupting invariants,
 > traceability, freshness, or ownership — **with no production DB/ORM/schema/event-bus/cache/infrastructure
-> chosen**. The remaining absences (UI/API/**production persistence**/LLM/event-bus/event-records/FIT/
-> **full** athlete model/**generic projection engine**/**full DecisionOutcome**/production service) are
-> **intentional**, not gaps. See
+> chosen**. Implementation 011 added the **dependency-neutral `event-recording` module** — an
+> **append-only, ref-only** `DomainEventRecord` log (categories `occurrence`/`outcome`) with a
+> `TraceabilityEnvelope`, recording *what happened* **without** becoming a command, copied state, a
+> projection, source truth, a bus, or event sourcing — **complementing** the aggregate repositories, not
+> replacing them. The remaining absences (UI/API/**production persistence & event store**/LLM/**event
+> bus**/FIT/**full** athlete model/**generic projection engine**/**full DecisionOutcome**/**reprojection
+> harness**/**event sourcing**/production service) are **intentional**, not gaps. See
 > [`../implementation-architecture/CORE_COMPLETION_REVIEW.md`](../implementation-architecture/CORE_COMPLETION_REVIEW.md).
 
 > **Canonical source:** this Markdown/Mermaid document is the **canonical, maintainable, versionable
@@ -67,7 +71,29 @@ flowchart LR
     A2 -. "PurposeVersionRef como contexto (Hypothesis.purposeContextRef), no evidencia" .-> R
     A2 -. "PurposeChanged → staleness selectiva (vía adapter), no mutación directa" .-> U
     A2 -. "Purpose → purposeContext; PurposeGate exige alineación con purpose actual" .-> D
+
+    subgraph SEAMS["Support seams (no son etapas del razonamiento)"]
+      PERSIST["Persistencia ✅ Impl 010<br/>repository ports + in-memory adapters<br/>toState()/reconstitute() validado<br/>guarda el estado del aggregate (copias, no refs vivas)<br/>responde: ¿qué ES el aggregate ahora?"]
+      EVREC["event-recording ✅ Impl 011<br/>DomainEventRecord (occurrence/outcome) · catálogo cerrado<br/>TraceabilityEnvelope · EventPayloadRef (ref-only)<br/>log append-only · causation=linaje / correlation=grupo<br/>responde: ¿qué PASÓ? — NO comando, NO bus, NO ejecución"]
+    end
+
+    LADDER["Etapas 1–5 + Athlete (ocurrencias)"]
+    O -.- LADDER
+    D -.- LADDER
+    AD -.- LADDER
+    LADDER -. "ocurrencias → registro (append-only, ref-only); NO ejecuta nada" .-> EVREC
+    LADDER -. "aggregates ⇄ estado (round-trip validado)" .-> PERSIST
+    EVREC -. "complementa, NO reemplaza, los repositories" .- PERSIST
 ```
+
+[FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
+in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
+`event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
+The dashed edges into them are **observational, not control flow** — a stage's occurrence is *recorded*,
+never *commanded*; appending a `DomainEventRecord` executes nothing. The two seams **complement** each
+other and never merge: a record references artifacts (by `kind`+`id`), it never copies aggregate state,
+and the log is **not** an event-sourcing rebuild path (aggregates rebuild via `reconstitute`). There is
+**no event bus, publish/subscribe, handler, or async delivery** anywhere in the map.
 
 [FACT] **Athlete / Purpose is now an implemented upstream context (Impl 007), Purpose-only.** It is
 **not** a pipeline stage and **not** the full Athlete aggregate. The edges from `Purpose` are
@@ -146,7 +172,8 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
-| 💾 | **Persistence** *(seam around aggregates, not a stage)* | each module's `application/` | Validated `toState()`/`reconstitute()` + repository ports (`save`/`findById`/`exists`) + in-memory adapters for the 6 boundaries; state copies (deep-copied), invalid-state rejected, round-trip preserves invariants/traceability/freshness/history. **No** DB/ORM/schema/migrations / event bus / cache / `infrastructure` / projection repository / event records | ✅ Impl 010 |
+| 💾 | **Persistence** *(seam around aggregates, not a stage)* | each module's `application/` | Validated `toState()`/`reconstitute()` + repository ports (`save`/`findById`/`exists`) + in-memory adapters for the 6 boundaries; state copies (deep-copied), invalid-state rejected, round-trip preserves invariants/traceability/freshness/history. **No** DB/ORM/schema/migrations / event bus / cache / `infrastructure` / projection repository | ✅ Impl 010 |
+| 🧾 | **Event recording** *(seam beside persistence, not a stage)* | `event-recording` | `DomainEventRecord` (occurrence/outcome) over a closed 26-type catalog; `TraceabilityEnvelope`; **ref-only** `EventPayloadRef`; **append-only** `DomainEventRecordLog` + repository port + in-memory adapter; causation=lineage, correlation=grouping; validated on construct *and* reconstitute. Records *what happened* (refs, never copied state); **complements**, never replaces, the repositories. **No** event bus / publish-subscribe / handlers / async delivery / DB / schema / serialization / event sourcing; imports only `shared-kernel`; no domain module imports it | ✅ Impl 011 |
 
 ---
 
@@ -199,6 +226,18 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | traceability refs **≠** database foreign keys | The domain trace is reference handles; any FK would be an adapter detail, not the meaning. |
 | projection-freshness survival helper **≠** projection repository | Freshness survival is proven by a test `Map`; no production projection store exists. |
 | state copy **≠** live domain-object reference | Adapters deep-copy on save and load; two finds are independent. |
+| event record **≠** command | A `DomainEventRecord` records *what happened*; appending executes/mutates nothing (Impl 011). |
+| event record **≠** aggregate · **≠** projection · **≠** source truth | It references artifacts; the aggregate/projection/source remains authoritative and is resolved from the refs. |
+| event record **≠** event-bus message | Records are stored, never delivered/dispatched; there is no bus, publish/subscribe, or handler. |
+| event log **≠** event sourcing | The log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log. |
+| payload ref **≠** copied state | `EventPayloadRef` is `kind`/`id`/`role?`/`ownerModule?` only; copied state / arbitrary bags are unrepresentable. |
+| traceability envelope **≠** database foreign key | The envelope carries domain `kind`+`id` handles; it invents no traceability and uses no FK. |
+| causation **≠** handler trigger · correlation **≠** command chain | Causation is lineage, correlation is grouping; neither executes anything. |
+| `DomainEventRecordRepository` **≠** production event store | Impl 011 is an append-only in-memory log; no store/serialization tech is chosen. |
+| `TerminalOutputSelected` event **≠** `AthleteDecision` | It records the output kind via a `DecisionSupportCase` ref + role; it is not the athlete's decision. |
+| `AthleteDecisionRecorded` event **≠** compliance score | The record carries no obedience/compliance/outcome-correctness field. |
+| `ProjectionFreshnessChanged` event **≠** projection made current | It carries a freshness *status label*; it cannot assert a view `current`. |
+| event record **≠** aggregate repository | Records answer *what happened?*; repositories answer *what is the aggregate now?* — complementary seams, neither replaces the other. |
 
 ---
 
@@ -206,11 +245,13 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 
 [FACT] The reasoning core is complete in code; `athlete` holds Purpose + AthleteDecision; projection
 freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-memory repositories**
-(Impl 010); the following are **deliberately absent**, not failures:
+(Impl 010); **event/outcome records are an append-only, ref-only log** (Impl 011); the following are
+**deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
 - **No LLM rendering** boundary (generated text must never become domain truth)
-- **No event bus** (`PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus events)
+- **No event bus / publish-subscribe / handlers / async delivery** — event records are *stored, never delivered or executed*; `PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus messages
+- **No event sourcing / production event store / serialization format** — the `event-recording` log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log
 - **No Garmin/FIT adapter** (the first input is a synthetic fixture)
 - **No *full* `athlete` model** — Purpose + AthleteDecision slices are implemented; **inferred state, capacity,
   readiness, fatigue, constraints, and path-dependent memory are not** (risk still enters as a placeholder)
@@ -219,16 +260,16 @@ freshness is explicit on `UnderstandingAssessment`; **persistence is ports + in-
 - **No reinterpretation engine** (the `PurposeReinterpretationStatus` type ships; the engine does not)
 - **No generic projection engine and no top-level `projection` module** — freshness is local to
   `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
-- **No event records / event bus** — the persistence paper's event surface is conceptual; records are Spec 011
-- **No production orchestration service** (cross-module purpose/refresh/decision seams live in the neutral test harness)
+- **No reprojection harness** — recomputing derived state from sources/records is Spec 012
+- **No production orchestration service** (cross-module purpose/refresh/decision/record seams live in the neutral test harness)
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
-Spec 009 (athlete-decision feedback), and Spec 010 (persistence ports + in-memory repositories) are
-done (Impl 007/008/009/010).** The next responsible missions (Spec 011 domain event/outcome records +
-traceability envelope, then the reasoning reinterpretation engine, then a real persistence/ingestion
-backend) add the rest without collapsing any distinction above. See the Core Completion Review for the
-full ledger.
+Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), and Spec 011
+(domain event/outcome records + traceability envelope) are done (Impl 007/008/009/010/011).** The next
+responsible missions (Spec 012 reprojection harness, then the reasoning reinterpretation engine, then a
+real persistence/ingestion/transport backend) add the rest without collapsing any distinction above. See
+the Core Completion Review for the full ledger.
 
 ---
 
@@ -252,6 +293,14 @@ full ledger.
   import only their **owning module + `shared-kernel`** (enforced by a persistence-boundary test); there is
   **no `src/infrastructure`** and **no `persistence`/`repositories` module**. The store preserves the
   model; it never becomes it.
+- **Event recording (Impl 011)** lives in `src/modules/event-recording/` as a **dependency-neutral** leaf
+  beside `shared-kernel`: `domain/` (the `DomainEventRecord`, closed catalog, `TraceabilityEnvelope`,
+  ref-only `EventPayloadRef`, append-only `DomainEventRecordLog`) + `application/` (the repository **port**
+  + **in-memory adapter**). It **imports only `shared-kernel`** and **no domain module imports it** (enforced
+  by `event-recording`'s boundary + negative-capability tests); the **event catalog stays out of
+  `shared-kernel`**. Application/harness coordination composes records from domain refs; the records are
+  append-only, ref-only, and inert — they **complement** the repositories, never replace them, and there is
+  **no event bus, handler, async delivery, or event sourcing**.
 
 ---
 

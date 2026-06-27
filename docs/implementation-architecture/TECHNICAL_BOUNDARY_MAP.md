@@ -4,6 +4,20 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 011).** A new **dependency-neutral `event-recording` module** now
+> realizes the **event surface** (§8 here) and the persistence paper's event records: an **append-only,
+> ref-only** `DomainEventRecord` (categories `occurrence`/`outcome`) over a **closed catalog**, with a
+> reusable `TraceabilityEnvelope` and an in-memory log + repository port. It **imports only
+> `shared-kernel`** and **no domain module imports it** (the event catalog stays out of `shared-kernel`,
+> so the kernel never becomes event-aware); application/harness coordination composes records from domain
+> refs. The persistence/event boundary now reads: **repositories preserve aggregate *state* (Impl 010);
+> event records preserve *occurrence history* (Impl 011); neither replaces the other.** An event record is
+> **not a command** — appending executes/mutates nothing; payloads carry **refs, not copied state**;
+> causation/correlation are lineage/grouping, never an execution chain; and there is **no event bus,
+> publish/subscribe, handler, async delivery, or event sourcing**. No architecture decision below is
+> superseded; the module count is now **seven** (the six below + `event-recording`). The note below is the
+> prior (Impl 010) status.
+>
 > **Implementation status (post Impl 010).** Persistence is now realized as **repository ports +
 > in-memory adapters + validated `toState()`/`reconstitute()`** per aggregate (Spec/Impl 010), in each
 > module's `application/` layer — **no production DB/ORM/schema/migrations, no event bus, no cache, no
