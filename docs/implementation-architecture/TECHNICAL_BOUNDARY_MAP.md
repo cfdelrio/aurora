@@ -4,6 +4,34 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 024).** The **`event-recording`** module — untouched since Impl 011 —
+> now also realizes a **provider/rendering/delivery occurrence event surface** (inside `event-recording`,
+> **not a new module**), as an **additive catalog expansion + pure factories**. `domain/` additively extends
+> the closed catalogs: **`ProducingModule` += `rendering`/`delivery`** (provider events are produced by
+> `rendering`; **no `provider` producing module**), **`EventArtifactKind` += `ProviderAttemptRecord`/
+> `RenderedMessageRecord`/`RenderReview`/`DeliveryRequest`/`DeliveryRecord`** (`DisplayEligibility` is id-less →
+> a ref **`role`**, not a kind), and **`DomainEventType` += eight occurrence/outcome types** (the catalog is now
+> **34 types: 26 reasoning-core + 8 output-out**) — every prior entry intact. `application/` adds **eight pure
+> factories** that build a `DomainEventRecord` through the **existing** `DomainEventRecord.record(...)` and
+> **return** it — they **persist nothing**, **call no provider/transport/validator/renderer/delivery sink**,
+> **create no rendered-message record/review/delivery record/provider attempt**, **mutate no domain**, and have
+> **no side effect** (recording is **explicit application composition only**). Payloads stay **ref-only and
+> raw-free** (`kind`/`id`/`role?`/`ownerModule?`; no raw draft/prompt/payload/secret/env value/chain-of-thought/
+> copied body/metadata bag). **Allowed imports**: `event-recording`'s own `domain/` + `shared-kernel`.
+> **Forbidden imports**: any `rendering`/`delivery`/provider path — `event-recording` stays **dependency-neutral**
+> (imports only `shared-kernel`; referencing an artifact by **string kind is not a cross-module import**); and
+> **rendering/delivery/provider import no `event-recording` and auto-emit nothing**. **Guard strategy:** the two
+> earlier "catalog not extended" guards (Impl 015/018) were **reconciled, not weakened** — the post-024 boundary
+> is stronger and more precise: approved event-vocabulary **strings** are allowed in `event-recording`, while
+> cross-module imports and the rendering-internal audit symbols (`auditProviderAttempt`, the audit repository)
+> stay forbidden outside `rendering`, and the factories stay pure. **No event bus / queue / scheduler / telemetry
+> / DB / auto-emission / persistence-as-events**, and **no SDK/package change** (devDeps stay `typescript` +
+> `@types/node`). Module count is still **nine** (Impl 024 added no module). The slice was **additive** — only
+> the catalog files, `event-recording/application/index.ts` exports, the new factory file, and the guard
+> reconciliation were touched; **no documented blocker.** **Events record what happened; they make nothing
+> happen.** No architecture decision below is superseded. The note below is the prior (Impl 023) status.
+>
+
 > **Implementation status (post Impl 023).** The **`rendering`** module now also owns the first
 > **one-file process-environment source adapter** (inside `rendering/application`, **not a new module**): a
 > **`ProcessEnvironmentCredentialSourceAdapter`** (+ `ProcessEnvironmentAccessor`, the

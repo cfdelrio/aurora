@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 023).** **Eight parts of this paper are now realized** (Impl 020, Impl 021, Impl 022, and Impl 023 add no persistence).
+> **Implementation status (post Impl 024).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -55,7 +55,9 @@
 > source truth / `Evidence` / `Observation` / `Understanding` / `DecisionSupport` / `AthleteDecision`; approval
 > changes no domain (voice/traceability/freshness/`SupportQuality`); rejection invalidates nothing; failed
 > attempts are auditable but never display-eligible; a **`RenderedMessageRecord` is not an event record** —
-> **`rendering` imports no `event-recording`** and the **event catalog is not expanded**; nothing triggers delivery.
+> **`rendering` imports no `event-recording`** and **auto-emits nothing** (Impl 024 later added a ref-only
+> `RenderedMessageRecorded`/`RenderReviewRecorded` event type that may *reference* such a record by id, but
+> `rendering` neither imports `event-recording` nor emits one); nothing triggers delivery.
 > **(7) Impl 016** added a **delivery audit repository** — a **new downstream `delivery` module** that
 > **exposes** a *display-eligible* `RenderedMessageRecord` to a **deterministic test-only sink** and records
 > the attempt as an **auditable `DeliveryRecord`** behind a **repository port + in-memory adapter** (deep-copy
@@ -67,8 +69,9 @@
 > not source truth / `Evidence` / `Observation` / `Understanding` / `DecisionSupport` / `AthleteDecision`;
 > **delivery success is not evidence** and **delivery failure is not domain invalidation**; delivery **mutates
 > no rendered-message record and no domain aggregate** and **triggers no reasoning/reprojection/retry**. A
-> **`DeliveryRecord` is not an event record** — **`delivery` imports no `event-recording`** and the **event
-> catalog is not expanded**.
+> **`DeliveryRecord` is not an event record** — **`delivery` imports no `event-recording`** and **auto-emits
+> nothing** (Impl 024 later added ref-only `DeliveryRequestRecorded`/`DeliveryOutcomeRecorded` event types that
+> may *reference* such a record by id, but `delivery` neither imports `event-recording` nor emits one).
 > **(Impl 017 — provider adapter seam; no persistence change.)** Impl 017 added a **provider adapter seam
 > inside `rendering`** (a deterministic **fake provider** behind the unchanged mandatory `validateDraft`): a
 > provider produces an **untrusted `ProviderDraft`**, and a `RenderedMessage` exists **only** if that draft
@@ -88,8 +91,10 @@
 > outcome and **does not call** the provider/`requestProviderRendering`/`validateDraft`; a **validation failure
 > is not domain invalidation**; and recording **triggers no review / display-eligibility / delivery / event /
 > retry / reprojection / reasoning / domain mutation**. A **`ProviderAttemptRecord` is not an event record** —
-> the audit **imports no `event-recording`** and the **event catalog is not expanded**; **only validated
-> `RenderedMessage`s** may *later* be persisted as rendered-message records (Impl 015).
+> the audit **imports no `event-recording`** and **auto-emits nothing** (Impl 024 later added a ref-only
+> `ProviderAttemptRecorded` event type that may *reference* the audit record by id, but the audit neither
+> imports `event-recording` nor emits one); **only validated `RenderedMessage`s** may *later* be persisted as
+> rendered-message records (Impl 015).
 > **(Impl 019 — real-provider-ready boundary; no persistence change.)** Impl 019 added a **real-provider-*ready***
 > async client boundary **inside `rendering`** — an async `ProviderClientBoundary` + a deterministic **fake
 > in-process client**, `ProviderSecretRef` (operational refs), structured `ProviderInstruction`, and a
@@ -161,8 +166,27 @@
 > the adapter **calls no resolver(unless composed)/live-client/transport/provider/`validateDraft`** and **triggers no
 > event / retry / reprojection / reasoning / review / display-eligibility / delivery / domain mutation**. **No
 > existing guard was weakened; no SDK/package dependency was added** (`package.json`/lockfile unchanged). A
-> **production secret manager and provider events remain future.**
-> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **a live-provider smoke-test harness (opt-in, outside the default suite)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
+> **production secret manager and a production event-recording composition remain future.**
+> **(9) Impl 024** additively extended the realized **event surface (§1.5/§4)** — **inside `event-recording`**
+> (the first slice to touch it since Impl 011; **no new module**, **no persistence added**): the closed catalogs
+> gained a **provider/rendering/delivery occurrence vocabulary** (`ProducingModule` += `rendering`/`delivery` —
+> provider events are produced by `rendering`, **no `provider` module**; `EventArtifactKind` += the five
+> output-out artifact kinds — `DisplayEligibility` stays a ref **`role`**, not a kind; `DomainEventType` += eight
+> occurrence/outcome types, so the catalog is now **34 types: 26 reasoning-core + 8 output-out**), and
+> `application/` gained **eight pure factories** that build a `DomainEventRecord` through the **existing**
+> `DomainEventRecord.record(...)` and **return** it. **The factories persist nothing** and **call no
+> provider/transport/validator/renderer/delivery sink**, **create no rendered-message record/review/delivery
+> record/provider attempt**, **mutate no domain**, and **auto-emit from nothing** (recording is **explicit
+> application composition only**). Payloads stay **ref-only and raw-free** (`kind`/`id`/`role?`/`ownerModule?`;
+> no raw draft/prompt/payload/secret/env value/copied body/metadata bag). `event-recording` stays
+> **dependency-neutral** (imports only `shared-kernel`; a kind string is **not** a cross-module import), and
+> **rendering/delivery/provider import no `event-recording` and emit nothing automatically**. The two earlier
+> "catalog not extended" guards (Impl 015/018) were **reconciled, not weakened** (the rendering-internal audit
+> symbols stay forbidden outside `rendering`; the factories stay pure). **No event bus / queue / scheduler /
+> telemetry / DB / auto-emission / persistence-as-events**, and **no SDK/package dependency** (`package.json`/
+> lockfile unchanged). **Events record what happened; they make nothing happen** — an event is never a
+> command/retry/delivery trigger, evidence, recommendation quality, an athlete decision, or a domain mutation.
+> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **a live-provider smoke-test harness (opt-in, outside the default suite)**; **a production application/orchestration composition that *explicitly* records occurrences using the Impl 024 factories — plus an eventual event-bus / event persistence / runtime delivery** (the ref-only occurrence *surface* now exists; auto-emission and persistence do not); a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
@@ -321,6 +345,15 @@ Examples: `UnderstandingAssessment`, future `ImpactAssessment`, future athlete-f
 | `PurposeDeclared` / `PurposeChanged` | athlete | **Public** | append-only version; refresh trigger |
 | `AthleteDecisionRecorded` | athlete | **Public** | athlete-owned; referenced by the case |
 | `AthleteDecisionAmended` / `AthleteDecisionSuperseded` | athlete | **Public** | append-only correction; original retained |
+| `ProviderAttemptRecorded` | rendering | **Public** | realized ref-only (Impl 024); refs the raw-free `ProviderAttemptRecord` — no draft/prompt/payload/secret |
+| `ProviderDraftValidationFailed` / `ProviderDraftValidationPassed` | rendering | Internal-leaning | realized ref-only (Impl 024); outcome of `validateDraft` over a provider draft; not evidence, not recommendation quality |
+| `RenderedMessageRecorded` | rendering | **Public** | realized ref-only (Impl 024); a validated presentation artifact was recorded; no raw unvalidated draft |
+| `RenderReviewRecorded` | rendering | **Public** | realized ref-only (Impl 024); display-safety review decision (via ref `role`); triggers no display/delivery |
+| `DisplayEligibilityDerived` | rendering | Internal-leaning | realized ref-only (Impl 024); eligibility is id-less → carried as the record ref's `role`; triggers no delivery |
+| `DeliveryRequestRecorded` | delivery | **Public** | realized ref-only (Impl 024); a delivery was requested for a display-eligible record; calls no sink |
+| `DeliveryOutcomeRecorded` | delivery | **Public** | realized ref-only (Impl 024); exposure outcome (audit); no auto-retry; implies no athlete reception/decision |
+
+[FACT] **Realized (Impl 011 + Impl 024).** The reasoning-core rows are realized as `DomainEventType`s in the `event-recording` module (Impl 011); the **rendering/delivery output-out rows are realized additively in Impl 024** (catalogs + eight pure, ref-only factories — events produced by `rendering`/`delivery`; provider events by `rendering`; `DisplayEligibility` is a ref `role`, not an artifact kind). All factories **return** records and **persist nothing**, call nothing, and auto-emit from nothing; `event-recording` stays dependency-neutral. The exact public/internal split here remains conceptual (no event bus); realization records occurrences, it does not deliver them.
 
 [FACT] Clarifications the surface must not obscure: an event **does not own downstream effects** (a `PurposeChanged` *may* trigger selective staleness via a coordinator — it does not itself mutate understanding); an event **is not a command**; payloads are **reference handles**, so the current state is always resolved from the owning aggregate, never from a frozen payload.
 
