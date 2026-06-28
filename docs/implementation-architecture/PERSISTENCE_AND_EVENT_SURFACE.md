@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 022).** **Eight parts of this paper are now realized** (Impl 020, Impl 021, and Impl 022 add no persistence).
+> **Implementation status (post Impl 023).** **Eight parts of this paper are now realized** (Impl 020, Impl 021, Impl 022, and Impl 023 add no persistence).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -146,7 +146,23 @@
 > delivery / domain mutation**. **`process.env` appears nowhere in `src/`** (no guard exception); **no SDK/package
 > dependency was added** (`package.json`/lockfile unchanged). A **direct `process.env` adapter, a production secret
 > manager, and provider events remain future.**
-> **Still future work:** **a direct `process.env` adapter (the real environment snapshotted into the resolver's injected source, isolated to one approved file)**; **a production secret manager**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
+> **(Impl 023 — one-file process-environment source adapter; no persistence change.)** Impl 023 added a
+> **`ProcessEnvironmentCredentialSourceAdapter`** **inside `rendering/application`** that binds the **real process
+> environment** to the resolver's **unchanged** injected `EnvironmentCredentialSource` shape — it **feeds, does not
+> replace,** `EnvironmentProviderCredentialResolver`. It reads **one explicitly configured neutral key** via an
+> **injected `ProcessEnvironmentAccessor`** (called once; no scan/fallback/domain-derived name) and returns a source
+> with only that key when present (else empty); it **classifies nothing** (the resolver still does). This slice
+> **adds no persistence**: **no raw credential is persisted**, **no env key name or value is persisted as
+> domain/audit data**, **no provider response is persisted raw**, and **no prompt payload is persisted**. **Provider
+> operational metadata is not evidence.** The direct `process.env` token is sealed to **exactly one approved file**
+> (`defaultProcessEnvironmentAccessor`) by a **new repo-wide guard**; the accessor is **required** (no implicit
+> default) so the default suite uses a fake and reads no real environment. Credential availability is **not**
+> live-call enablement (a disabled `LiveCallPolicy` and a missing/invalid credential each still block the transport);
+> the adapter **calls no resolver(unless composed)/live-client/transport/provider/`validateDraft`** and **triggers no
+> event / retry / reprojection / reasoning / review / display-eligibility / delivery / domain mutation**. **No
+> existing guard was weakened; no SDK/package dependency was added** (`package.json`/lockfile unchanged). A
+> **production secret manager and provider events remain future.**
+> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **a live-provider smoke-test harness (opt-in, outside the default suite)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)

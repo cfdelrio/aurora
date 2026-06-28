@@ -4,6 +4,34 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 023).** The **`rendering`** module now also owns the first
+> **one-file process-environment source adapter** (inside `rendering/application`, **not a new module**): a
+> **`ProcessEnvironmentCredentialSourceAdapter`** (+ `ProcessEnvironmentAccessor`, the
+> `processEnvironmentCredentialSourceAdapter(keyName?)` factory, `defaultProcessEnvironmentAccessor`,
+> `APPROVED_PROVIDER_CREDENTIAL_KEY`) that binds the **real process environment** into the **unchanged** injected
+> `EnvironmentCredentialSource` shape (Impl 022) — it **feeds, does not replace,**
+> `EnvironmentProviderCredentialResolver`. `toEnvironmentCredentialSource()` reads **exactly one explicitly
+> configured neutral key** (`AURORA_PROVIDER_CREDENTIAL`) via an **injected `ProcessEnvironmentAccessor`** called
+> **once** — **no scan, no fallback, no domain-derived key name** — and returns a source with only that key when
+> present, else an empty source; it **classifies nothing** (the resolver still does; a blank/whitespace key name
+> fails closed). The adapter **requires** an injected accessor (no implicit default), so the default suite injects a
+> fake and **reads no real environment**; **`defaultProcessEnvironmentAccessor` is the only direct `process.env` read
+> site in the codebase**, wired only by the production factory and never exercised by the default suite. **Allowed
+> imports**: `shared-kernel` (if needed) + own `rendering` application surfaces. **Forbidden imports** unchanged:
+> `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/**`delivery`**; **no module outside
+> `rendering` imports it**. **Guard strategy:** a **new repo-wide guard** scans all production `src/` files and
+> asserts the `process.env` token appears in **exactly** `process-environment-credential-source-adapter.ts` — **no
+> existing provider/network/vendor/SDK/prompt guard was weakened**, and the network token stays confined to
+> `live-provider-http-transport.ts`. **Credential availability is not live-call enablement** (a disabled
+> `LiveCallPolicy` and a missing/invalid credential each still block the transport); the raw secret stays transient;
+> the adapter calls no resolver(unless composed)/live-client/transport/provider/`validateDraft`, persists/audits/logs
+> nothing, mutates no domain, and **expands no failure catalog**. **No installed SDK/package dependency**
+> (`package.json`/lockfile unchanged). The resolver, static resolver, live transport, concrete shell, and sync seam
+> are **untouched**. Module count is still **nine** (Impl 023 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports + the new guard test were added; **no documented blocker was needed**. No
+> architecture decision below is superseded. The note below is the prior (Impl 022) status.
+>
+
 > **Implementation status (post Impl 022).** The **`rendering`** module now also owns the first
 > **injected environment credential resolver** (inside `rendering/application`, **not a new module**): an
 > **`EnvironmentProviderCredentialResolver`** (+ `EnvironmentCredentialSource`, `EnvironmentResolverConfig`,

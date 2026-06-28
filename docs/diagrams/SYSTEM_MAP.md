@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 022):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 023):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -108,7 +108,22 @@
 > credential each still block the transport); it **calls no transport/provider/`validateDraft`**, persists/audits/
 > mutates nothing, and **expands no catalog**. **`process.env` appears nowhere in `src/`** — so **no structural-guard
 > exception was needed** (no dependency change either); the static resolver, the live transport, the concrete shell,
-> and the sync seam are untouched — an injected **operational** resolver, not a production secret manager. The remaining
+> and the sync seam are untouched — an injected **operational** resolver, not a production secret manager. Implementation
+> 023 added the first **one-file process-environment source adapter** *inside* `rendering/application`: a
+> **`ProcessEnvironmentCredentialSourceAdapter`** binds the **real process environment** into that same injected
+> `EnvironmentCredentialSource` shape — it **feeds, does not replace,** `EnvironmentProviderCredentialResolver`. It
+> reads **exactly one explicitly configured neutral key** (`AURORA_PROVIDER_CREDENTIAL`) via an **injected
+> `ProcessEnvironmentAccessor`** (called once), returning a source with only that key when present, else an empty
+> source; it **classifies nothing** (the resolver still does; a blank/whitespace key name fails closed). The
+> **direct `process.env` token now appears in exactly one production file** (via `defaultProcessEnvironmentAccessor` —
+> the only real-environment read site), **sealed by a new repo-wide guard** (no existing guard weakened; the network
+> token stays confined to the Impl 021 transport file). Because the accessor is **required** (no implicit default),
+> the default suite injects a fake and **reads no real environment**; the production factory's real read is never
+> exercised by tests. **Credential availability is still not live-call enablement** (a disabled `LiveCallPolicy` and
+> a missing/invalid credential each block the transport); the raw secret stays transient (never in
+> errors/outcome/audit/state/metadata/tests); the adapter calls no resolver(unless composed)/live-client/transport/
+> provider/`validateDraft`, persists/audits/logs nothing, mutates no domain, expands no catalog, and **adds no
+> dependency** — a one-file **operational** source adapter, not a production secret manager. The remaining
 > absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
 > ingestion/**delivery & rendered-output events**/**production persistence & event store**/**event
 > bus**/**scheduler & retry**/**full** athlete model/**generic projection engine**/**full
@@ -177,6 +192,8 @@ flowchart LR
     LPROV -- "es otro client del camino async; draft NO confiable → MISMO validateDraft (la autoridad)" --> RPROV
     ENVCRED["Injected environment credential resolver ✅ Impl 022 (DENTRO de rendering/application)<br/>EnvironmentProviderCredentialResolver implementa ProviderCredentialResolver · sibling de StaticProviderCredentialResolver<br/>fuente INYECTADA EnvironmentCredentialSource (Readonly Record) · NO process.env real · NO scan · NO fallback · NO key derivada de dominio<br/>lee EXACTAMENTE una key configurada · absent→missing · blank/control/too-short→invalid · else→available<br/>available → ProviderCredentialToken opaco transitorio · secreto crudo NUNCA en failures/outcome/audit/state/metadata/tests<br/>disponibilidad ≠ live-call enablement · NO transport/provider/validateDraft · NO persistencia/evento/dominio · SIN guard exception"]
     ENVCRED -- "provee ProviderCredentialResolution al client (inyectado donde va el static)" --> LPROV
+    PENVADP["One-file process-environment source adapter ✅ Impl 023 (DENTRO de rendering/application)<br/>ProcessEnvironmentCredentialSourceAdapter · ALIMENTA, no reemplaza, EnvironmentProviderCredentialResolver<br/>ProcessEnvironmentAccessor INYECTADO (fake en tests) · defaultProcessEnvironmentAccessor = ÚNICO read real de process env<br/>token directo de process env SELLADO en exactamente un archivo aprobado (guard repo-wide nuevo)<br/>lee EXACTAMENTE una key aprobada (AURORA_PROVIDER_CREDENTIAL) · accessor llamado una vez · sin scan · sin fallback<br/>presente → source con solo esa key · ausente → source vacío · NO clasifica (el resolver clasifica)<br/>secreto crudo transitorio · sin real env en tests · sin live-call enablement · sin dependency · sin side effects"]
+    PENVADP -- "produce EnvironmentCredentialSource (real env → shape inyectado); el resolver clasifica" --> ENVCRED
     REND --> HUMAN
     RREC["Registro/Review de presentación ✅ Impl 015 (dentro de rendering)<br/>RenderedMessageRecord (append-only, auditable)<br/>RenderReview (display-safety) · status derivado<br/>DisplayEligibility derivada (no delivery, no aprobación de dominio)<br/>repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO muta dominio · NO evento · NO delivery"]
     REND -- "registra/revisa artefacto de presentación (auditoría, no autoridad)" --> RREC
@@ -433,6 +450,31 @@ env token) plus a dedicated negative-capability test, so **no guard was weakened
 dependency was added**. *An injected **operational** resolver supplies a transient credential; it reads no real
 environment and is not a production secret manager.*
 
+[FACT] **One-file process-environment source adapter — the real environment, bound through exactly one auditable
+file (Implementation 023).** *Inside* `rendering/application` (not a new module), a
+**`ProcessEnvironmentCredentialSourceAdapter`** binds the **real process environment** to the resolver's injected
+`EnvironmentCredentialSource` shape — it **feeds, does not replace,** `EnvironmentProviderCredentialResolver`. Its
+`toEnvironmentCredentialSource()` reads **exactly one explicitly configured neutral key**
+(`AURORA_PROVIDER_CREDENTIAL`) via an **injected `ProcessEnvironmentAccessor`** called **once** — **no scan, no
+fallback, no domain-derived key name** — and returns a source containing **only** that key when a value is present,
+else an **empty source**; it **classifies nothing** (a blank value passes through; a blank/whitespace key name fails
+closed to empty). **Classification stays in `EnvironmentProviderCredentialResolver`.** The adapter **requires** an
+injected accessor (no implicit default), so the default suite injects a fake and **reads no real environment**;
+**`defaultProcessEnvironmentAccessor` — wired only by the `processEnvironmentCredentialSourceAdapter(keyName?)`
+production factory — is the ONLY direct `process.env` read site in the codebase** and is never exercised by the
+default suite. The **direct `process.env` token appears in exactly one production file**, **sealed by a new repo-wide
+guard** that scans all production `src/` files and asserts the token's single home — **no existing
+provider/network/vendor/SDK/prompt guard was weakened**, and the network token stays confined to the Impl 021
+transport file. **Credential availability is NOT live-call enablement** (a `LiveCallPolicy.disabled()` and a
+missing/invalid credential each still block the transport); the **raw secret stays transient** (never in
+errors/outcome/audit/state/metadata/tests). There is **no arrow** from the adapter to Observation/Reasoning/
+Understanding/Athlete/`event-recording`/`delivery`, to the record/review, to display eligibility, or to delivery; it
+**calls no resolver (unless the caller composes it) / live client / transport / provider / `validateDraft`**,
+persists/audits/logs nothing, mutates no domain, expands no catalog, and **adds no dependency**. It imports only its
+own `rendering` surfaces (+ `shared-kernel` if needed), and **no module outside `rendering` imports it**. *The real
+environment is bound through one auditable file; the adapter is an **operational** source, not a secret manager, and
+it never makes the value domain truth.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -526,6 +568,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🧩 | **Concrete-provider adapter shell** *(first selected-provider adapter behind the async boundary, inside rendering, not a stage, not a module)* | `rendering` (`application`) | First **selected-provider** adapter behind the Impl 019 `ProviderClientBoundary`: provider target (**OpenAI**) chosen **doc-level (020A) only**; code stays **vendor-neutral** (`concrete-provider-*`, `providerKind: "concrete"`) — **no guard weakened, no vendor token in guarded files**. `ConcreteProviderClient` is **disabled by default** (no transport → safe `provider-unavailable`, no I/O; **no live-call path**; deterministic in-process fixture transport for **tests only**, never network); non-`present` credential fails safe. Pure `serializeProviderInstruction` (structured payload; no arbitrary-prompt/chain-of-thought/secret field; no prompt template), pure `parseProviderResponse` (untrusted draft + operational metadata only; empty/malformed → safe failures; no raw payload; no `RenderedMessage`), pure `mapProviderError` (→ existing `ProviderOperationalFailure` → existing `ProviderFailure`, **not expanded**; unknown → safe). Draft → message only via unchanged `validateDraft`; raw-free audit by explicit composition; imports only own `rendering` surfaces + read-only `decision-support` types. **No** installed SDK/package dependency / network / `process.env` / raw secret / prompt template / retry-scheduler / record-review-display-delivery-event side effect / domain mutation. A selected-provider **shell**, not live integration | ✅ Impl 020 |
 | 📡 | **Opt-in live-provider boundary** *(first live-call edge behind the async boundary, inside rendering, not a stage, not a module)* | `rendering` (`application`) | `LiveProviderClient` implements the async `ProviderClientBoundary` (sibling of `ConcreteProviderClient`, reusing serializer/parser/error-mapper); injected `LiveCallPolicy` (**disabled by default**; explicit opt-in; no env inference; no global state); injected `ProviderCredentialResolver` + deterministic `StaticProviderCredentialResolver` (**no env resolver, no `process.env`**, non-secret sentinel); `LiveProviderHttpTransport` = the **only** network-token file (native `fetch` + `AbortSignal.timeout`, **injected endpoint**, **no SDK/dependency**). **Fails closed before transport** if policy disabled or credential missing/invalid; **never calls `validateDraft`** (validation stays with `requestRealProviderRendering`); provider output untrusted; failures → existing `ProviderOperationalFailure → ProviderFailure` (**not expanded**); raw-free audit by explicit composition. Surgical network-guard exception (one approved file; vendor/SDK/env forbidden everywhere; Impl 019/020 guards untouched). **No** default/CI live call or credential / SDK-package dependency / `process.env` / raw secret / prompt template / retry-scheduler / record-review-display-delivery-event side effect / domain mutation. Live-call-**capable**, not a production rollout | ✅ Impl 021 |
 | 🔑 | **Injected environment credential resolver** *(operational credential resolution, inside rendering, not a stage, not a module)* | `rendering` (`application`) | `EnvironmentProviderCredentialResolver` implements the existing `ProviderCredentialResolver` (sibling of `StaticProviderCredentialResolver`); reads **exactly one explicitly configured key** from an **injected `EnvironmentCredentialSource`** (`Readonly<Record<string,string\|undefined>>`) — **no real `process.env`**, no scan, no fallback, no domain-derived key. Classifies absent→missing; blank/control/too-short→invalid; else→available with the existing opaque transient `ProviderCredentialToken` (blank key name fails closed). Raw secret stays transient (never in failures/outcome/audit/state/metadata/tests). **Availability ≠ live-call enablement** (disabled policy + missing/invalid credential each block transport); calls no transport/provider/`validateDraft`; expands no catalog. **`process.env` nowhere in `src/`** — no guard exception, no dependency. **No** persistence/review/display/delivery/event side effect / domain mutation. An injected **operational** resolver, not a production secret manager | ✅ Impl 022 |
+| 🌱 | **One-file process-environment source adapter** *(real-environment binding, inside rendering, not a stage, not a module)* | `rendering` (`application`) | `ProcessEnvironmentCredentialSourceAdapter` binds the **real process environment** into the resolver's injected `EnvironmentCredentialSource` shape — it **feeds, does not replace**, `EnvironmentProviderCredentialResolver`. Reads **exactly one configured neutral key** (`AURORA_PROVIDER_CREDENTIAL`) via an **injected `ProcessEnvironmentAccessor`** (called once; no scan/fallback/domain-derived name); present → source with only that key; absent → empty; **classifies nothing** (resolver still does; blank key name fails closed). `defaultProcessEnvironmentAccessor` is the **only** direct `process.env` read site — **sealed to this one file by a new repo-wide guard** (no existing guard weakened; network token stays in the Impl 021 transport file). Accessor is **required** (no implicit default) → default suite uses a fake, reads no real env. **Availability ≠ live-call enablement** (disabled policy / missing credential block transport); raw secret stays transient (never in errors/outcome/audit/state/metadata/tests); calls no resolver(unless composed)/live-client/transport/provider/`validateDraft`; **adds no dependency**. **No** persistence/review/display/delivery/event side effect / domain mutation. A one-file **operational** source adapter, not a secret manager | ✅ Impl 023 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -670,7 +713,11 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | configured key lookup **≠** environment scan · available credential **≠** live-call enablement | The resolver reads exactly one configured key (no scan/fallback); an available credential still does nothing until a separate, explicit `LiveCallPolicy` is enabled. |
 | credential resolver **≠** transport/provider/validator call · opaque token **≠** persisted secret | The resolver only classifies a value; it invokes no transport/provider/`validateDraft`; the token is transient and never persisted/audited/logged. |
 | credential failure **≠** domain failure · secret absence **≠** support-quality downgrade · raw credential **≠** metadata/audit/traceability | A missing/invalid credential is an operational state; it never invalidates domain output, grades support, or enters provider metadata/audit/traceability. |
-| no `process.env` token **≠** no future production secret plan · injected tests **≠** CI credential requirement | The injected-map decision keeps `src/` env-free today; a future infra slice may bind the real environment behind one approved file; the default suite needs no real credential. |
+| no `process.env` token **≠** no future production secret plan · injected tests **≠** CI credential requirement | The injected-map decision keeps the resolver env-free; Impl 023 binds the real environment behind one approved file; the default suite still needs no real credential. |
+| process-env adapter **≠** secret manager · direct process-environment binding **≠** broad environment access | Impl 023 reads the real `process.env` through one approved file, one configured key; a managed secret store is a later slice. |
+| default accessor **≠** default test behavior · fake-accessor tests **≠** production secret wiring · production factory **≠** live call enabled by default | `defaultProcessEnvironmentAccessor` (the one real read) is wired only by the production factory; tests inject a fake; constructing the adapter does not enable any live call. |
+| adapter output **≠** credential classification · adapter **≠** resolver · one-file token confinement **≠** guard weakening | The adapter only produces an `EnvironmentCredentialSource`; the resolver classifies; the `process.env` token is sealed to one file by a *new* repo-wide guard (nothing was excepted). |
+| raw environment value **≠** domain data / audit payload / provider metadata · process-env adapter **≠** `validateDraft` / persistence / review / display / delivery / event | The real value flows only into the injected source and (when enabled) the transport header; it is never domain truth, never audited, and the adapter triggers no downstream effect. |
 
 ---
 
@@ -695,12 +742,15 @@ live-provider boundary can make a *real* call only when explicitly enabled — a
 injected credential resolver, and native `fetch` sealed in one approved transport file — behind the same
 validator, with no SDK/dependency, no env read, no default/CI live call, and no downstream side effect** (Impl
 021); **the first injected environment credential resolver resolves a credential from an *injected* source map (one
-configured key; the existing opaque transient token) — without reading the real `process.env`, requiring a real
-credential, enabling a live call by itself, leaking a secret, or adding a dependency/guard exception** (Impl 022);
-the following are **deliberately absent**, not failures:
+configured key; the existing opaque transient token) — without requiring a real
+credential, enabling a live call by itself, leaking a secret, or adding a dependency** (Impl 022); **the first
+one-file process-environment source adapter binds the real `process.env` through *exactly one approved file*
+(sealed by a new repo-wide guard) into that injected source — feeding, not replacing, the resolver — with an
+injected accessor so tests read no real environment, no live-call enablement, no secret leakage, and no
+dependency or existing-guard change** (Impl 023); the following are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
-- **No real LLM provider SDK / production secret-env mechanism / production live-call rollout** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`, Impl 019 added a **real-provider-*ready* async client boundary**, Impl 020 added the **vendor-neutral selected-provider shell** (disabled by default), and Impl 021 added the **opt-in live-provider boundary** — a fail-closed `LiveCallPolicy`, an injected credential resolver, and native `fetch` sealed in one approved transport file — and Impl 022 added the **injected environment credential resolver** (one configured key from an injected source map; no real `process.env`) — so a real call is **possible only when explicitly enabled** behind the same validator and a credential can be resolved from an injected source; but **no production live call, no real SDK/installed dependency, no real `process.env`/secret manager, no production prompts, and no `provider`/`llm`/`telemetry`/`evaluation` module** exist (real-provider-**ready, shelled, live-call-capable, and credential-resolving from an injected source**, not **deployed**); generated/drafted text must never become domain truth, the vendor never leaks into a guarded provider file, the network token lives in exactly one approved file, and `process.env` appears nowhere in `src/`
+- **No real LLM provider SDK / production secret-env mechanism / production live-call rollout** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`, Impl 019 added a **real-provider-*ready* async client boundary**, Impl 020 added the **vendor-neutral selected-provider shell** (disabled by default), and Impl 021 added the **opt-in live-provider boundary** — a fail-closed `LiveCallPolicy`, an injected credential resolver, and native `fetch` sealed in one approved transport file — Impl 022 added the **injected environment credential resolver** (one configured key from an injected source map), and Impl 023 added the **one-file process-environment source adapter** (the real `process.env` bound through one approved, guard-sealed file) — so a real call is **possible only when explicitly enabled** behind the same validator and a credential can be resolved from the real environment through one auditable file; but **no production live call, no real SDK/installed dependency, no production secret manager, no production prompts, and no `provider`/`llm`/`telemetry`/`evaluation` module** exist (real-provider-**ready, shelled, live-call-capable, and credential-resolving from the real environment through one approved file**, not **deployed**); generated/drafted text must never become domain truth, the vendor never leaks into a guarded provider file, the network token lives in exactly one approved file, and `process.env` is sealed to exactly one approved file
 - **No real delivery provider/channel** — the delivery boundary is proven with a **deterministic `InMemoryTestSink`** (Impl 016); a real channel would implement the same `DeliverySink` interface behind the same eligibility gate; **delivery success/failure never affects domain state**
 - **No rendered-output / delivery / provider-attempt event records** — a `RenderedMessageRecord`/`DeliveryRecord`/`ProviderAttemptRecord` is **not** an event record; `rendering` and `delivery` import no `event-recording` and the catalog is not expanded (Impl 015/016/018)
 - **No provider telemetry / model-evaluation infrastructure** — provider-attempt audit (Impl 018) is auditability/safety-debugging only (safe summaries, no raw draft); it grades no model/recommendation quality and infers no athlete state
@@ -725,12 +775,11 @@ Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory re
 (manual input adapter), Spec 014 (rendering boundary), Spec 015 (rendered-message record/review), Spec
 016 (delivery boundary), Spec 017 (provider adapter seam), Spec 018 (provider-attempt audit), Spec 019
 (real-provider-ready boundary), Spec 020 (concrete-provider adapter shell), Spec 021 (opt-in live-provider
-boundary), and Spec 022 (injected environment credential resolver) are done
-(Impl 007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022).** The
-next responsible missions (a **direct process-environment adapter boundary** — finally snapshotting the real
-`process.env` into the resolver's injected source, isolated to one approved file behind a surgical guard exception,
-still credential-free in CI — or a **provider/delivery event surface** recording occurrences as ref-only events —
-chosen explicitly, one at a time — then a production secret manager + live-call rollout, a real channel/transport
+boundary), Spec 022 (injected environment credential resolver), and Spec 023 (one-file process-environment source
+adapter) are done (Impl 007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022/023).** The
+next responsible missions (a **provider/delivery event surface** recording occurrences as append-only, ref-only,
+inert events — or a **live-provider smoke-test boundary** (explicit opt-in, outside the default suite, never in CI)
+— chosen explicitly, one at a time — then a production secret manager + live-call rollout, a real channel/transport
 and storage backend, and the reasoning reinterpretation engine) add the rest without collapsing any distinction
 above. See the Core Completion Review for the full ledger.
 
@@ -885,6 +934,21 @@ above. See the Core Completion Review for the full ledger.
   module outside `rendering` imports it**; the static resolver and live transport are untouched. There is **no
   `src/modules/{secrets,config,infrastructure,…}`** and **no SDK/package change**. The slice was **additive** — **no
   documented blocker was needed**, and **`package.json`/lockfile are unchanged**.
+- **One-file process-environment source adapter (Impl 023)** also lives **inside `rendering/application`** (no new
+  module): `process-environment-credential-source-adapter.ts` (`ProcessEnvironmentCredentialSourceAdapter` +
+  `ProcessEnvironmentAccessor` / `defaultProcessEnvironmentAccessor` / `processEnvironmentCredentialSourceAdapter`
+  factory / `APPROVED_PROVIDER_CREDENTIAL_KEY`), surfaced additively from `rendering/application/index.ts`. It binds
+  the real process environment into the existing injected `EnvironmentCredentialSource` shape and **feeds, does not
+  replace**, `EnvironmentProviderCredentialResolver`. The **direct `process.env` token lives in exactly this one
+  production file** (the `defaultProcessEnvironmentAccessor` read) — a **new** `process-environment-negative-capability.test.ts`
+  scans all production `src/` files and asserts the token's single home (the test builds the token regex indirectly,
+  so it is not itself a token site) plus a package guard (no dependency). **No existing provider/network/vendor/SDK/prompt
+  guard was weakened**; the network token stays confined to `live-provider-http-transport.ts`. The accessor is
+  **required** (no implicit default), so the default suite injects a fake and reads no real env. It imports only its
+  own `rendering` surfaces (+ `shared-kernel` if needed); **no module outside `rendering` imports it**; the resolver,
+  static resolver, and live transport are untouched. There is **no `src/modules/{secrets,config,infrastructure,…}`**
+  and **no SDK/package change**. The slice was **additive** — **no documented blocker was needed**, and
+  **`package.json`/lockfile are unchanged**.
 
 ---
 
