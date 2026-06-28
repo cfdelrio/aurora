@@ -4,6 +4,31 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 022).** The **`rendering`** module now also owns the first
+> **injected environment credential resolver** (inside `rendering/application`, **not a new module**): an
+> **`EnvironmentProviderCredentialResolver`** (+ `EnvironmentCredentialSource`, `EnvironmentResolverConfig`,
+> `CredentialValidationPolicy`) implementing the **unchanged** injected `ProviderCredentialResolver` port — a
+> **sibling** of `StaticProviderCredentialResolver`. It reads **exactly one explicitly configured key** from an
+> **injected `EnvironmentCredentialSource`** (`Readonly<Record<string, string | undefined>>`) — **NOT the real
+> `process.env`**, **no scan**, **no fallback list**, **no domain-derived key name** — and classifies absent →
+> `missing`; blank/whitespace → `invalid`; control chars / line breaks → `invalid`; too-short → `invalid`; else →
+> `available` with the existing **opaque transient `ProviderCredentialToken`** (a blank/whitespace key name fails
+> closed → `invalid`). The **raw secret stays transient** (never in failures/outcome/audit/state/metadata/tests);
+> **credential availability is NOT live-call enablement** (a `LiveCallPolicy.disabled()` and a missing/invalid
+> credential each still block the transport); it **calls no transport/provider/`validateDraft`**, persists/audits/
+> mutates nothing, and **expands no failure catalog**. **Allowed imports**: `shared-kernel` (if needed) + own
+> `rendering` application surfaces. **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/
+> `athlete`/**`event-recording`**/**`delivery`**; **no module outside `rendering` imports it**. **`process.env`
+> appears nowhere in `src/`** — so **no structural-guard exception was needed** (the resolver file is already
+> scanned by the Impl 017 `/provider-/` and Impl 021 `/provider-credential/` guards, both forbidding the env token,
+> plus a dedicated negative-capability test); **no installed SDK/package dependency** (`package.json`/lockfile
+> unchanged), **no raw secret / prompt template**, and **no retry/scheduler/record/review/display/delivery/event/
+> domain side effect**. The static resolver, the live transport, the concrete shell, and the sync seam are
+> **untouched**. Module count is still **nine** (Impl 022 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports changed; **no documented blocker was needed**. No architecture decision
+> below is superseded. The note below is the prior (Impl 021) status.
+>
+
 > **Implementation status (post Impl 021).** The **`rendering`** module now also owns the first
 > **opt-in live-provider boundary** (inside `rendering/application`, **not a new module**): a **`LiveCallPolicy`**
 > (injected value object; `disabled()`/`enabled({timeoutMs})`; **disabled by default**; never inferred from the

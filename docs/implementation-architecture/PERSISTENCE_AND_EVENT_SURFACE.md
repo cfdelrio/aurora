@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 021).** **Eight parts of this paper are now realized** (Impl 020 and Impl 021 add no persistence).
+> **Implementation status (post Impl 022).** **Eight parts of this paper are now realized** (Impl 020, Impl 021, and Impl 022 add no persistence).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -132,7 +132,21 @@
 > **triggers no review / display-eligibility / delivery / event / retry / reprojection / reasoning / domain
 > mutation**. **No SDK/package dependency was added** (`package.json`/lockfile unchanged). A **production secret/
 > environment resolver, a real endpoint/SDK rollout, and provider events remain future.**
-> **Still future work:** **a production secret/environment resolver (env/secret-manager behind the injected ProviderCredentialResolver port)**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
+> **(Impl 022 — injected environment credential resolver; no persistence change.)** Impl 022 added an
+> **`EnvironmentProviderCredentialResolver`** **inside `rendering/application`** behind the **unchanged** injected
+> `ProviderCredentialResolver` port (a sibling of `StaticProviderCredentialResolver`). It reads **one explicitly
+> configured key** from an **injected `EnvironmentCredentialSource`** (`Readonly<Record<string,string|undefined>>`)
+> — **not the real `process.env`**, no scan, no fallback, no domain-derived name — and classifies
+> missing/invalid/available with the existing opaque transient `ProviderCredentialToken`. This slice **adds no
+> persistence**: **no raw credential is persisted**, **no env key name or value is persisted as domain/audit data**,
+> **no provider response is persisted raw**, and **no prompt payload is persisted**. **Provider operational metadata
+> is not evidence.** Credential availability is **not** live-call enablement (a disabled `LiveCallPolicy` and a
+> missing/invalid credential each still block the transport); the resolver **calls no transport/provider/
+> `validateDraft`** and **triggers no event / retry / reprojection / reasoning / review / display-eligibility /
+> delivery / domain mutation**. **`process.env` appears nowhere in `src/`** (no guard exception); **no SDK/package
+> dependency was added** (`package.json`/lockfile unchanged). A **direct `process.env` adapter, a production secret
+> manager, and provider events remain future.**
+> **Still future work:** **a direct `process.env` adapter (the real environment snapshotted into the resolver's injected source, isolated to one approved file)**; **a production secret manager**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
