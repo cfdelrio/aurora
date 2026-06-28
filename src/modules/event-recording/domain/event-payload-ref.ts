@@ -19,7 +19,14 @@ export type EventArtifactKind =
   | "DecisionSupportCase"
   | "Athlete"
   | "PurposeVersion"
-  | "AthleteDecision";
+  | "AthleteDecision"
+  // output-out artifacts (Impl 024) — id-bearing presentation/provider/delivery records, referenced by id only.
+  // (DisplayEligibility is intentionally NOT a kind — it is an id-less derived value, carried as a ref `role`.)
+  | "ProviderAttemptRecord"
+  | "RenderedMessageRecord"
+  | "RenderReview"
+  | "DeliveryRequest"
+  | "DeliveryRecord";
 
 export const EVENT_ARTIFACT_KINDS: readonly EventArtifactKind[] = [
   "ObservationSet",
@@ -36,6 +43,11 @@ export const EVENT_ARTIFACT_KINDS: readonly EventArtifactKind[] = [
   "Athlete",
   "PurposeVersion",
   "AthleteDecision",
+  "ProviderAttemptRecord",
+  "RenderedMessageRecord",
+  "RenderReview",
+  "DeliveryRequest",
+  "DeliveryRecord",
 ];
 
 export function isEventArtifactKind(value: unknown): value is EventArtifactKind {

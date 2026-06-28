@@ -90,6 +90,9 @@ test("no provider-audit / telemetry / evaluation / provider / llm top-level modu
 });
 
 test("no module outside rendering imports the provider-attempt audit", () => {
+  // Impl 024 makes "ProviderAttemptRecord" a legitimate ref-KIND STRING in the event catalog (referenced by
+  // name only, never imported). The real boundary still held here: no module outside rendering IMPORTS the
+  // provider-attempt audit, and the rendering-internal audit symbols never appear outside rendering.
   for (const mod of ["observation", "reasoning", "understanding", "decision-support", "athlete", "event-recording", "delivery"]) {
     for (const f of collectTsFiles(join(modulesDir, mod))) {
       const src = readFileSync(f, "utf8");
@@ -98,17 +101,21 @@ test("no module outside rendering imports the provider-attempt audit", () => {
         false,
         `${mod} must not import the provider-attempt audit: ${f}`,
       );
-      for (const sym of ["auditProviderAttempt", "ProviderAttemptRecord", "InMemoryProviderAttemptRecordRepository"]) {
+      for (const sym of ["auditProviderAttempt", "InMemoryProviderAttemptRecordRepository"]) {
         assert.equal(src.includes(sym), false, `${mod} must not reference '${sym}': ${f}`);
       }
     }
   }
 });
 
-test("the event catalog was not extended with provider-attempt event types", () => {
+// Superseded by Implementation 024 (approved, additive catalog expansion): the provider-attempt occurrence/
+// outcome event types are now a deliberate part of the closed event catalog — referenced by string KIND only.
+// The boundary that still holds: event-recording's catalog file imports nothing from rendering.
+test("provider-attempt events live in the catalog as approved ref-only, import-neutral types (Impl 024)", () => {
   const catalog = readFileSync(join(modulesDir, "event-recording", "domain", "domain-event-type.ts"), "utf8");
-  assert.equal(catalog.includes("ProviderAttemptRecorded"), false);
-  assert.equal(catalog.includes("ProviderDraftRejected"), false);
+  assert.equal(catalog.includes("ProviderAttemptRecorded"), true, "Impl 024 added the provider-attempt event type");
+  assert.equal(catalog.includes("ProviderDraftRejected"), false, "024 uses ProviderDraftValidationFailed/Passed, not ProviderDraftRejected");
+  assert.equal(/from\s+["'][^"']*\/rendering\//.test(catalog), false, "event-recording must not import rendering");
 });
 
 test("a ProviderAttemptRecord carries no domain field and no raw draft", () => {

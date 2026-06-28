@@ -37,7 +37,17 @@ export type DomainEventType =
   | "PurposeChanged"
   | "AthleteDecisionRecorded"
   | "AthleteDecisionAmended"
-  | "AthleteDecisionSuperseded";
+  | "AthleteDecisionSuperseded"
+  // rendering (output-out: provider / rendering / review / display) — Impl 024
+  | "ProviderAttemptRecorded"
+  | "ProviderDraftValidationFailed"
+  | "ProviderDraftValidationPassed"
+  | "RenderedMessageRecorded"
+  | "RenderReviewRecorded"
+  | "DisplayEligibilityDerived"
+  // delivery (output-out: exposure) — Impl 024
+  | "DeliveryRequestRecorded"
+  | "DeliveryOutcomeRecorded";
 
 export interface DomainEventCatalogEntry {
   readonly module: ProducingModule;
@@ -88,6 +98,17 @@ export const DOMAIN_EVENT_CATALOG: Readonly<Record<DomainEventType, DomainEventC
   AthleteDecisionRecorded: { module: "athlete", category: "outcome", primaryKind: "AthleteDecision", requiredRefKinds: [], requiredActorKind: "athlete", notes: "athlete-owned; no obedience/outcome-correctness" },
   AthleteDecisionAmended: { module: "athlete", category: "outcome", primaryKind: "AthleteDecision", requiredRefKinds: ["AthleteDecision"], notes: "append-only correction; original retained" },
   AthleteDecisionSuperseded: { module: "athlete", category: "outcome", primaryKind: "AthleteDecision", requiredRefKinds: ["AthleteDecision"], notes: "append-only; original retained" },
+  // rendering (output-out) — Impl 024. Provider events are produced by `rendering` (provider lives inside it);
+  // the id'd primary is the raw-free ProviderAttemptRecord, composed AFTER the rendering provider-attempt audit. Ref-only; inert.
+  ProviderAttemptRecorded: { module: "rendering", category: "occurrence", primaryKind: "ProviderAttemptRecord", requiredRefKinds: [], notes: "a provider attempt happened; no raw draft/prompt/payload/secret" },
+  ProviderDraftValidationFailed: { module: "rendering", category: "outcome", primaryKind: "ProviderAttemptRecord", requiredRefKinds: [], notes: "draft refused by validateDraft; no rendered-message record; not a domain failure" },
+  ProviderDraftValidationPassed: { module: "rendering", category: "outcome", primaryKind: "ProviderAttemptRecord", requiredRefKinds: [], notes: "draft validated; not evidence, not recommendation quality" },
+  RenderedMessageRecorded: { module: "rendering", category: "occurrence", primaryKind: "RenderedMessageRecord", requiredRefKinds: [], notes: "validated presentation artifact persisted; no raw unvalidated draft" },
+  RenderReviewRecorded: { module: "rendering", category: "outcome", primaryKind: "RenderReview", requiredRefKinds: ["RenderedMessageRecord"], notes: "display-safety review; decision/reason via role; triggers no display/delivery" },
+  DisplayEligibilityDerived: { module: "rendering", category: "occurrence", primaryKind: "RenderedMessageRecord", requiredRefKinds: [], notes: "eligibility is a derived value (no id) — carried as the primary ref's role; triggers no delivery" },
+  // delivery (output-out: exposure) — Impl 024. Exposure audit; never evidence, never an athlete decision.
+  DeliveryRequestRecorded: { module: "delivery", category: "occurrence", primaryKind: "DeliveryRequest", requiredRefKinds: ["RenderedMessageRecord"], notes: "a delivery was requested for a display-eligible record" },
+  DeliveryOutcomeRecorded: { module: "delivery", category: "outcome", primaryKind: "DeliveryRecord", requiredRefKinds: ["DeliveryRequest"], notes: "exposure outcome; no auto-retry; implies no athlete reception/decision" },
 });
 
 export function isDomainEventType(value: unknown): value is DomainEventType {

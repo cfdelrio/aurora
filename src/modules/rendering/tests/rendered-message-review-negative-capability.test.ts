@@ -46,10 +46,15 @@ test("rendering does not import event-recording (events deferred for this slice)
   }
 });
 
-test("the event catalog was not extended with rendered-message event types", () => {
+// Superseded by Implementation 024 (approved, additive catalog expansion): the rendered-message / render-review
+// occurrence/outcome event types are now deliberate catalog members — referenced by string KIND only. The
+// boundaries that still hold: rendering does not import event-recording, and event-recording does not import
+// rendering (verified above / in event-recording's own negative-capability suite).
+test("rendered-message events live in the catalog as approved ref-only, import-neutral types (Impl 024)", () => {
   const catalog = readFileSync(join(modulesDir, "event-recording", "domain", "domain-event-type.ts"), "utf8");
-  assert.equal(catalog.includes("RenderedMessageRecorded"), false);
-  assert.equal(catalog.includes("RenderReviewed"), false);
+  assert.equal(catalog.includes("RenderedMessageRecorded"), true, "Impl 024 added the rendered-message event type");
+  assert.equal(catalog.includes("RenderReviewRecorded"), true, "Impl 024 added the render-review event type");
+  assert.equal(/from\s+["'][^"']*\/rendering\//.test(catalog), false, "event-recording must not import rendering");
 });
 
 // `delivery` became an approved downstream module in Implementation 016 (test-only allowlist update);

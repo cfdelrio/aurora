@@ -6,7 +6,10 @@ export type ProducingModule =
   | "reasoning"
   | "understanding"
   | "decision-support"
-  | "athlete";
+  | "athlete"
+  // downstream output-out modules (Impl 024) — provider events are produced by `rendering` (provider lives there)
+  | "rendering"
+  | "delivery";
 
 export const PRODUCING_MODULES: readonly ProducingModule[] = [
   "observation",
@@ -14,6 +17,8 @@ export const PRODUCING_MODULES: readonly ProducingModule[] = [
   "understanding",
   "decision-support",
   "athlete",
+  "rendering",
+  "delivery",
 ];
 
 export function isProducingModule(value: unknown): value is ProducingModule {
@@ -22,6 +27,8 @@ export function isProducingModule(value: unknown): value is ProducingModule {
     value === "reasoning" ||
     value === "understanding" ||
     value === "decision-support" ||
-    value === "athlete"
+    value === "athlete" ||
+    value === "rendering" ||
+    value === "delivery"
   );
 }
