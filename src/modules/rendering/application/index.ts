@@ -24,3 +24,18 @@ export { realProviderAdapter } from "./real-provider-adapter.ts";
 export type { RealProviderAdapter } from "./real-provider-adapter.ts";
 export { requestRealProviderRendering } from "./real-provider-rendering-service.ts";
 export type { RequestRealProviderRenderingInput } from "./real-provider-rendering-service.ts";
+
+// Concrete-provider adapter shell (Impl 020) — first selected-provider adapter, NEUTRAL in code; disabled by
+// default, deterministic serializer / parser / error-mapper, no SDK/network/secret/live-call. Same validator.
+export { ConcreteProviderClient } from "./concrete-provider-client.ts";
+export type {
+  ConcreteProviderClientOptions,
+  ConcreteProviderFixture,
+  ConcreteProviderTransport,
+} from "./concrete-provider-client.ts";
+export { serializeProviderInstruction } from "./concrete-provider-prompt-serializer.ts";
+export type { ConcreteProviderRequestPayload } from "./concrete-provider-prompt-serializer.ts";
+export { parseProviderResponse } from "./concrete-provider-response-parser.ts";
+export type { ConcreteProviderResponseShape } from "./concrete-provider-response-parser.ts";
+export { mapProviderError } from "./concrete-provider-error-mapper.ts";
+export type { ConcreteProviderErrorKind, ConcreteProviderErrorShape } from "./concrete-provider-error-mapper.ts";
