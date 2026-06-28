@@ -55,3 +55,12 @@ export { liveProviderHttpTransport } from "./live-provider-http-transport.ts";
 export type { LiveProviderTransport, LiveProviderTransportResult } from "./live-provider-http-transport.ts";
 export { LiveProviderClient } from "./live-provider-client.ts";
 export type { LiveProviderClientDeps } from "./live-provider-client.ts";
+
+// Environment secret resolver (Impl 022) — injected env-map ProviderCredentialResolver; no process environment
+// read, no real secret, transient opaque token only; credential availability is NOT live-call enablement.
+export { EnvironmentProviderCredentialResolver } from "./environment-provider-credential-resolver.ts";
+export type {
+  EnvironmentCredentialSource,
+  EnvironmentResolverConfig,
+  CredentialValidationPolicy,
+} from "./environment-provider-credential-resolver.ts";
