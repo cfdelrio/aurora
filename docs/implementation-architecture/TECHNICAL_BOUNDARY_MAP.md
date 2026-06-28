@@ -4,6 +4,35 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 020).** The **`rendering`** module now also owns the first
+> **concrete-provider adapter shell** (inside `rendering/application`, **not a new module**): a
+> **`ConcreteProviderClient`** (implements the Impl 019 async `ProviderClientBoundary`), a pure
+> **`serializeProviderInstruction`** (+ `ConcreteProviderRequestPayload`), a pure **`parseProviderResponse`**
+> (+ `ConcreteProviderResponseShape`), and a pure **`mapProviderError`** (+ `ConcreteProviderErrorKind`/`Shape`).
+> The provider target (**OpenAI**) is selected at the **doc/decision level (Tech Spec 020A) only**; production/test
+> code stays **vendor-neutral** (`concrete-provider-*`, `providerKind: "concrete"`) so **no negative-capability
+> guard is weakened and no vendor token (`openai`/`anthropic`) appears in a guarded provider file**. The client is
+> **disabled by default** (no transport → safe `provider-unavailable`, no I/O — **there is no live-call path**; a
+> deterministic in-process **fixture transport** exists **only for tests**, never a network call); a non-`present`
+> `ProviderSecretRef` fails safe before any transport. The **serializer** projects **only** safe constraints
+> (terminal-output kind, voice, style, locale, allowed/forbidden claims, uncertainty visibility, limitations,
+> traceability, maxLength) — **no** arbitrary-prompt/chain-of-thought/voice-override/secret field, **no prompt
+> template / `src/prompts`**; the **parser** returns an **untrusted draft + operational metadata only** (empty/
+> malformed → safe operational failures; **no raw payload retained**; **no `RenderedMessage`**); the **error
+> mapper** maps provider-shaped errors to the existing `ProviderOperationalFailure`, which `toProviderFailure` maps
+> **down** to the existing `ProviderFailure` (**not expanded**; unknown → safe `provider-unavailable`). A draft
+> becomes a message **only** via the unchanged `requestRealProviderRendering` → **`validateDraft`**; the Impl 018
+> raw-free audit observes the outcome by **explicit composition** (no automatic persistence). **Allowed imports**
+> unchanged: `shared-kernel` + read-only `decision-support` *types* + own `rendering` domain/application.
+> **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/
+> **`delivery`**; **no module outside `rendering` imports it**. There is **no installed SDK/package dependency**
+> (`package.json`/lockfile unchanged), **no network/`process.env`/raw secret/prompt template**, and **no
+> retry/scheduler/record/review/display/delivery/event/domain side effect**. Module count is still **nine**
+> (Impl 020 added no module). The slice was **additive** — only `rendering/application/index.ts` exports changed;
+> **no documented blocker was needed**. No architecture decision below is superseded. The note below is the prior
+> (Impl 019) status.
+>
+
 > **Implementation status (post Impl 019).** The **`rendering`** module now also owns a **real-provider-*ready***
 > boundary (inside `rendering/domain` + `rendering/application`, **not a new module**): a `ProviderSecretRef`
 > (+ `ProviderCredentialStatus`), a non-secret `ProviderClientConfig`, a structured `ProviderInstruction`

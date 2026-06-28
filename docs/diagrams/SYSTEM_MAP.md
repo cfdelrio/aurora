@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 019):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 020):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -68,7 +68,21 @@
 > `providerRenderingRequestFrom` guard + the mandatory **`validateDraft`** and returns the existing
 > `ProviderRenderOutcome` (so the raw-free audit observes it by explicit composition). It is
 > **real-provider-*ready*, not real-provider-integrated**: **no real SDK/API/network/secret/prompt**, no
-> `process.env`, no automatic persistence, and no review/display/delivery/event/retry/mutation. The remaining
+> `process.env`, no automatic persistence, and no review/display/delivery/event/retry/mutation. Implementation 020 added the
+> first **selected-provider adapter shell** *inside* `rendering/application`, behind that async
+> `ProviderClientBoundary`: the provider target (**OpenAI**) is selected at the **doc/decision level (Tech Spec
+> 020A) only**, while code stays **vendor-neutral** (`concrete-provider-*`) so **no negative-capability guard is
+> weakened and no vendor token leaks into a guarded file**. A **`ConcreteProviderClient`** is **disabled by
+> default** (no transport → safe `provider-unavailable`, no I/O — **no live-call path**; a deterministic in-process
+> **fixture transport** exists **only for tests**, never a network call), driving a pure **serializer** (structured
+> payload from `ProviderInstruction`; no arbitrary-prompt/chain-of-thought field), a pure **parser** (untrusted draft
+> + operational metadata only; empty/malformed → safe failures; no raw payload retained; no `RenderedMessage`), and a
+> pure **error mapper** (provider-shaped errors → existing `ProviderOperationalFailure` → existing `ProviderFailure`,
+> **not expanded**; unknown → safe). A draft becomes a message **only** via the unchanged `validateDraft`; the
+> raw-free audit observes the outcome by explicit composition. It adds **no SDK/package dependency, no network, no
+> live call, no API key, no `process.env`, no raw secret, no prompt template**, and **no
+> retry/scheduler/record/review/display/delivery/event/domain side effect** — a selected-provider **shell**, not live
+> integration. The remaining
 > absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
 > ingestion/**delivery & rendered-output events**/**production persistence & event store**/**event
 > bus**/**scheduler & retry**/**full** athlete model/**generic projection engine**/**full
@@ -131,6 +145,8 @@ flowchart LR
     RPROV["Real-provider-ready boundary ✅ Impl 019 (DENTRO de rendering, additive)<br/>async ProviderClientBoundary + FakeProviderClient determinístico (in-process)<br/>ProviderInstruction estructurada (derivada, NO prompt template)<br/>ProviderSecretRef operacional (status + ref opaco, NUNCA secret crudo)<br/>ProviderOperationalFailure → mapea DOWN a ProviderFailure (no expande)<br/>requestRealProviderRendering: reusa providerRenderingRequestFrom + validateDraft<br/>cambia SOLO el draft source · sin SDK/red/API key/process.env/prompt real<br/>seam sync intacto · sin persistencia/review/display/delivery/evento/retry automáticos"]
     RPROV -- "draft NO confiable → MISMO validateDraft OBLIGATORIO → ProviderRenderOutcome" --> REND
     RPROV -. "outcome observable por PAUD vía composición explícita (raw-free)" .-> PAUD
+    CPROV["Concrete-provider adapter shell ✅ Impl 020 (DENTRO de rendering/application)<br/>proveedor elegido SOLO a nivel doc/decisión (OpenAI, 020A) · código NEUTRAL concrete-provider-*<br/>ConcreteProviderClient implementa ProviderClientBoundary · DISABLED BY DEFAULT (safe failure, sin I/O)<br/>sin live call · fixture transport determinístico SOLO en tests (NO red)<br/>serializer (payload estructurado, NO prompt arbitrario) · parser (draft NO confiable + metadata operacional, sin raw payload)<br/>error-mapper → ProviderOperationalFailure → ProviderFailure (NO expande) · unknown → safe<br/>sin SDK/dependencia · sin secret/process.env/prompt template · sin guard debilitado · sin side effects"]
+    CPROV -- "es el client del camino async (Impl 019); draft NO confiable → MISMO validateDraft" --> RPROV
     REND --> HUMAN
     RREC["Registro/Review de presentación ✅ Impl 015 (dentro de rendering)<br/>RenderedMessageRecord (append-only, auditable)<br/>RenderReview (display-safety) · status derivado<br/>DisplayEligibility derivada (no delivery, no aprobación de dominio)<br/>repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO muta dominio · NO evento · NO delivery"]
     REND -- "registra/revisa artefacto de presentación (auditoría, no autoridad)" --> RREC
@@ -309,6 +325,33 @@ SDK/API/network/`process.env`/prompt-template** and **no `provider`/`llm`/`telem
 module**. *This is real-provider-**ready**, not real-provider-**integrated**: a real provider changes the draft
 source, never the authority model.*
 
+[FACT] **Concrete-provider adapter shell — selecting a vendor in docs, staying neutral in code (Implementation
+020).** *Inside* `rendering/application` (not a new module), the **first selected-provider adapter** plugs into
+the Impl 019 async `ProviderClientBoundary`: a **`ConcreteProviderClient`** plus a pure
+**`serializeProviderInstruction`**, **`parseProviderResponse`**, and **`mapProviderError`**. The provider target
+(**OpenAI**) is recorded at the **doc/decision level (Tech Spec 020A) only**; production/test code stays
+**vendor-neutral** (`concrete-provider-*`, `providerKind: "concrete"`) so **no negative-capability guard is
+weakened and no vendor token (`openai`/`anthropic`) appears in a guarded provider file**. The client is **disabled
+by default** — with no transport it returns a safe `provider-unavailable` and does **no work** (there is **no
+live-call code path**); a non-`present` `ProviderSecretRef` fails safe (`missing-`/`invalid-credential`) **before**
+any transport; the only non-default behavior is a **deterministic in-process fixture transport used only by tests**
+(never a network call). The **serializer** projects **only** safe constraints (terminal-output kind, voice, style,
+locale, allowed/forbidden claims, uncertainty visibility, limitations, traceability, maxLength) — it has **no field**
+for an arbitrary prompt, chain-of-thought, hidden reasoning, voice override, or secret (unrepresentable; **no prompt
+template / `src/prompts`**). The **parser** returns an **untrusted draft + operational metadata only** (empty →
+`provider-returned-empty-response`, malformed → `provider-returned-malformed-response`; **no raw payload retained**;
+it **never** builds a `RenderedMessage`; metadata is operational, never evidence). The **error mapper** maps
+provider-shaped errors to the existing `ProviderOperationalFailure`, which `toProviderFailure` maps **down** to the
+existing `ProviderFailure` (**not expanded**; unknown → safe `provider-unavailable`, no leak). A draft becomes a
+message **only** via the unchanged `requestRealProviderRendering` → **`validateDraft`**, and the Impl 018 raw-free
+audit observes the outcome by **explicit composition** (no automatic persistence). There is **no arrow** from the
+shell to Observation/Reasoning/Understanding/Athlete/`event-recording`/`delivery`, to the record/review, to display
+eligibility, or to delivery; it imports only its own `rendering` surfaces + read-only `decision-support` *types*,
+**no module outside `rendering` imports it**, and there is **no installed SDK/package dependency**
+(`package.json`/lockfile unchanged), **no network/`process.env`/raw secret**, and **no
+retry/scheduler/record/review/display/delivery/event/domain side effect**. *A selected-provider **shell** prepares
+the vendor deterministically; it is not a live integration, and it weakens nothing.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -399,6 +442,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🔌 | **Provider adapter seam** *(draft source behind rendering, fake/test-only, not a stage, not a module)* | `rendering` (`domain`+`application`) | `requestProviderRendering` builds a constrained `ProviderRenderingRequest` (rejects unsafe style/locale/empty before any call), `ProviderAdapter`/deterministic `FakeProviderAdapter` returns an untrusted `ProviderDraft`, then the **unchanged `validateDraft`** decides; `RenderedMessage` only if it passes. Closed `ProviderFailure` (network-flavored members fake-configurable); validation failure → `provider-output-failed-validation` + underlying `RenderingFailure[]`; every failure → safe non-rendering. Provider selects no voice, creates no `TerminalOutput`/`Recommendation`/`RenderedMessage`/record, persists/reviews/marks-display-eligible/delivers/emits/mutates nothing; imports only own `rendering` surfaces + read-only `decision-support` types. **No** real SDK / API / network / prompt templates / provider-LLM module / persistence / events / delivery side effect | ✅ Impl 017 |
 | 📋 | **Provider attempt audit** *(observe-only audit of the seam, inside rendering, not a stage, not a module)* | `rendering` (`domain`+`application`) | `auditProviderAttempt` **observes** a `ProviderRenderOutcome` (does not call provider/`requestProviderRendering`/`validateDraft`) and records an append-only `ProviderAttemptRecord` — closed `ProviderAttemptStatus` (`validation-passed`/`validation-failed`/`provider-failed`/`unsafe-request-blocked`; `requested`/`draft-produced` reserved); reasons reuse the real `ProviderFailure` + `RenderingFailure` catalogs; **safe summary, no raw draft** (`rawDraftRetained` literal `false`; reconstitution rejects raw draft/text/content/prompt). Repository port + in-memory adapter (mutation isolation, validated reconstitution). Auditability not authority; creates no `RenderedMessage`/record/review/display/delivery; appends no event; triggers no retry/reprojection/mutation; validation failure ≠ domain invalidation. **No** event-recording import / event catalog expansion / real SDK / network / prompt / telemetry / model evaluation | ✅ Impl 018 |
 | 🔗 | **Real-provider-ready boundary** *(additive async path behind rendering, fake/in-process, not a stage, not a module)* | `rendering` (`domain`+`application`) | Async `requestRealProviderRendering` changes **only the draft source**: reuses `providerRenderingRequestFrom` (unsafe-request guard) + a credential fast-path, asks the async `ProviderClientBoundary` (deterministic `FakeProviderClient`) for an untrusted draft, then the **unchanged `validateDraft`** decides; returns the existing `ProviderRenderOutcome`. `ProviderSecretRef` (status + opaque ref, never a raw secret), structured `ProviderInstruction` (derived, no prompt template), `ProviderOperationalFailure` → `toProviderFailure` mapped **down** to the existing `ProviderFailure` (not expanded). The **sync seam (Impl 017) is untouched**; raw-free audit observes the outcome by explicit composition (no automatic persistence). Real-provider-**ready, not integrated**. **No** real SDK / API / network / `process.env` / prompt templates / `provider`-`llm`-`telemetry` module / retry-scheduler / review-display-delivery-event side effect / domain mutation | ✅ Impl 019 |
+| 🧩 | **Concrete-provider adapter shell** *(first selected-provider adapter behind the async boundary, inside rendering, not a stage, not a module)* | `rendering` (`application`) | First **selected-provider** adapter behind the Impl 019 `ProviderClientBoundary`: provider target (**OpenAI**) chosen **doc-level (020A) only**; code stays **vendor-neutral** (`concrete-provider-*`, `providerKind: "concrete"`) — **no guard weakened, no vendor token in guarded files**. `ConcreteProviderClient` is **disabled by default** (no transport → safe `provider-unavailable`, no I/O; **no live-call path**; deterministic in-process fixture transport for **tests only**, never network); non-`present` credential fails safe. Pure `serializeProviderInstruction` (structured payload; no arbitrary-prompt/chain-of-thought/secret field; no prompt template), pure `parseProviderResponse` (untrusted draft + operational metadata only; empty/malformed → safe failures; no raw payload; no `RenderedMessage`), pure `mapProviderError` (→ existing `ProviderOperationalFailure` → existing `ProviderFailure`, **not expanded**; unknown → safe). Draft → message only via unchanged `validateDraft`; raw-free audit by explicit composition; imports only own `rendering` surfaces + read-only `decision-support` types. **No** installed SDK/package dependency / network / `process.env` / raw secret / prompt template / retry-scheduler / record-review-display-delivery-event side effect / domain mutation. A selected-provider **shell**, not live integration | ✅ Impl 020 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -526,6 +570,13 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | real-provider draft **≠** rendered message · sync seam untouched **≠** duplicated authority | Only the unchanged `validateDraft` makes a message; the async path reuses the same gate — the sync seam (Impl 017) is unchanged, not a second authority. |
 | `ProviderRenderOutcome` **≠** provider-attempt persistence · real-provider path **≠** delivery/eventing | The async service returns an outcome only; the raw-free audit is explicit composition; nothing is persisted/delivered/evented automatically. |
 | provider operational metadata **≠** evidence · provider success **≠** recommendation validation · provider failure **≠** domain invalidation | Latency/cost/finish-reason are operational; success/failure never grade the domain output or `SupportQuality`. |
+| provider target selected **≠** live provider integration · vendor doc decision **≠** vendor token in production code | Impl 020 records OpenAI at the doc/decision level (020A); the concrete shell makes no live call, and code stays vendor-neutral (`concrete-provider-*`). |
+| concrete-provider shell **≠** SDK client · disabled-by-default client **≠** live-call adapter · fixture transport **≠** network | `ConcreteProviderClient` defaults to a safe failure with no I/O; the deterministic in-process transport is test-only — there is no SDK, no live-call path, and no network. |
+| selected-provider shell **≠** weakening negative-capability guards · no SDK dependency **≠** no provider plan | The vendor stays doc-level and code neutral, so every guard stays intact; the plan is real (020A) while `package.json`/lockfile are unchanged. |
+| serializer **≠** arbitrary prompt · serializer **≠** production prompt template | `serializeProviderInstruction` projects only safe constraints from `ProviderInstruction`; there is no arbitrary-prompt/chain-of-thought field and no `src/prompts`. |
+| parser output **≠** rendered message · provider metadata **≠** evidence · raw payload **≠** retained | The parser returns an untrusted draft + operational metadata only and builds no `RenderedMessage`; only `validateDraft` makes a message; no raw payload survives. |
+| provider-shaped error **≠** domain invalidation · `ProviderOperationalFailure` mapping **≠** expanding `ProviderFailure` | `mapProviderError` maps down to the existing closed catalogs (unknown → safe `provider-unavailable`); a provider failure never invalidates the domain output. |
+| provider success **≠** persistence/review/delivery · composed audit **≠** automatic audit persistence | A concrete-shell success returns an outcome only; the raw-free audit is explicit composition — nothing is persisted/reviewed/delivered automatically. |
 
 ---
 
@@ -542,11 +593,14 @@ deterministic test sink + audit records** (Impl 016); **a provider adapter seam 
 deterministic fake provider draft text behind the unchanged mandatory validator** (Impl 017); **provider
 attempts are audited inside `rendering` as safe-summary records with no raw draft retention** (Impl 018); **a
 real-provider-*ready* async client boundary (fake in-process client, secret refs, structured instructions,
-failure mapping) makes a real provider pluggable behind the same validator** (Impl 019); the following are
+failure mapping) makes a real provider pluggable behind the same validator** (Impl 019); **the first
+selected-provider adapter shell prepares a chosen vendor (OpenAI, doc-level) in vendor-neutral code — a
+disabled-by-default `ConcreteProviderClient` + deterministic serializer/parser/error-mapper — behind the same
+validator, with no live call/SDK/secret/prompt and no guard weakened** (Impl 020); the following are
 **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
-- **No real LLM provider / SDK / prompt templates** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`, and Impl 019 added a **real-provider-*ready* async client boundary** (fake in-process client, operational secret refs, structured instructions, failure mapping) so a real provider is **pluggable** behind the same validator — but **no real SDK/API/network/`process.env`/prompt-templates-as-code and no `provider`/`llm`/`telemetry`/`evaluation` module** exist (real-provider-**ready**, not real-provider-**integrated**); generated/drafted text must never become domain truth
+- **No real LLM provider / SDK / prompt templates / live call** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`, Impl 019 added a **real-provider-*ready* async client boundary** (fake in-process client, operational secret refs, structured instructions, failure mapping), and Impl 020 added the **first selected-provider adapter shell** — vendor chosen doc-level (OpenAI, 020A), code vendor-neutral (`concrete-provider-*`), a **disabled-by-default** `ConcreteProviderClient` + deterministic serializer/parser/error-mapper — so a real provider is **pluggable and shelled** behind the same validator; but **no live call, no real SDK/API/network/`process.env`/prompt-templates-as-code, no installed package dependency, and no `provider`/`llm`/`telemetry`/`evaluation` module** exist (real-provider-**ready and shelled**, not real-provider-**integrated**); generated/drafted text must never become domain truth, and the vendor never leaks into a guarded provider file
 - **No real delivery provider/channel** — the delivery boundary is proven with a **deterministic `InMemoryTestSink`** (Impl 016); a real channel would implement the same `DeliverySink` interface behind the same eligibility gate; **delivery success/failure never affects domain state**
 - **No rendered-output / delivery / provider-attempt event records** — a `RenderedMessageRecord`/`DeliveryRecord`/`ProviderAttemptRecord` is **not** an event record; `rendering` and `delivery` import no `event-recording` and the catalog is not expanded (Impl 015/016/018)
 - **No provider telemetry / model-evaluation infrastructure** — provider-attempt audit (Impl 018) is auditability/safety-debugging only (safe summaries, no raw draft); it grades no model/recommendation quality and infers no athlete state
@@ -569,13 +623,15 @@ likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (proj
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
 (domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), Spec 013
 (manual input adapter), Spec 014 (rendering boundary), Spec 015 (rendered-message record/review), Spec
-016 (delivery boundary), Spec 017 (provider adapter seam), Spec 018 (provider-attempt audit), and Spec 019
-(real-provider-ready boundary) are done (Impl 007/008/009/010/011/012/013/014/015/016/017/018/019).** The
-next responsible missions (a **real provider adapter implementation** behind the now-ready async
-`ProviderClientBoundary` — finally accepting SDK/secret/network concerns — or a **provider/delivery event
-surface** recording occurrences as ref-only events — chosen explicitly, one at a time — then a real
-channel/transport and storage backend and the reasoning reinterpretation engine) add the rest without
-collapsing any distinction above. See the Core Completion Review for the full ledger.
+016 (delivery boundary), Spec 017 (provider adapter seam), Spec 018 (provider-attempt audit), Spec 019
+(real-provider-ready boundary), and Spec 020 (concrete-provider adapter shell) are done
+(Impl 007/008/009/010/011/012/013/014/015/016/017/018/019/020).** The
+next responsible missions (a **live provider call enablement boundary** behind the now-ready async
+`ProviderClientBoundary` and the concrete shell — finally opting into SDK/secret/network, live calls explicit
+opt-in and out of the default suite — or a **provider/delivery event surface** recording occurrences as
+ref-only events — chosen explicitly, one at a time — then a real channel/transport and storage backend and the
+reasoning reinterpretation engine) add the rest without collapsing any distinction above. See the Core
+Completion Review for the full ledger.
 
 ---
 
@@ -686,6 +742,20 @@ collapsing any distinction above. See the Core Completion Review for the full le
   **auditability, not authority**; there is **no `src/modules/{provider-audit,telemetry,evaluation}`**, **no
   provider event / event-catalog expansion**, and **no SDK/network/prompt token** (structural guard); the
   slice was **additive** — **no documented blocker was needed**.
+- **Concrete-provider adapter shell (Impl 020)** also lives **inside `rendering/application`** (no new module):
+  `concrete-provider-client.ts` (the `ConcreteProviderClient`), `concrete-provider-prompt-serializer.ts`,
+  `concrete-provider-response-parser.ts`, and `concrete-provider-error-mapper.ts`, surfaced additively from
+  `rendering/application/index.ts` (the only existing-file change). The files use **neutral** names and contain
+  **no vendor token** — the provider target (OpenAI) lives only in Spec 020A — so the Impl 017/019
+  negative-capability guards (which scan every `provider-`/real-provider file for `openai`/`anthropic`/`axios`/
+  `node:http(s)`/`fetch(`/`http(s)://`/`process.env`) pass **unchanged**; a slice-specific
+  `concrete-provider-negative-capability.test.ts` re-asserts them plus a **package guard** (no runtime dependency;
+  devDeps remain `typescript` + `@types/node`). They import only own `rendering` surfaces + read-only
+  `decision-support` *types*, **no module outside `rendering` imports them**, and there is **no
+  `src/{providers,prompts,api,ui,infrastructure}` and no `src/modules/{provider,llm,openai,anthropic,model,
+  telemetry,evaluation}`**. The client is **disabled by default** (deterministic fixture transport for tests only;
+  no live call); a draft reaches a message only via the unchanged `validateDraft`. The slice was **additive** —
+  **no documented blocker was needed**, and **`package.json`/lockfile are unchanged**.
 
 ---
 

@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 019).** **Eight parts of this paper are now realized.**
+> **Implementation status (post Impl 020).** **Eight parts of this paper are now realized** (Impl 020 adds no persistence).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -102,7 +102,22 @@
 > operational metadata is not evidence**; and the real-provider-ready path **triggers no review /
 > display-eligibility / delivery / event / retry / reprojection / reasoning / domain mutation**. A **real
 > SDK/API/network/secret mechanism, production prompt templates, and provider events remain future.**
-> **Still future work:** **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
+> **(Impl 020 — concrete-provider adapter shell; no persistence change.)** Impl 020 added the first
+> **selected-provider adapter shell** **inside `rendering/application`** behind the Impl 019 async
+> `ProviderClientBoundary` — a **disabled-by-default `ConcreteProviderClient`** + pure
+> `serializeProviderInstruction` / `parseProviderResponse` / `mapProviderError`. The provider target (**OpenAI**)
+> is selected at the **doc/decision level (020A) only**; code stays **vendor-neutral** (`concrete-provider-*`).
+> This slice **adds no persistence**: it makes **no live call** (the client is disabled by default; deterministic
+> fixture transport is test-only), reaches a `RenderedMessage` only via the unchanged `validateDraft`, and the
+> Impl 018 raw-free audit observes the outcome by **explicit composition** (**no automatic provider-attempt
+> persistence**). **No provider response is persisted raw** and **no prompt payload is persisted** (the serializer
+> emits a transient structured payload, not a stored template); **secret refs are not secrets and are not
+> persisted as domain data** (no raw secret, no `process.env`); **provider operational metadata is not evidence**;
+> and the shell **triggers no review / display-eligibility / delivery / event / retry / reprojection / reasoning /
+> domain mutation**. **No SDK/package dependency was added** (`package.json`/lockfile unchanged). A **real (live)
+> provider call, real SDK/secret/network mechanism, production prompt templates, and provider events remain
+> future.**
+> **Still future work:** **live provider call enablement (SDK/secret/network opt-in)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
