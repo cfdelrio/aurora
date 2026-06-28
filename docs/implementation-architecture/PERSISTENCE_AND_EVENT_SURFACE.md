@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 025).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected).
+> **Implementation status (post Impl 026).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -210,7 +210,23 @@
 > success is not evidence**, **delivery success is not an athlete decision**. The slice was **additive** (the only
 > existing-file change is a documented AC20 allowlist update) and **adds no dependency** (`package.json`/lockfile
 > unchanged).
-> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **a live-provider smoke-test harness (opt-in, outside the default suite)**; a **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel
+> **(Impl 026 — opt-in live-provider smoke-test boundary; no persistence infrastructure added, returns a redacted
+> result only.)** Impl 026 added a **pure, fully-injected smoke-test boundary helper** inside `rendering/application`,
+> **`liveProviderSmoke(command, deps)`** — a manual operational **wiring check** that exercises **one** live provider
+> call through the **existing** `requestRealProviderRendering(...)` seam (so the unchanged mandatory `validateDraft`
+> stays the only path to a `RenderedMessage`), **only** behind explicit fail-closed gates (opt-in → CI → credential →
+> live policy, each stopping before any call). It **owns no repository** and **adds no persistence infrastructure**; it
+> **calls no rendered-message-record / review / display-eligibility / delivery / event repository** and **no
+> `application-orchestration` delivery path**; it **persists nothing and delivers nothing**. It returns a **closed,
+> redacted `LiveProviderSmokeResult`** (`rawRetained: false`) carrying safe codes only — **no raw draft / prompt /
+> payload / provider-response / secret / env value / rendered-message body is persisted or surfaced through the smoke
+> result**. It **reads no `process.env`** (opt-in/CI injected; credential via the injected `ProviderCredentialResolver`),
+> makes **at most one call (no loops, no re-issue)**, and **does not trigger** reasoning, review, display eligibility,
+> delivery, retry, provider events, or domain mutation. **Smoke success is not evidence; smoke failure is not domain
+> failure.** The slice was **additive** (the only existing-file change is the `rendering/application/index.ts` exports)
+> and **adds no dependency** (`package.json`/lockfile unchanged); the default suite + CI make **no live call** and need
+> **no credential**.
+> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; an **operator live-smoke *entrypoint*** (a deliberate runbook *outside* `src/` that reads the real opt-in/CI flags and wires the real transport/credential adapter into the now-built `liveProviderSmoke` — Impl 026 — never in the default suite/CI); a **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), **external (FIT/wearable)

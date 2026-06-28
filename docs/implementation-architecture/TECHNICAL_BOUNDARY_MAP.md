@@ -4,6 +4,39 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 026).** The **`rendering`** module now also owns the first **live-provider
+> smoke-test boundary helper** (inside `rendering/application`, **not a new module**): a **pure, fully-injected**
+> **`liveProviderSmoke(command, deps)`** (+ the closed `LiveProviderSmokeStatus` / `LIVE_PROVIDER_SMOKE_STATUSES`,
+> `LiveProviderSmokeCommand`, `LiveProviderSmokeDependencies`, `LiveProviderSmokeResult`) — a manual **operational
+> wiring check**, classified as an **injected smoke helper, NOT an operator script** (none exists; **no npm script, no
+> `scripts/`**) and **not a default/CI test**. It exercises **one** live provider call through the **existing**
+> `requestRealProviderRendering(...)` seam (so the **unchanged mandatory `validateDraft`** stays the only path to a
+> `RenderedMessage`), and **only** behind explicit, ordered, **fail-closed gates — opt-in → CI → credential → live
+> policy — each stopping before any provider call**; the **credential is resolved only after the opt-in and CI gates
+> pass**, and the call runs **only** when the credential is available **and** the policy is enabled. It makes **at most
+> one call (no loops, no re-issue)** and returns a **closed, redacted `LiveProviderSmokeResult`** (`rawRetained:
+> false`; 9 closed statuses) — **no rendered-message body, no raw draft/prompt/payload/response, no secret/credential
+> token, no `process.env` value, no metadata bag**. **Allowed imports**: `requestRealProviderRendering` + the
+> `ProviderClientBoundary` / `LiveCallPolicy` / `ProviderCredentialResolver` (types) + own `rendering` domain/application
+> surfaces (+ `shared-kernel` if needed). **Forbidden imports**: the **live HTTP transport** factory
+> (`liveProviderHttpTransport`) / its file, the **process-environment adapter**, **concrete-provider** internals,
+> `delivery`, `event-recording`, `application-orchestration`, any upstream-domain module, and any
+> workflow/event-bus/scheduler/retry/telemetry/DB module. **It reads no `process.env`** (opt-in/CI are injected
+> indicators; the credential arrives via the injected resolver); it carries **no** network/vendor/secret/retry token;
+> **no module outside `rendering` imports it**. It **persists nothing, delivers nothing, records no event, derives no
+> display eligibility for delivery, creates no rendered-message record / review / evidence / athlete decision, and
+> mutates no domain**. **Guard strategy:** the filename matches `live-provider`, so the **existing Impl 021
+> live-provider guard also catches `live-provider-smoke.ts`** and stays green (no network/vendor/env/retry token); the
+> repo-wide **`process.env` one-file guard** stays green (the helper is not a new token site); **AC20 is untouched**
+> (no new top-level module). **No SDK/package dependency** (`package.json`/lockfile unchanged; devDeps stay
+> `typescript` + `@types/node`). **No operator script yet, no npm script, no real env-flag reading, no default/CI live
+> call, no CI credential, no production prompt template.** Module count is still **nine core/domain/integration
+> modules + one application-composition module** (Impl 026 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports + the new helper/tests were added; **no documented blocker.** **A smoke test
+> proves wiring, not wisdom; the operator entrypoint that reads real env flags (outside `src/`) remains future.** No
+> architecture decision below is superseded. The note below is the prior (Impl 025) status.
+>
+
 > **Implementation status (post Impl 025).** A **new top-level module `application-orchestration`** realizes the
 > first **explicit application orchestration boundary** — it is an **application-composition module, NOT a domain
 > capability module**: it owns **no domain model, no repository, no persistence of its own**, and introduces **no
