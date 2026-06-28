@@ -4,6 +4,46 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 025).** A **new top-level module `application-orchestration`** realizes the
+> first **explicit application orchestration boundary** — it is an **application-composition module, NOT a domain
+> capability module**: it owns **no domain model, no repository, no persistence of its own**, and introduces **no
+> bounded context**. Its one surface, **`orchestrateRenderDeliver(command, deps)`** (in `application/`), composes the
+> **existing** public services of `rendering`/`delivery`/`event-recording` in a **fixed, explicit order** over
+> **injected** collaborators, returning a **closed `OrchestrationOutcome`** (8 kinds) + a **ref-only
+> `OrchestrationTrace`** (closed 10-stage catalog). Each step is an **explicit call** (provider rendering →
+> provider-attempt audit + explicit save → rendered-message record + explicit save → review + explicit save →
+> derived display eligibility → delivery, self-persisting → Impl 024 occurrence events via `append`); **no event or
+> repository write triggers the next step** (the function's control flow does), **delivery is never automatic**
+> (display eligibility is **necessary, not sufficient**), a **delivery failure does not retry**, and an
+> **event-append failure is a non-invalidating `partial-success`** (the completed domain steps stand). The
+> **persistence asymmetry is honored** — audit/record/review **return** records persisted explicitly (a review is
+> appended to the rendered-message record; **no separate review repository**), `requestDelivery` **self-persists**,
+> the event repo uses **`append`**. The result/trace carry **safe refs only** (string ids / closed enums / safe codes
+> — **no raw draft/prompt/payload/provider-response/secret/env value/message body**; a serialized-result+events leak
+> scan proves no `bearer`/`authorization`/`apikey`/`secret`/`process.env`/message-body marker). **Allowed imports**:
+> the **public module indexes** of `rendering`/`delivery`/`event-recording` + `shared-kernel`, and the
+> `ProviderClientBoundary` **abstraction** through the rendering boundary. **Forbidden imports**: any non-index
+> internal of those modules; the **live HTTP transport** (`live-provider-http-transport`), the **credential-resolver**
+> internals, the **process-env adapter** (`process-environment-credential-source-adapter`), the **concrete-provider**
+> internals; any `observation`/`reasoning`/`understanding`/`athlete` (upstream domain) module; and any
+> **workflow/event-bus/queue/scheduler/retry** or **DB/schema/infrastructure** path. **Reverse-import rule**:
+> **`rendering`/`delivery`/`event-recording` import no `application-orchestration`**, and no module depends on it for
+> core behavior. `validateDraft` (inside `requestRealProviderRendering`) stays the **only** path to a
+> `RenderedMessage`; **provider success is not evidence**, **delivery success is not an athlete decision**, and
+> **nothing here mutates the domain**. **Guard strategy:** the end-to-end **AC20 `ALLOWED_MODULES`** allowlist was
+> **updated additively** to admit `application-orchestration` (a documented approved-module update following the Impl
+> 016 `delivery` precedent — **not a guard weakening**; the guard still rejects every other unapproved top-level
+> module); new ref-only/leak-scan + import-boundary + structural + package guards enforce the rules above. **No event
+> bus / queue / scheduler / retry / workflow engine / telemetry / DB / UI / API**, and **no SDK/package change**
+> (devDeps stay `typescript` + `@types/node`). **Module count is now nine core/domain/integration modules** (the five
+> ladder modules + `shared-kernel` upstream/`athlete` + the `event-recording`/`rendering`/`delivery` integration
+> modules) **plus one application-composition module** (`application-orchestration`) — the composition module is
+> classified separately because it is application wiring, not a domain capability or a new bounded context. The slice
+> was **additive** — the only existing-file change is the documented AC20 update; **no documented blocker.**
+> **Composition is explicit; it is not a hidden side effect, an event bus, a scheduler, a retry engine, or a workflow
+> engine.** No architecture decision below is superseded. The note below is the prior (Impl 024) status.
+>
+
 > **Implementation status (post Impl 024).** The **`event-recording`** module — untouched since Impl 011 —
 > now also realizes a **provider/rendering/delivery occurrence event surface** (inside `event-recording`,
 > **not a new module**), as an **additive catalog expansion + pure factories**. `domain/` additively extends

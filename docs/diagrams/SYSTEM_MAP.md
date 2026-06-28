@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 024):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 025):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -136,8 +136,27 @@
 > rendering/delivery/provider import no `event-recording`); the two earlier "catalog not extended" guards were
 > **reconciled, not weakened**. **Events record what happened; they do not make anything happen** — an event is
 > never a command/retry/delivery trigger, evidence, recommendation quality, an athlete decision, or a domain
-> mutation. The remaining
-> absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
+> mutation. Implementation 025 added the first **explicit application orchestration boundary** — a **new
+> application-composition module** `application-orchestration` whose one surface, **`orchestrateRenderDeliver(command,
+> deps)`**, composes the **existing** public services of `rendering`/`delivery`/`event-recording` in a **fixed,
+> explicit order** over **injected** collaborators, returning a **closed `OrchestrationOutcome`** (8 kinds) + a
+> **ref-only `OrchestrationTrace`** (10-stage catalog). It is an **application-composition module, NOT a domain
+> capability module**: it owns **no domain model, no repository, no persistence of its own**, and introduces **no
+> bounded context**. Each step is an **explicit call** (provider rendering → provider-attempt audit + explicit save →
+> rendered-message record + explicit save → review + explicit save → derived display eligibility → delivery
+> (self-persisting) → Impl 024 occurrence events via `append`); **no event or repository write triggers the next
+> step**, **delivery is never automatic** (display eligibility is necessary, not sufficient), a **delivery failure
+> does not retry**, and an **event-append failure is a non-invalidating `partial-success`** (the completed domain
+> steps stand). The trace/result carry **safe refs only** (no raw draft/prompt/payload/provider-response/secret/env
+> value/message body). It imports **only the public indexes** of rendering/delivery/event-recording (+ `shared-kernel`)
+> and the `ProviderClientBoundary` **abstraction** — **never** live transport / credential-resolver internals /
+> process-env adapter / concrete-provider internals / an upstream domain module; **rendering/delivery/event-recording
+> import no `application-orchestration`**. **AC20's `ALLOWED_MODULES` was updated additively** (approved module, not a
+> weakening). **`validateDraft` stays the only path to a `RenderedMessage`**; **provider success is not evidence**,
+> **delivery success is not an athlete decision**, and **nothing here mutates the domain**. **Composition is explicit;
+> it is not a hidden side effect, an event bus, a scheduler, a retry engine, or a workflow engine.** The remaining
+> absences (**a production orchestration *entrypoint* (UI/API/scheduler) that invokes the composition**/**real
+> provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
 > ingestion/**auto-emission, an event bus, or persistence for the (now-existing, ref-only) provider/rendering/
 > delivery occurrence event surface**/**production persistence & event store**/**scheduler & retry**/**full**
 > athlete model/**generic projection engine**/**full
@@ -228,6 +247,17 @@ flowchart LR
       EVREC["event-recording ✅ Impl 011 · superficie output-out ✅ Impl 024<br/>DomainEventRecord (occurrence/outcome) · catálogo cerrado (34 tipos: 26 core + 8 output-out)<br/>TraceabilityEnvelope · EventPayloadRef (ref-only)<br/>+ Impl 024 (aditivo): ProducingModule += rendering/delivery (NO módulo provider)<br/>+ EventArtifactKind += ProviderAttemptRecord/RenderedMessageRecord/RenderReview/DeliveryRequest/DeliveryRecord (DisplayEligibility = role, NO kind)<br/>+ 8 factories PURAS (vía DomainEventRecord.record) · ref-only · raw-free · NO persisten · NO llaman provider/transport/validator/renderer/sink · NO crean artefacto · NO mutan · NO auto-emit<br/>composición explícita (NO bus) · referencia por string-kind NO es import cross-module<br/>log append-only · causation=linaje / correlation=grupo<br/>responde: ¿qué PASÓ? — NO comando, NO bus, NO ejecución, NO evidencia/calidad/decisión/retry/delivery"]
       REPRO["reprojection-harness ✅ Impl 012<br/>(test-support neutral, NO módulo productivo)<br/>check-only · recompute UnderstandingAssessment vía understanding<br/>recalcula freshness · detecta candidatos desde event records (contexto)<br/>reporta drift/findings · NO muta, NO ejecuta, NO reconstruye, NO promueve<br/>responde: ¿qué vistas derivadas recomputar / marcar stale?"]
     end
+
+    subgraph ORCHL["Application composition (NO dominio · NO stage · NO bus) ✅ Impl 025"]
+      ORCH["application-orchestration ✅ Impl 025<br/>orchestrateRenderDeliver(command, deps) — ÚNICA superficie de composición explícita<br/>compone servicios EXISTENTES en orden fijo sobre colaboradores INYECTADOS<br/>OrchestrationOutcome (cerrado, 8 kinds) · OrchestrationTrace (ref-only, 10 stages)<br/>NO domain model · NO repository · NO persistencia propia · NO bounded context<br/>cada paso = llamada explícita · NINGÚN evento/save dispara el siguiente paso<br/>delivery NUNCA automático (display-eligibility necesaria, NO suficiente) · delivery failure NO retry<br/>event-append failure → partial-success (NO invalida los pasos de dominio)<br/>importa SOLO índices públicos (+ shared-kernel) + ProviderClientBoundary (abstracción)<br/>NO live transport/credential-resolver/process-env/concrete-provider internals · NO muta dominio<br/>NO event bus · NO scheduler · NO retry · NO workflow engine · NO side effect oculto"]
+      ORES["OrchestrationOutcome + OrchestrationTrace<br/>(solo refs seguras: ids string / enums cerrados / códigos seguros)<br/>NO draft/prompt/payload/secret/env value/cuerpo de mensaje"]
+    end
+    ORCH -- "1 · llamada explícita (real-provider-ready)" --> RPROV
+    ORCH -- "2 · llamada explícita: auditProviderAttempt + save explícito" --> PAUD
+    ORCH -- "3 · crea RenderedMessageRecord + save · 4 · appendReview + save · 5 · displayEligibilityOf (derivado, no aserción)" --> RREC
+    ORCH -- "6 · SOLO si elegible: deliveryRequest + requestDelivery (auto-persiste)" --> DELIV
+    ORCH -- "7 · registra ocurrencias (factories Impl 024) + eventRepository.append (paso terminal, no disparador)" --> EVREC
+    ORCH -- "devuelve (solo refs)" --> ORES
 
     LADDER["Etapas 1–5 + Athlete (ocurrencias)"]
     O -.- LADDER
@@ -518,6 +548,34 @@ factories stay pure). A provider/delivery success event is **never** evidence, r
 athlete decision, a retry, or a delivery command; **there is no event bus / queue / scheduler / telemetry / DB,
 and no auto-emission or persistence-as-events**. *Events record what happened; they make nothing happen.*
 
+[FACT] **Application orchestration — explicit composition, never a workflow engine (Implementation 025).** A
+**new application-composition module** `application-orchestration` (drawn as a distinct composition layer, **not**
+a reasoning stage and **not** a support seam in the ladder). Its one surface, **`orchestrateRenderDeliver(command,
+deps)`**, composes the **existing** public services in a **fixed, explicit order** over **injected** collaborators:
+`requestRealProviderRendering` → (selected) `auditProviderAttempt` + explicit `providerAttemptRepository.save` →
+`RenderedMessageRecord.fromRenderedMessage` + explicit `renderedMessageRecordRepository.save` → (selected)
+`renderReview` + `record.appendReview` + explicit save → `displayEligibilityOf` (**derived, never asserted**) →
+(selected **and** eligible) `deliveryRequest` + `requestDelivery` (**self-persists**) → (selected) the Impl 024
+occurrence-event factories + `eventRepository.append`. The arrows from `ORCH` are **explicit calls, not automatic
+event flow**: **no event or repository write triggers the next step** (the function's control flow does), **delivery
+is never automatic** (display eligibility is **necessary, not sufficient**), a **delivery failure does not retry**,
+and an **event-append failure returns a non-invalidating `partial-success`** (the completed domain steps stand). It
+is an **application-composition module, NOT a domain capability module**: it owns **no domain model, no repository,
+no persistence of its own**, and introduces **no bounded context**. The **persistence asymmetry is honored** —
+audit/record/review **return** records persisted explicitly (a review is appended to the rendered-message record;
+**no separate review repository**), `requestDelivery` **self-persists**, the event repo uses **`append`**. The
+result/trace are **safe refs only** (string ids / closed enums / safe codes — **no raw draft/prompt/payload/
+provider-response/secret/env value/message body**). It imports **only the public indexes** of
+rendering/delivery/event-recording (+ `shared-kernel`) and the `ProviderClientBoundary` **abstraction** — there is
+**no arrow** to live HTTP transport / credential-resolver internals / process-env adapter / concrete-provider
+internals, to Observation/Reasoning/Understanding/Athlete mutation surfaces, or to an event bus / scheduler / retry,
+and **no arrow from rendering/delivery/event-recording back into orchestration**. `validateDraft` (inside
+`requestRealProviderRendering`) stays the **only** path to a `RenderedMessage`; **provider success is not evidence**,
+**a validation pass is not recommendation quality**, **delivery success is not athlete understanding or an athlete
+decision**, and **nothing here mutates the domain**. **AC20's `ALLOWED_MODULES` was extended additively** (approved
+module, not a weakening; the guard still rejects every other unapproved top-level module). *Composition is explicit;
+an injected collaborator is not a global service locator; an event-recording step is not an event-triggered step.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -619,6 +677,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🧾 | **Event recording** *(seam beside persistence, not a stage)* | `event-recording` | `DomainEventRecord` (occurrence/outcome) over a closed **34-type catalog (26 reasoning-core + 8 output-out, Impl 024)**; `TraceabilityEnvelope`; **ref-only** `EventPayloadRef`; **append-only** `DomainEventRecordLog` + repository port + in-memory adapter; causation=lineage, correlation=grouping; validated on construct *and* reconstitute. Records *what happened* (refs, never copied state); **complements**, never replaces, the repositories. **No** event bus / publish-subscribe / handlers / async delivery / DB / schema / serialization / event sourcing; imports only `shared-kernel`; no domain module imports it | ✅ Impl 011 |
 | 🧷 | **Provider / rendering / delivery event surface** *(additive output-out occurrence surface, inside `event-recording`, not a stage, not a bus)* | `event-recording` (`domain`+`application`) | Additive catalogs: `ProducingModule` += `rendering`/`delivery` (provider events produced by `rendering`; **no `provider` module**); `EventArtifactKind` += `ProviderAttemptRecord`/`RenderedMessageRecord`/`RenderReview`/`DeliveryRequest`/`DeliveryRecord` (`DisplayEligibility` = ref *role*, not a kind); `DomainEventType` += 8 occurrence/outcome types. **8 pure factories** build records via the existing `DomainEventRecord.record(...)` — **ref-only, raw-free, inert**: persist nothing, call no provider/transport/validator/renderer/delivery sink, create no downstream artifact, mutate nothing, **auto-emit from nothing** (explicit composition only). `event-recording` stays dependency-neutral (string-kind reference ≠ import); rendering/delivery/provider import no `event-recording`. Two earlier "catalog not extended" guards reconciled, not weakened. **No** event bus / queue / scheduler / telemetry / DB / auto-emission / persistence-as-events; an event is never a command/retry/delivery trigger, evidence, quality, athlete decision, or domain mutation | ✅ Impl 024 |
 | 🔁 | **Reprojection** *(neutral check-only seam, not a stage, not a module)* | `__tests__/reprojection-harness` | `runReprojection` + `ReprojectionRun`/`Result`/`Finding`/`Mode`/`Target`/`InputSet`; recomputes `UnderstandingAssessment` via the owning module; recalculates freshness; pure event→candidate map; reports drift/findings. `check-only` only (`refresh-derived`/`mark-stale` reserved + throw). **Mutates nothing**, executes no event, rebuilds no aggregate from the log, promotes no freshness, creates no output. **No** production `reprojection` module / scheduler / event sourcing / projection repository / service layer; no domain module imports it | ✅ Impl 012 |
+| 🎼 | **Application orchestration** *(explicit composition layer, NOT a domain capability, not a stage, not a bus)* | `application-orchestration` (`application/`) | `orchestrateRenderDeliver(command, deps)` composes the **existing** rendering/provider-audit/record/review/display/delivery/event services in a **fixed, explicit order** over **injected** collaborators → closed `OrchestrationOutcome` (8 kinds: `delivered`/`delivery-failed`/`rendered`/`review-rejected`/`display-ineligible`/`provider-not-rendered`/`recording-failed`/`partial-success`) + ref-only `OrchestrationTrace` (10-stage catalog). Owns **no domain model / repository / persistence of its own** / bounded context. Each step is an **explicit call**; **no event or repository save triggers the next step**; **delivery is never automatic** (display eligibility necessary, not sufficient); a **delivery failure does not retry**; an **event-append failure → non-invalidating `partial-success`**. Persistence asymmetry honored (audit/record/review return → explicit save; review appended to the record; `requestDelivery` self-persists; events `append`). Trace/result are **safe refs only** (no raw draft/prompt/payload/secret/env value/message body). Imports **only public module indexes** (+ `shared-kernel`) + the `ProviderClientBoundary` abstraction; **no** live transport/credential-resolver/process-env/concrete-provider internals; rendering/delivery/event-recording import it back. `validateDraft` stays the only path to a `RenderedMessage`; provider success ≠ evidence; delivery success ≠ athlete decision; no domain mutation. **AC20 updated additively.** **No** event bus / queue / scheduler / retry / workflow engine / telemetry / DB / UI / API / dependency change | ✅ Impl 025 |
 
 ---
 
@@ -770,6 +829,14 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | provider success event **≠** recommendation correctness · delivery success event **≠** athlete decision | A success occurrence is operational history; it never becomes recommendation quality, evidence, or the athlete's decision. |
 | ref-only event payload **≠** copied state / raw content store · event-recording vocabulary string **≠** cross-module import | Payloads carry `kind`/`id`/`role?`/`ownerModule?` only (no raw draft/prompt/payload/secret/env value); a kind string like `ProviderAttemptRecord` is a name, not an import — `event-recording` imports only `shared-kernel`. |
 | event history read **≠** replay side effect · guard reconciliation **≠** boundary weakening (Impl 024) | Reading an event runs nothing; the two earlier "catalog not extended" guards were updated for the approved expansion while the rendering-internal audit symbols stay forbidden outside `rendering` and the factories stay pure. |
+| application orchestration **≠** domain module · **≠** bounded context · **≠** persistence owner (Impl 025) | `application-orchestration` owns no domain model, no repository, and no persistence; it composes existing services over injected collaborators and returns a result + trace. |
+| application orchestration **≠** workflow engine / event bus / scheduler / retry engine | There is no bus/handler/queue/scheduler/retry/workflow; `orchestrateRenderDeliver` is a single function whose control flow makes each explicit call. |
+| explicit composition **≠** hidden side effect · injected collaborator **≠** global service locator | Every side-effecting collaborator is passed in via `ExplicitOrchestrationDependencies`; nothing is resolved from a global, and composition is visible in the call sequence. |
+| event-recording step **≠** event-triggered step · repository save **≠** implicit next step (Impl 025) | No event append or repository save triggers the next step; the function's control flow does — recording occurrences is the **terminal** step, never a trigger. |
+| display eligibility **≠** automatic delivery | Delivery runs only when explicitly selected *and* eligible; eligibility is necessary, not sufficient — there is no automatic delivery arrow off `displayEligibilityOf`. |
+| delivery failure **≠** retry · event-append failure **≠** domain invalidation (Impl 025) | A delivery failure returns `delivery-failed` with no retry; an event-append failure returns a non-invalidating `partial-success` — the completed domain steps stand. |
+| provider success **≠** evidence · validation pass **≠** recommendation quality · delivery success **≠** athlete understanding/decision (Impl 025) | Orchestration coordinates boundaries; it never reclassifies an operational success as evidence, recommendation quality, athlete understanding, or an athlete decision. |
+| ref-only trace **≠** raw content storage · AC20 allowlist update **≠** guard weakening (Impl 025) | The `OrchestrationTrace`/result carry only string ids / closed enums / safe codes; AC20 gained `application-orchestration` additively while still rejecting every other unapproved module. |
 
 ---
 
@@ -802,7 +869,11 @@ injected accessor so tests read no real environment, no live-call enablement, no
 dependency or existing-guard change** (Impl 023); **the output-out edge is now occurrence-traceable through a
 ref-only provider/rendering/delivery event surface — additive catalogs + eight pure factories that record what
 happened (by id only), persisting nothing, calling nothing, mutating nothing, and auto-emitting from nothing**
-(Impl 024); the following are **deliberately absent**, not failures:
+(Impl 024); **the existing services are now explicitly composed through an application orchestration boundary —
+`orchestrateRenderDeliver(command, deps)` wires rendering/provider-audit/record/review/display/delivery/event in a
+fixed, explicit order over injected collaborators, returning a closed outcome + a ref-only trace, owning no domain
+model/repository/persistence, with no event/save triggering a step, no automatic delivery, no retry, and no domain
+mutation** (Impl 025); the following are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
 - **No real LLM provider SDK / production secret-env mechanism / production live-call rollout** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`, Impl 019 added a **real-provider-*ready* async client boundary**, Impl 020 added the **vendor-neutral selected-provider shell** (disabled by default), and Impl 021 added the **opt-in live-provider boundary** — a fail-closed `LiveCallPolicy`, an injected credential resolver, and native `fetch` sealed in one approved transport file — Impl 022 added the **injected environment credential resolver** (one configured key from an injected source map), and Impl 023 added the **one-file process-environment source adapter** (the real `process.env` bound through one approved, guard-sealed file) — so a real call is **possible only when explicitly enabled** behind the same validator and a credential can be resolved from the real environment through one auditable file; but **no production live call, no real SDK/installed dependency, no production secret manager, no production prompts, and no `provider`/`llm`/`telemetry`/`evaluation` module** exist (real-provider-**ready, shelled, live-call-capable, and credential-resolving from the real environment through one approved file**, not **deployed**); generated/drafted text must never become domain truth, the vendor never leaks into a guarded provider file, the network token lives in exactly one approved file, and `process.env` is sealed to exactly one approved file
@@ -821,7 +892,7 @@ happened (by id only), persisting nothing, calling nothing, mutating nothing, an
 - **No generic projection engine and no top-level `projection` module** — freshness is local to
   `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
 - **No production reprojection service / scheduler / projection repository** — reprojection is proven as a *neutral check-only harness* (Impl 012); a production recompute service, an event-driven/scheduled refresh, and a projection store are deferred
-- **No production orchestration service** (cross-module purpose/refresh/decision/record/reprojection seams live in the neutral test harness)
+- **An explicit application orchestration boundary exists (Impl 025)** — `application-orchestration` composes the existing rendering/audit/record/review/display/delivery/event services over injected collaborators in explicit ordered steps (no domain model/repository/persistence of its own; no event bus/scheduler/retry/workflow; no automatic delivery; no event-triggered step; no domain mutation; AC20 updated additively) — but **no production orchestration *entrypoint*** (a UI/API/use-case surface, or a scheduler/event-driven trigger, that *invokes* `orchestrateRenderDeliver`) exists yet; the remaining cross-module purpose/refresh/decision/reprojection seams still live in the neutral test harness
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
@@ -831,14 +902,15 @@ Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory re
 016 (delivery boundary), Spec 017 (provider adapter seam), Spec 018 (provider-attempt audit), Spec 019
 (real-provider-ready boundary), Spec 020 (concrete-provider adapter shell), Spec 021 (opt-in live-provider
 boundary), Spec 022 (injected environment credential resolver), Spec 023 (one-file process-environment source
-adapter), and Spec 024 (ref-only provider/rendering/delivery occurrence event surface) are done (Impl
-007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022/023/024).** The
-next responsible missions (a **live-provider smoke-test boundary** (explicit opt-in, outside the default suite,
-never in CI) — or an **explicit application orchestration boundary** that composes existing pieces (e.g. records
-an occurrence by explicitly calling an Impl 024 factory) without an event bus/scheduler/auto-emission — chosen
-explicitly, one at a time — then a production secret manager + live-call rollout, an event-bus/persistence for the
-event surface, a real channel/transport and storage backend, and the reasoning reinterpretation engine) add the
-rest without collapsing any distinction
+adapter), Spec 024 (ref-only provider/rendering/delivery occurrence event surface), and Spec 025 (explicit
+application orchestration boundary) are done (Impl
+007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022/023/024/025).** The
+next responsible mission — now that the existing pieces are **explicitly composed** (Impl 025) — is a
+**live-provider smoke-test boundary** (Spec 026: explicit opt-in, outside the default suite, never in CI,
+exercising a real call through the same `orchestrateRenderDeliver` / `ProviderClientBoundary` seams); then a
+production orchestration **entrypoint** (UI/API/scheduler that invokes the composition), a production secret
+manager + live-call rollout, an event-bus/persistence for the event surface, a real channel/transport and storage
+backend, and the reasoning reinterpretation engine — each adding the rest without collapsing any distinction
 above. See the Core Completion Review for the full ledger.
 
 ---
@@ -1033,6 +1105,24 @@ above. See the Core Completion Review for the full ledger.
   `src/modules/{event-bus,queue,scheduler,telemetry,evaluation,provider}` / `api` / `db`** and **no SDK/package
   change** (devDeps stay `typescript` + `@types/node`). The slice was **additive** — **no production module
   modified beyond the catalog/exports**, and **`package.json`/lockfile are unchanged**.
+- **Application orchestration (Impl 025)** lives in `src/modules/application-orchestration/` as a new
+  **application-composition module** (not a domain capability): `application/` holds `orchestrate-render-deliver.ts`
+  (the single `orchestrateRenderDeliver` surface), `orchestration-command.ts`, `orchestration-dependencies.ts`,
+  `orchestration-result.ts` (the closed `OrchestrationOutcome`), and `orchestration-trace.ts` (the ref-only
+  `OrchestrationTrace` + closed `OrchestrationStage` catalog), surfaced through `application/index.ts` and the
+  module's `index.ts`. It has **no `domain/` directory and defines no repository** — every side-effecting
+  collaborator (provider client, repositories, sink, event repo) is **injected** via
+  `ExplicitOrchestrationDependencies`. It imports **only the public indexes** of `rendering`/`delivery`/
+  `event-recording` (+ `shared-kernel`) and the `ProviderClientBoundary` abstraction (import-scan guard forbids any
+  live-transport/credential-resolver/process-env/concrete-provider internal and any upstream domain module); a
+  negative-capability scan asserts the trace/result are ref-only/raw-free (no `bearer`/`authorization`/`apikey`/
+  `secret`/`process.env`/message-body marker), and structural guards assert no `src/modules/{workflow,event-bus,
+  queue,scheduler,retry,telemetry,evaluation,provider}` / `api` / `db` and that **`rendering`/`delivery`/
+  `event-recording` import no `application-orchestration`**. The **AC20 `ALLOWED_MODULES`** set in
+  `src/modules/__tests__/end-to-end-responsible-reflection.test.ts` was **extended additively** to admit the new
+  module (a documented approved-module update, not a guard weakening — the guard still rejects every other
+  unapproved top-level module). The slice was **additive** — the only existing-file change is the documented AC20
+  update — and **`package.json`/lockfile are unchanged** (devDeps stay `typescript` + `@types/node`).
 
 ---
 

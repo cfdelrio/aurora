@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 024).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing).
+> **Implementation status (post Impl 025).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -186,10 +186,34 @@
 > telemetry / DB / auto-emission / persistence-as-events**, and **no SDK/package dependency** (`package.json`/
 > lockfile unchanged). **Events record what happened; they make nothing happen** — an event is never a
 > command/retry/delivery trigger, evidence, recommendation quality, an athlete decision, or a domain mutation.
-> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **a live-provider smoke-test harness (opt-in, outside the default suite)**; **a production application/orchestration composition that *explicitly* records occurrences using the Impl 024 factories — plus an eventual event-bus / event persistence / runtime delivery** (the ref-only occurrence *surface* now exists; auto-emission and persistence do not); a **real provider/channel
+> **(Impl 025 — explicit application orchestration boundary; no persistence infrastructure added, persistence
+> steps composed explicitly.)** Impl 025 added a **new application-composition module** `application-orchestration`
+> whose one surface, **`orchestrateRenderDeliver(command, deps)`**, composes the **existing** rendering/delivery/
+> event-recording services in a **fixed, explicit order** over **injected** collaborators. It **owns no repository**
+> and **adds no persistence infrastructure**; instead it **explicitly calls the existing persistence steps where
+> selected**, honoring the real-surface asymmetry: `auditProviderAttempt(...)` and
+> `RenderedMessageRecord.fromRenderedMessage(...)` **return** records that the orchestrator **persists explicitly**
+> (`providerAttemptRepository.save(...)`, `renderedMessageRecordRepository.save(...)`); a review is **appended to the
+> rendered-message record** (`record.appendReview(review)` returns a new record, then an **explicit
+> `renderedMessageRecordRepository.save(...)`** — there is **no separate review repository**); **`requestDelivery(...)`
+> self-persists** through the injected delivery repository; and the **event repository `append` is explicit** (the
+> terminal step). **No repository save triggers the next step** — each step is an explicit call in the function's
+> control flow; **delivery is never automatic** (display eligibility is necessary, not sufficient); a **delivery
+> failure does not retry**; and a **required-persistence failure** (audit/record/review) is a **safe stop**
+> (`recording-failed`) **before** delivery. The **`OrchestrationTrace`/result carry safe refs only** — string ids /
+> closed enums / safe codes — so **no raw draft/prompt/payload/provider-response/secret/env value/message body is
+> persisted through the trace**, and **no value is persisted at all by orchestration** beyond what the injected
+> repositories already store. An **occurrence-event-append failure is a non-invalidating partial result**
+> (`partial-success`): the completed domain steps stand and their refs remain in the trace. Orchestration **does not
+> trigger** reasoning, review, display eligibility, delivery, retry, provider calls, or domain mutation **except
+> through its explicit selected steps**; `validateDraft` stays the only path to a `RenderedMessage`; **provider
+> success is not evidence**, **delivery success is not an athlete decision**. The slice was **additive** (the only
+> existing-file change is a documented AC20 allowlist update) and **adds no dependency** (`package.json`/lockfile
+> unchanged).
+> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **a live-provider smoke-test harness (opt-in, outside the default suite)**; a **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
-> a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
+> a **projection repository** (§6), **external (FIT/wearable)
 > ingestion**, and any **production event store / serialization format / DB / ORM / cache / persistence
 > backend**. This paper is otherwise unchanged.
 
