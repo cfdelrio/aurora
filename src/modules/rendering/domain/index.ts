@@ -72,6 +72,24 @@ export { providerRenderingRequestFrom } from "./provider-rendering-request.ts";
 export type { ProviderRenderingRequest, ProviderRenderingRequestOutcome } from "./provider-rendering-request.ts";
 export type { ProviderDraft, ProviderDraftOutcome } from "./provider-draft.ts";
 
+// Real-provider-ready boundary (Impl 019) — async client boundary; the draft source changes, not the gate.
+export { PROVIDER_CREDENTIAL_STATUSES, isProviderCredentialStatus } from "./provider-secret-ref.ts";
+export type { ProviderSecretRef, ProviderCredentialStatus } from "./provider-secret-ref.ts";
+export type { ProviderClientConfig } from "./provider-client-config.ts";
+export { providerInstructionFrom } from "./provider-instruction.ts";
+export type { ProviderInstruction } from "./provider-instruction.ts";
+export {
+  PROVIDER_OPERATIONAL_FAILURES,
+  isProviderOperationalFailure,
+  toProviderFailure,
+} from "./provider-operational-failure.ts";
+export type { ProviderOperationalFailure } from "./provider-operational-failure.ts";
+export type {
+  ProviderClientRequest,
+  ProviderClientResponse,
+  ProviderClientMetadata,
+} from "./provider-client-response.ts";
+
 // Provider attempt audit (Impl 018) — auditability, not authority; safe summary, no raw draft retention.
 export { PROVIDER_ATTEMPT_STATUSES, isProviderAttemptStatus } from "./provider-attempt-status.ts";
 export type { ProviderAttemptStatus } from "./provider-attempt-status.ts";
