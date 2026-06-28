@@ -4,6 +4,409 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 026).** The **`rendering`** module now also owns the first **live-provider
+> smoke-test boundary helper** (inside `rendering/application`, **not a new module**): a **pure, fully-injected**
+> **`liveProviderSmoke(command, deps)`** (+ the closed `LiveProviderSmokeStatus` / `LIVE_PROVIDER_SMOKE_STATUSES`,
+> `LiveProviderSmokeCommand`, `LiveProviderSmokeDependencies`, `LiveProviderSmokeResult`) — a manual **operational
+> wiring check**, classified as an **injected smoke helper, NOT an operator script** (none exists; **no npm script, no
+> `scripts/`**) and **not a default/CI test**. It exercises **one** live provider call through the **existing**
+> `requestRealProviderRendering(...)` seam (so the **unchanged mandatory `validateDraft`** stays the only path to a
+> `RenderedMessage`), and **only** behind explicit, ordered, **fail-closed gates — opt-in → CI → credential → live
+> policy — each stopping before any provider call**; the **credential is resolved only after the opt-in and CI gates
+> pass**, and the call runs **only** when the credential is available **and** the policy is enabled. It makes **at most
+> one call (no loops, no re-issue)** and returns a **closed, redacted `LiveProviderSmokeResult`** (`rawRetained:
+> false`; 9 closed statuses) — **no rendered-message body, no raw draft/prompt/payload/response, no secret/credential
+> token, no `process.env` value, no metadata bag**. **Allowed imports**: `requestRealProviderRendering` + the
+> `ProviderClientBoundary` / `LiveCallPolicy` / `ProviderCredentialResolver` (types) + own `rendering` domain/application
+> surfaces (+ `shared-kernel` if needed). **Forbidden imports**: the **live HTTP transport** factory
+> (`liveProviderHttpTransport`) / its file, the **process-environment adapter**, **concrete-provider** internals,
+> `delivery`, `event-recording`, `application-orchestration`, any upstream-domain module, and any
+> workflow/event-bus/scheduler/retry/telemetry/DB module. **It reads no `process.env`** (opt-in/CI are injected
+> indicators; the credential arrives via the injected resolver); it carries **no** network/vendor/secret/retry token;
+> **no module outside `rendering` imports it**. It **persists nothing, delivers nothing, records no event, derives no
+> display eligibility for delivery, creates no rendered-message record / review / evidence / athlete decision, and
+> mutates no domain**. **Guard strategy:** the filename matches `live-provider`, so the **existing Impl 021
+> live-provider guard also catches `live-provider-smoke.ts`** and stays green (no network/vendor/env/retry token); the
+> repo-wide **`process.env` one-file guard** stays green (the helper is not a new token site); **AC20 is untouched**
+> (no new top-level module). **No SDK/package dependency** (`package.json`/lockfile unchanged; devDeps stay
+> `typescript` + `@types/node`). **No operator script yet, no npm script, no real env-flag reading, no default/CI live
+> call, no CI credential, no production prompt template.** Module count is still **nine core/domain/integration
+> modules + one application-composition module** (Impl 026 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports + the new helper/tests were added; **no documented blocker.** **A smoke test
+> proves wiring, not wisdom; the operator entrypoint that reads real env flags (outside `src/`) remains future.** No
+> architecture decision below is superseded. The note below is the prior (Impl 025) status.
+>
+
+> **Implementation status (post Impl 025).** A **new top-level module `application-orchestration`** realizes the
+> first **explicit application orchestration boundary** — it is an **application-composition module, NOT a domain
+> capability module**: it owns **no domain model, no repository, no persistence of its own**, and introduces **no
+> bounded context**. Its one surface, **`orchestrateRenderDeliver(command, deps)`** (in `application/`), composes the
+> **existing** public services of `rendering`/`delivery`/`event-recording` in a **fixed, explicit order** over
+> **injected** collaborators, returning a **closed `OrchestrationOutcome`** (8 kinds) + a **ref-only
+> `OrchestrationTrace`** (closed 10-stage catalog). Each step is an **explicit call** (provider rendering →
+> provider-attempt audit + explicit save → rendered-message record + explicit save → review + explicit save →
+> derived display eligibility → delivery, self-persisting → Impl 024 occurrence events via `append`); **no event or
+> repository write triggers the next step** (the function's control flow does), **delivery is never automatic**
+> (display eligibility is **necessary, not sufficient**), a **delivery failure does not retry**, and an
+> **event-append failure is a non-invalidating `partial-success`** (the completed domain steps stand). The
+> **persistence asymmetry is honored** — audit/record/review **return** records persisted explicitly (a review is
+> appended to the rendered-message record; **no separate review repository**), `requestDelivery` **self-persists**,
+> the event repo uses **`append`**. The result/trace carry **safe refs only** (string ids / closed enums / safe codes
+> — **no raw draft/prompt/payload/provider-response/secret/env value/message body**; a serialized-result+events leak
+> scan proves no `bearer`/`authorization`/`apikey`/`secret`/`process.env`/message-body marker). **Allowed imports**:
+> the **public module indexes** of `rendering`/`delivery`/`event-recording` + `shared-kernel`, and the
+> `ProviderClientBoundary` **abstraction** through the rendering boundary. **Forbidden imports**: any non-index
+> internal of those modules; the **live HTTP transport** (`live-provider-http-transport`), the **credential-resolver**
+> internals, the **process-env adapter** (`process-environment-credential-source-adapter`), the **concrete-provider**
+> internals; any `observation`/`reasoning`/`understanding`/`athlete` (upstream domain) module; and any
+> **workflow/event-bus/queue/scheduler/retry** or **DB/schema/infrastructure** path. **Reverse-import rule**:
+> **`rendering`/`delivery`/`event-recording` import no `application-orchestration`**, and no module depends on it for
+> core behavior. `validateDraft` (inside `requestRealProviderRendering`) stays the **only** path to a
+> `RenderedMessage`; **provider success is not evidence**, **delivery success is not an athlete decision**, and
+> **nothing here mutates the domain**. **Guard strategy:** the end-to-end **AC20 `ALLOWED_MODULES`** allowlist was
+> **updated additively** to admit `application-orchestration` (a documented approved-module update following the Impl
+> 016 `delivery` precedent — **not a guard weakening**; the guard still rejects every other unapproved top-level
+> module); new ref-only/leak-scan + import-boundary + structural + package guards enforce the rules above. **No event
+> bus / queue / scheduler / retry / workflow engine / telemetry / DB / UI / API**, and **no SDK/package change**
+> (devDeps stay `typescript` + `@types/node`). **Module count is now nine core/domain/integration modules** (the five
+> ladder modules + `shared-kernel` upstream/`athlete` + the `event-recording`/`rendering`/`delivery` integration
+> modules) **plus one application-composition module** (`application-orchestration`) — the composition module is
+> classified separately because it is application wiring, not a domain capability or a new bounded context. The slice
+> was **additive** — the only existing-file change is the documented AC20 update; **no documented blocker.**
+> **Composition is explicit; it is not a hidden side effect, an event bus, a scheduler, a retry engine, or a workflow
+> engine.** No architecture decision below is superseded. The note below is the prior (Impl 024) status.
+>
+
+> **Implementation status (post Impl 024).** The **`event-recording`** module — untouched since Impl 011 —
+> now also realizes a **provider/rendering/delivery occurrence event surface** (inside `event-recording`,
+> **not a new module**), as an **additive catalog expansion + pure factories**. `domain/` additively extends
+> the closed catalogs: **`ProducingModule` += `rendering`/`delivery`** (provider events are produced by
+> `rendering`; **no `provider` producing module**), **`EventArtifactKind` += `ProviderAttemptRecord`/
+> `RenderedMessageRecord`/`RenderReview`/`DeliveryRequest`/`DeliveryRecord`** (`DisplayEligibility` is id-less →
+> a ref **`role`**, not a kind), and **`DomainEventType` += eight occurrence/outcome types** (the catalog is now
+> **34 types: 26 reasoning-core + 8 output-out**) — every prior entry intact. `application/` adds **eight pure
+> factories** that build a `DomainEventRecord` through the **existing** `DomainEventRecord.record(...)` and
+> **return** it — they **persist nothing**, **call no provider/transport/validator/renderer/delivery sink**,
+> **create no rendered-message record/review/delivery record/provider attempt**, **mutate no domain**, and have
+> **no side effect** (recording is **explicit application composition only**). Payloads stay **ref-only and
+> raw-free** (`kind`/`id`/`role?`/`ownerModule?`; no raw draft/prompt/payload/secret/env value/chain-of-thought/
+> copied body/metadata bag). **Allowed imports**: `event-recording`'s own `domain/` + `shared-kernel`.
+> **Forbidden imports**: any `rendering`/`delivery`/provider path — `event-recording` stays **dependency-neutral**
+> (imports only `shared-kernel`; referencing an artifact by **string kind is not a cross-module import**); and
+> **rendering/delivery/provider import no `event-recording` and auto-emit nothing**. **Guard strategy:** the two
+> earlier "catalog not extended" guards (Impl 015/018) were **reconciled, not weakened** — the post-024 boundary
+> is stronger and more precise: approved event-vocabulary **strings** are allowed in `event-recording`, while
+> cross-module imports and the rendering-internal audit symbols (`auditProviderAttempt`, the audit repository)
+> stay forbidden outside `rendering`, and the factories stay pure. **No event bus / queue / scheduler / telemetry
+> / DB / auto-emission / persistence-as-events**, and **no SDK/package change** (devDeps stay `typescript` +
+> `@types/node`). Module count is still **nine** (Impl 024 added no module). The slice was **additive** — only
+> the catalog files, `event-recording/application/index.ts` exports, the new factory file, and the guard
+> reconciliation were touched; **no documented blocker.** **Events record what happened; they make nothing
+> happen.** No architecture decision below is superseded. The note below is the prior (Impl 023) status.
+>
+
+> **Implementation status (post Impl 023).** The **`rendering`** module now also owns the first
+> **one-file process-environment source adapter** (inside `rendering/application`, **not a new module**): a
+> **`ProcessEnvironmentCredentialSourceAdapter`** (+ `ProcessEnvironmentAccessor`, the
+> `processEnvironmentCredentialSourceAdapter(keyName?)` factory, `defaultProcessEnvironmentAccessor`,
+> `APPROVED_PROVIDER_CREDENTIAL_KEY`) that binds the **real process environment** into the **unchanged** injected
+> `EnvironmentCredentialSource` shape (Impl 022) — it **feeds, does not replace,**
+> `EnvironmentProviderCredentialResolver`. `toEnvironmentCredentialSource()` reads **exactly one explicitly
+> configured neutral key** (`AURORA_PROVIDER_CREDENTIAL`) via an **injected `ProcessEnvironmentAccessor`** called
+> **once** — **no scan, no fallback, no domain-derived key name** — and returns a source with only that key when
+> present, else an empty source; it **classifies nothing** (the resolver still does; a blank/whitespace key name
+> fails closed). The adapter **requires** an injected accessor (no implicit default), so the default suite injects a
+> fake and **reads no real environment**; **`defaultProcessEnvironmentAccessor` is the only direct `process.env` read
+> site in the codebase**, wired only by the production factory and never exercised by the default suite. **Allowed
+> imports**: `shared-kernel` (if needed) + own `rendering` application surfaces. **Forbidden imports** unchanged:
+> `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/**`delivery`**; **no module outside
+> `rendering` imports it**. **Guard strategy:** a **new repo-wide guard** scans all production `src/` files and
+> asserts the `process.env` token appears in **exactly** `process-environment-credential-source-adapter.ts` — **no
+> existing provider/network/vendor/SDK/prompt guard was weakened**, and the network token stays confined to
+> `live-provider-http-transport.ts`. **Credential availability is not live-call enablement** (a disabled
+> `LiveCallPolicy` and a missing/invalid credential each still block the transport); the raw secret stays transient;
+> the adapter calls no resolver(unless composed)/live-client/transport/provider/`validateDraft`, persists/audits/logs
+> nothing, mutates no domain, and **expands no failure catalog**. **No installed SDK/package dependency**
+> (`package.json`/lockfile unchanged). The resolver, static resolver, live transport, concrete shell, and sync seam
+> are **untouched**. Module count is still **nine** (Impl 023 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports + the new guard test were added; **no documented blocker was needed**. No
+> architecture decision below is superseded. The note below is the prior (Impl 022) status.
+>
+
+> **Implementation status (post Impl 022).** The **`rendering`** module now also owns the first
+> **injected environment credential resolver** (inside `rendering/application`, **not a new module**): an
+> **`EnvironmentProviderCredentialResolver`** (+ `EnvironmentCredentialSource`, `EnvironmentResolverConfig`,
+> `CredentialValidationPolicy`) implementing the **unchanged** injected `ProviderCredentialResolver` port — a
+> **sibling** of `StaticProviderCredentialResolver`. It reads **exactly one explicitly configured key** from an
+> **injected `EnvironmentCredentialSource`** (`Readonly<Record<string, string | undefined>>`) — **NOT the real
+> `process.env`**, **no scan**, **no fallback list**, **no domain-derived key name** — and classifies absent →
+> `missing`; blank/whitespace → `invalid`; control chars / line breaks → `invalid`; too-short → `invalid`; else →
+> `available` with the existing **opaque transient `ProviderCredentialToken`** (a blank/whitespace key name fails
+> closed → `invalid`). The **raw secret stays transient** (never in failures/outcome/audit/state/metadata/tests);
+> **credential availability is NOT live-call enablement** (a `LiveCallPolicy.disabled()` and a missing/invalid
+> credential each still block the transport); it **calls no transport/provider/`validateDraft`**, persists/audits/
+> mutates nothing, and **expands no failure catalog**. **Allowed imports**: `shared-kernel` (if needed) + own
+> `rendering` application surfaces. **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/
+> `athlete`/**`event-recording`**/**`delivery`**; **no module outside `rendering` imports it**. **`process.env`
+> appears nowhere in `src/`** — so **no structural-guard exception was needed** (the resolver file is already
+> scanned by the Impl 017 `/provider-/` and Impl 021 `/provider-credential/` guards, both forbidding the env token,
+> plus a dedicated negative-capability test); **no installed SDK/package dependency** (`package.json`/lockfile
+> unchanged), **no raw secret / prompt template**, and **no retry/scheduler/record/review/display/delivery/event/
+> domain side effect**. The static resolver, the live transport, the concrete shell, and the sync seam are
+> **untouched**. Module count is still **nine** (Impl 022 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports changed; **no documented blocker was needed**. No architecture decision
+> below is superseded. The note below is the prior (Impl 021) status.
+>
+
+> **Implementation status (post Impl 021).** The **`rendering`** module now also owns the first
+> **opt-in live-provider boundary** (inside `rendering/application`, **not a new module**): a **`LiveCallPolicy`**
+> (injected value object; `disabled()`/`enabled({timeoutMs})`; **disabled by default**; never inferred from the
+> environment; no global state), a **`ProviderCredentialResolver`** port (+ opaque `ProviderCredentialToken`) with
+> a deterministic test/composition-only **`StaticProviderCredentialResolver`** (no env, non-secret sentinel), a
+> **`LiveProviderHttpTransport`** (the **only** production file permitted a native network token — `fetch` +
+> `AbortSignal.timeout` behind an **injected endpoint**; **no SDK, no dependency/lockfile change**), and a
+> **`LiveProviderClient`** that implements the existing async **`ProviderClientBoundary`** (a **sibling** of
+> `ConcreteProviderClient`, reusing the unchanged `serializeProviderInstruction`/`parseProviderResponse`/
+> `mapProviderError`). It **fails closed before any transport call** when the policy is disabled or the credential
+> is missing/invalid; it **never calls `validateDraft`** — validation stays owned by the unchanged
+> `requestRealProviderRendering`, so provider output is an **untrusted draft**; transport conditions map **down**
+> onto the existing `ProviderOperationalFailure → ProviderFailure` (**not expanded**). **Allowed imports**
+> unchanged: `shared-kernel` + read-only `decision-support` *types* + own `rendering` domain/application.
+> **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/
+> **`delivery`**; **no module outside `rendering` imports it**. The native-network guard exception is **surgical**:
+> the Impl 014 broad rendering scan and the Impl 017 `/provider-/` scan now allow a network token **only** in
+> `live-provider-http-transport.ts` (each asserts it is the *only* network file), while **vendor / SDK / `process.env`
+> tokens stay forbidden everywhere** (Impl 019/020 guards untouched). There is **no installed SDK/package dependency**
+> (`package.json`/lockfile unchanged), **no `process.env`/env resolver/raw secret/prompt template**, **no default/CI
+> live call or credential**, and **no retry/scheduler/record/review/display/delivery/event/domain side effect**. The
+> synchronous seam, `FakeProviderAdapter`, `FakeProviderClient`, and `ConcreteProviderClient` are **untouched**.
+> Module count is still **nine** (Impl 021 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports and two rendering network guards changed (surgically); **no documented
+> blocker was needed**. No architecture decision below is superseded. The note below is the prior (Impl 020) status.
+>
+
+> **Implementation status (post Impl 020).** The **`rendering`** module now also owns the first
+> **concrete-provider adapter shell** (inside `rendering/application`, **not a new module**): a
+> **`ConcreteProviderClient`** (implements the Impl 019 async `ProviderClientBoundary`), a pure
+> **`serializeProviderInstruction`** (+ `ConcreteProviderRequestPayload`), a pure **`parseProviderResponse`**
+> (+ `ConcreteProviderResponseShape`), and a pure **`mapProviderError`** (+ `ConcreteProviderErrorKind`/`Shape`).
+> The provider target (**OpenAI**) is selected at the **doc/decision level (Tech Spec 020A) only**; production/test
+> code stays **vendor-neutral** (`concrete-provider-*`, `providerKind: "concrete"`) so **no negative-capability
+> guard is weakened and no vendor token (`openai`/`anthropic`) appears in a guarded provider file**. The client is
+> **disabled by default** (no transport → safe `provider-unavailable`, no I/O — **there is no live-call path**; a
+> deterministic in-process **fixture transport** exists **only for tests**, never a network call); a non-`present`
+> `ProviderSecretRef` fails safe before any transport. The **serializer** projects **only** safe constraints
+> (terminal-output kind, voice, style, locale, allowed/forbidden claims, uncertainty visibility, limitations,
+> traceability, maxLength) — **no** arbitrary-prompt/chain-of-thought/voice-override/secret field, **no prompt
+> template / `src/prompts`**; the **parser** returns an **untrusted draft + operational metadata only** (empty/
+> malformed → safe operational failures; **no raw payload retained**; **no `RenderedMessage`**); the **error
+> mapper** maps provider-shaped errors to the existing `ProviderOperationalFailure`, which `toProviderFailure` maps
+> **down** to the existing `ProviderFailure` (**not expanded**; unknown → safe `provider-unavailable`). A draft
+> becomes a message **only** via the unchanged `requestRealProviderRendering` → **`validateDraft`**; the Impl 018
+> raw-free audit observes the outcome by **explicit composition** (no automatic persistence). **Allowed imports**
+> unchanged: `shared-kernel` + read-only `decision-support` *types* + own `rendering` domain/application.
+> **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/
+> **`delivery`**; **no module outside `rendering` imports it**. There is **no installed SDK/package dependency**
+> (`package.json`/lockfile unchanged), **no network/`process.env`/raw secret/prompt template**, and **no
+> retry/scheduler/record/review/display/delivery/event/domain side effect**. Module count is still **nine**
+> (Impl 020 added no module). The slice was **additive** — only `rendering/application/index.ts` exports changed;
+> **no documented blocker was needed**. No architecture decision below is superseded. The note below is the prior
+> (Impl 019) status.
+>
+
+> **Implementation status (post Impl 019).** The **`rendering`** module now also owns a **real-provider-*ready***
+> boundary (inside `rendering/domain` + `rendering/application`, **not a new module**): a `ProviderSecretRef`
+> (+ `ProviderCredentialStatus`), a non-secret `ProviderClientConfig`, a structured `ProviderInstruction`
+> (+ `providerInstructionFrom`), `ProviderClientRequest`/`ProviderClientResponse` (+ operational metadata only),
+> a closed `ProviderOperationalFailure` (+ `toProviderFailure` mapping), an **async `ProviderClientBoundary`**
+> port, a deterministic **`FakeProviderClient`**, a **`RealProviderAdapter`**, and an async
+> **`requestRealProviderRendering`** service. It **changes only the draft source**: the existing
+> **synchronous** seam (`ProviderAdapter`/`FakeProviderAdapter`/`requestProviderRendering`, Impl 017) is
+> **untouched**; the async path **reuses** the unchanged `providerRenderingRequestFrom` guard + the mandatory
+> **`validateDraft`** and returns the existing `ProviderRenderOutcome` (so the Impl 018 raw-free audit observes
+> it by explicit composition). **Allowed imports** unchanged: `shared-kernel` + read-only `decision-support`
+> *types* + own `rendering` domain/application. **Forbidden imports** unchanged:
+> `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/**`delivery`**; **no module
+> outside `rendering` imports it**. **Real-provider-*ready*, not real-provider-*integrated*:** the
+> `FakeProviderClient` is in-process and deterministic; a **`ProviderSecretRef`** is an operational reference
+> (status + opaque ref), **never a raw secret** (no secret in records/responses/errors; **no `process.env`**);
+> a **`ProviderInstruction`** is structured/derived (no prompt template / arbitrary prompt / chain-of-thought);
+> `ProviderOperationalFailure` maps **down** to the existing `ProviderFailure` (**catalog not expanded**);
+> provider output is **untrusted draft** (only `validateDraft` makes a message); **provider metadata is
+> operational, not evidence**; every failure **degrades to safe non-rendering** with **no automatic retry**;
+> and there is **no automatic persistence / review / display-eligibility / delivery / event / domain
+> mutation** and **no real SDK/API/network/prompt or `provider`/`llm`/`telemetry`/`evaluation` top-level
+> module**. This slice introduces the codebase's **first `async` surface**, isolated to the real-ready path.
+> Module count is still **nine** (Impl 019 added no module). The slice was **additive** — **no documented
+> blocker was needed**. No architecture decision below is superseded. The note below is the prior (Impl 018)
+> status.
+>
+> **Implementation status (post Impl 018).** The **`rendering`** module now also owns a **provider-attempt
+> audit** (inside `rendering/domain` + `rendering/application`, **not a new module**): an append-only
+> **`ProviderAttemptRecord`** (+ `ProviderAttemptStatus`, `ProviderAttemptFailureReason`, `ProviderDraftSummary`),
+> a **`ProviderAttemptRecordRepository` port + in-memory adapter**, and an observe-only **`auditProviderAttempt`**
+> service. The audit **observes** an already-computed `ProviderRenderOutcome` (Impl 017) and records a **safe
+> summary** — status (`validation-passed`/`validation-failed`/`provider-failed`/`unsafe-request-blocked`;
+> `requested`/`draft-produced` reserved) + reasons (**reusing the real `ProviderFailure` + `RenderingFailure`
+> catalogs**, no invented parallel catalog) — with **no raw draft retention** (`rawDraftRetained` literal
+> `false`; reconstitution rejects raw draft/text/content/prompt fields). **Allowed imports** unchanged:
+> `shared-kernel` + read-only `decision-support` *types* + own `rendering` domain/application. **Forbidden
+> imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/**`delivery`**;
+> **no module outside `rendering` imports the audit**. **The audit is observe-only, auditability not
+> authority:** it **does not call** the provider / `requestProviderRendering` / `validateDraft`; a
+> `ProviderAttemptRecord` is not a `ProviderDraft`/source-truth/`Evidence`/`Observation`/`Understanding`/
+> `AthleteDecision`/`DecisionSupport`/`TerminalOutput`/`RenderedMessage`/`RenderedMessageRecord`; it **creates
+> no review/display-eligibility/delivery**, **appends no event**, **triggers no retry/reprojection/reasoning/
+> mutation**, and a **validation failure is not domain invalidation** (provider success ≠ recommendation
+> validation; provider failure ≠ `SupportQuality` weakening). It is **not model evaluation or telemetry
+> infrastructure**; there is **no provider event / event-catalog expansion / real provider SDK/API/network/
+> prompt** and **no `provider-audit`/`telemetry`/`evaluation` top-level module**. Module count is still
+> **nine** (Impl 018 added no module). The slice was **additive** — **no documented blocker was needed**. No
+> architecture decision below is superseded. The note below is the prior (Impl 017) status.
+>
+> **Implementation status (post Impl 017).** The **`rendering`** module now also owns a **provider adapter
+> seam** (inside `rendering/domain` + `rendering/application`, **not a new module**): a constrained
+> **`ProviderRenderingRequest`** (+ `providerRenderingRequestFrom` guard), an untrusted **`ProviderDraft`**, a
+> closed **`ProviderFailure`** catalog, a **`ProviderAdapter`** port, a deterministic **`FakeProviderAdapter`**,
+> and a **`requestProviderRendering`** service. The provider **replaces only the draft-text step** the
+> `FakeRenderer` performs: it produces an untrusted draft that becomes a `RenderedMessage` **only** by passing
+> the **unchanged mandatory `validateDraft`** — the validator, not the provider, remains the authority.
+> **Allowed imports** unchanged: `shared-kernel` + read-only `decision-support` *types* + own `rendering`
+> domain/application. **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/
+> **`event-recording`**/**`delivery`**; **no module outside `rendering` imports the provider seam**. **The
+> provider is a draft source, not authority:** it **never** selects/changes `VoiceMode`, creates a
+> `TerminalOutput`/`Recommendation`/`RenderedMessage`/`RenderedMessageRecord`, persists/reviews/marks-display-
+> eligible/delivers, emits an event, or mutates the domain; an **unsafe request is refused before the provider
+> call** and any provider failure/unsafe draft **degrades to safe non-rendering** (a validation failure →
+> `provider-output-failed-validation` + the underlying `RenderingFailure[]`). The seam is **fake/test-only**:
+> **no real SDK/API/network/`process.env`/prompt-templates-as-code**, and **no `provider`/`llm`/`openai`/
+> `anthropic`/`model` top-level module**. Module count is still **nine** (Impl 017 added no module). The slice
+> was **additive** — **no documented blocker was needed**. No architecture decision below is superseded. The
+> note below is the prior (Impl 016) status.
+>
+> **Implementation status (post Impl 016).** A new **`delivery`** module now realizes the first
+> **delivery / exposure** boundary — **downstream exposure**, not rendering and not domain. It **exposes** a
+> *display-eligible* `RenderedMessageRecord` to a target and records the attempt: `requestDelivery` **verifies**
+> eligibility by calling `rendering`'s **`displayEligibilityOf(record)`** (it does **not** re-derive or
+> reinterpret it), calls a **deterministic `InMemoryTestSink`** **only** when the record is eligible *and* the
+> target is the supported **`test-sink`**, and **blocks** every ineligible (not-reviewed / rejected /
+> superseded / failed-render / missing-ref) or unsupported-target request without calling the sink. The
+> attempt is persisted as an auditable **`DeliveryRecord`** behind a **`DeliveryRecordRepository` port +
+> in-memory adapter** (deep-copy round-trip, mutation isolation, validated reconstitution). **Allowed
+> imports:** `shared-kernel` + **read-only `rendering`** types/functions + own `delivery` domain/application.
+> **Forbidden imports:** `observation`/`reasoning`/`understanding`/`decision-support`/`athlete`/**`event-recording`**.
+> **`rendering` must not import `delivery`**, and **no upstream module imports `delivery`**. **Delivery is
+> exposure, not authority:** a `DeliveryRecord` is not domain truth (`≠ Observation/Evidence/Understanding/
+> DecisionSupport/AthleteDecision`); **delivery success is not evidence** and **delivery failure is not domain
+> invalidation**; delivery **mutates no rendered-message record and no aggregate**, **triggers no
+> reasoning/reprojection/retry**, and the **test sink is not a real provider/channel**. A `DeliveryRecord` is
+> **not** an event record (the event catalog is **not** expanded), and there is **no delivery event / real
+> provider/channel / UI / API / scheduler / retry / event bus / production DB**. The delivery audit repository
+> lives **inside `delivery/application`**. Two **documented test-only** blocker fixes landed (the e2e
+> `ALLOWED_MODULES` set gained `delivery`; the Impl 015 forbidden-layer test dropped its obsolete `delivery`
+> entry). Module count is now **nine** (the six domain modules + `event-recording` + `rendering` + `delivery`;
+> the `reprojection-harness` remains a neutral `__tests__` seam, not a module). No architecture decision below
+> is superseded. The note below is the prior (Impl 015) status.
+>
+> **Implementation status (post Impl 015).** The **`rendering`** module now also owns **rendered-message
+> record/review persistence** (inside `rendering/domain` + `rendering/application`, **not a new module**): an
+> append-only **`RenderedMessageRecord`** (auditable presentation artifact; source-domain-output ref preserved),
+> an append-only **`RenderReview`** (display-safety only; closed decision/reason catalogs) with derived status,
+> a derived **`DisplayEligibility`**, and a **`RenderedMessageRecordRepository` port + in-memory adapter**
+> (deep-copy round-trip, mutation isolation, validated reconstitution). **Allowed imports** unchanged:
+> `shared-kernel` + read-only `decision-support` types + own `rendering` domain/application. **Forbidden
+> imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**. **Persistence
+> is auditability, not authority:** a record is not domain truth; approval changes no domain (voice/traceability/
+> freshness/`SupportQuality`); rejection invalidates nothing; **display eligibility is derived, not delivery**;
+> a `RenderedMessageRecord` is **not** an event record (the event catalog is **not** expanded, no
+> `RenderedMessageRecorded`/`RenderReviewed`); there is **no production DB / delivery / UI / API / provider**.
+> Module count is still **eight** (Impl 015 added no module). No architecture decision below is superseded.
+> The note below is the prior (Impl 014) status.
+>
+> **Implementation status (post Impl 014).** A new **`rendering`** module now realizes the first **output-out**
+> boundary — downstream **presentation**, not domain. It turns a domain-approved `TerminalOutput` into
+> human-facing text via a **read-only `RenderableDomainOutput` projection**, a **deterministic fake renderer**
+> (no provider), and a **mandatory validator** that preserves voice/uncertainty/limitations/freshness/
+> traceability/agency and refuses escalation/invention/hidden-uncertainty (safe non-render). **Allowed imports:**
+> `shared-kernel` + **read-only `decision-support` types** only. **Forbidden imports:** `observation`,
+> `reasoning`, `understanding`, `athlete`, `event-recording`. **No existing module imports `rendering`.**
+> **Rendering is presentation-only, not LLM-provider integration, and generated text is not domain authority:**
+> `decision-support` owns the `TerminalOutput`/`VoiceMode`; the renderer phrases only; the validator (not the
+> renderer) is the guarantee; rendering **mutates no aggregate, writes no event, persists nothing**, and no
+> **real LLM provider / prompt templates / UI / API / external call** exists. The module count is now **eight**
+> (the six domain modules + `event-recording` + `rendering`; the `reprojection-harness` remains a neutral
+> `__tests__` seam, not a module). No architecture decision below is superseded. The note below is the prior
+> (Impl 013) status.
+>
+> **Implementation status (post Impl 013).** The **`observation`** application boundary now includes a
+> **Manual Input Adapter** (`observation/application/manual-input-*`, `ingestManualInput`) — Aurora's first
+> real **"data in"** boundary. Its only domain output is an `ObservationSet`: it reuses `recordObservationSet`
+> and persists through **`ObservationSetRepository`**, preserving provenance (`source: "manual"`)/quality/
+> verbatim words, representing missing data explicitly, and rejecting the unrepresentable (saving nothing).
+> **Allowed imports:** `observation` domain/application + `shared-kernel` only. **Forbidden imports:**
+> `event-recording`, `reasoning`, `understanding`, `decision-support`, `athlete` — `observation` stays
+> `event-recording`-free; the optional `ObservationSetRecorded` is composed only in a **neutral harness**
+> (which may compose `observation` + `event-recording`). **Ingestion is not interpretation:** the adapter
+> detects no `Signal`, infers nothing, mutates no `AthleteDecisionRecord`, and triggers no downstream effect.
+> The dependency direction is unchanged (`observation` remains the upstream leaf importing only
+> `shared-kernel`); no architecture decision below is superseded; **no UI/API/LLM/external integration/DB/
+> event-bus/scheduler** exists. The note below is the prior (Impl 012) status.
+>
+> **Implementation status (post Impl 012).** A **neutral, check-only reprojection harness** now exists as
+> **test-support / coordination** under `src/modules/__tests__/reprojection-harness/` — **not a production
+> module** (no `src/modules/reprojection`). It is the cross-module coordinator (like the purpose/decision
+> adapters): it composes `understanding`, `event-recording`, and read access to repositories, and **no
+> production module depends on it**. It **recomputes** `UnderstandingAssessment` *through the owning module's
+> existing function*, **recalculates** freshness, reads **event records as candidates/context only**, and
+> **reports** drift/findings. **Reprojection is not event sourcing and not a write path:** `check-only` is
+> the only implemented mode (it mutates no repository, appends no record, creates no `TerminalOutput`/
+> recommendation/`SupportQuality` rewrite/`Purpose` overwrite/`DomainEventRecord`); it never replays events
+> as commands and never rebuilds aggregates from the log (empty repos → `event-record-only`/`missing-source`);
+> `refresh-derived`/`mark-stale` are reserved and throw. The support-seam picture is now: **repositories
+> preserve aggregate *state* (Impl 010) · event records preserve *occurrence history* (Impl 011) ·
+> reprojection *recomputes derived views and reports drift/freshness* (Impl 012) — none replaces the
+> others.** No architecture decision below is superseded; **no scheduler / event bus / event sourcing /
+> projection repository / production service layer** exists. The note below is the prior (Impl 011) status.
+>
+> **Implementation status (post Impl 011).** A new **dependency-neutral `event-recording` module** now
+> realizes the **event surface** (§8 here) and the persistence paper's event records: an **append-only,
+> ref-only** `DomainEventRecord` (categories `occurrence`/`outcome`) over a **closed catalog**, with a
+> reusable `TraceabilityEnvelope` and an in-memory log + repository port. It **imports only
+> `shared-kernel`** and **no domain module imports it** (the event catalog stays out of `shared-kernel`,
+> so the kernel never becomes event-aware); application/harness coordination composes records from domain
+> refs. The persistence/event boundary now reads: **repositories preserve aggregate *state* (Impl 010);
+> event records preserve *occurrence history* (Impl 011); neither replaces the other.** An event record is
+> **not a command** — appending executes/mutates nothing; payloads carry **refs, not copied state**;
+> causation/correlation are lineage/grouping, never an execution chain; and there is **no event bus,
+> publish/subscribe, handler, async delivery, or event sourcing**. No architecture decision below is
+> superseded; the module count is now **seven** (the six below + `event-recording`). The note below is the
+> prior (Impl 010) status.
+>
+> **Implementation status (post Impl 010).** Persistence is now realized as **repository ports +
+> in-memory adapters + validated `toState()`/`reconstitute()`** per aggregate (Spec/Impl 010), in each
+> module's `application/` layer — **no production DB/ORM/schema/migrations, no event bus, no cache, no
+> `src/infrastructure`, no `persistence`/`repositories` module, no technology chosen.** Repositories
+> *preserve* aggregates (validated reconstitution, state copies not live references); they **never create
+> meaning** and the **domain's `toState()` drives the store, never the reverse**. The lines below remain
+> the intended boundaries; the note below is the prior (Impl 009) status.
+>
+> **Implementation status (post Impl 009).** This map describes the *intended* boundaries; the code
+> now realizes them. Implemented modules: `observation` (001/002), `reasoning` (003), `understanding`
+> (004; **+ projection freshness on `UnderstandingAssessment`, 008**), `decision-support` (005),
+> end-to-end composition (006), and `athlete` — **Purpose (007) + AthleteDecision (009)** (declared,
+> versioned, append-only purpose; athlete-owned, append-only decisions; no inferred
+> state/capacity/constraints/path-memory yet). Projection freshness (§5 here) is realized **locally in
+> `understanding`**: `UnderstandingAssessment` is a read model carrying explicit freshness + source
+> references, non-current freshness only lowers the voice (via the existing `safeVoiceCeiling`), and
+> refresh recomputes — **no generic projection engine, no top-level `projection` module, no persistence**.
+> The **AthleteDecision feedback loop** (009) is realized with the decision **referenced — never owned —**
+> by `decision-support` and re-entering reasoning **only as a `SubjectiveObservation`** (via a neutral
+> adapter), with **no compliance/obedience scoring and no outcome-based validation**. Every dependency
+> rule below holds in code, including `athlete` as an upstream leaf that imports only `shared-kernel`, and
+> projections remaining read models (never sources of truth). No architecture decision here is superseded.
+> For the implemented-vs-absent ledger see [`CORE_COMPLETION_REVIEW.md`](./CORE_COMPLETION_REVIEW.md) and
+> [`../diagrams/SYSTEM_MAP.md`](../diagrams/SYSTEM_MAP.md).
+
 ---
 
 ## How to Read This Document

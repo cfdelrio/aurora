@@ -12,13 +12,39 @@ import type { ReasoningOutcome } from "./reasoning-outcome.ts";
 import { applyOutcome, markStaleDimension } from "./update-policy.ts";
 import type { UnderstandingLevel } from "./understanding-level.ts";
 import type { UnderstandingAssessment } from "./understanding-assessment.ts";
-import { deriveSafeVoiceCeiling } from "./understanding-assessment.ts";
+import { clampCeilingByFreshness, deriveSafeVoiceCeiling } from "./understanding-assessment.ts";
+import type { ProjectionFreshness, StalenessReason } from "./projection-freshness.ts";
+import { currentFreshness, projectionFreshness } from "./projection-freshness.ts";
+import { projectionLimitations, projectionSourceRef, projectionTrace } from "./projection-source-ref.ts";
+import type { ProjectionSourceRef } from "./projection-source-ref.ts";
+
+function freshnessFromStaleness(staleness: { status: string; reason?: string; since?: Timestamp }): ProjectionFreshness {
+  if (staleness.status !== "stale") {
+    return currentFreshness();
+  }
+  const reason: StalenessReason =
+    staleness.reason === "purpose-change"
+      ? "purpose-change"
+      : staleness.reason === "staleness"
+        ? "time-decay"
+        : "context-changed"; // constraint-change / context-shift / anything else
+  return staleness.since === undefined
+    ? projectionFreshness("stale", [reason])
+    : projectionFreshness("stale", [reason], staleness.since);
+}
 
 export type StaleReason = "staleness" | "purpose-change" | "constraint-change" | "context-shift";
 
 export interface InitializeProfileInput {
   readonly id?: UnderstandingProfileId;
   readonly athleteRef: string;
+}
+
+/** Persistence shape (adapter contract; NOT the primary public domain API). */
+export interface UnderstandingProfileState {
+  readonly id: UnderstandingProfileId;
+  readonly athleteRef: string;
+  readonly dimensions: readonly DimensionUnderstanding[];
 }
 
 export class UnderstandingProfile {
@@ -46,6 +72,34 @@ export class UnderstandingProfile {
       input.athleteRef,
       new Map(),
     );
+  }
+
+  /** Persistence state export. The dimension map is flattened to a plain, ordered array. */
+  toState(): UnderstandingProfileState {
+    return Object.freeze({
+      id: this.id,
+      athleteRef: this.athleteRef,
+      dimensions: Object.freeze([...this._dimensions.values()]),
+    });
+  }
+
+  /** Rebuild from persisted state. Dimension state is stored verbatim (the promotion policy already
+   *  ran at save time) -- reconstitution NEVER re-runs promotion/demotion from the stored level. */
+  static reconstitute(state: UnderstandingProfileState): UnderstandingProfile {
+    if (typeof state.athleteRef !== "string" || state.athleteRef.length === 0) {
+      throw new Error("Cannot reconstitute an UnderstandingProfile without an athleteRef");
+    }
+    if (!Array.isArray(state.dimensions)) {
+      throw new Error("Cannot reconstitute an UnderstandingProfile without a dimensions array");
+    }
+    const map = new Map<string, DimensionUnderstanding>();
+    for (const d of state.dimensions) {
+      if (d === null || typeof d !== "object" || d.dimension === undefined || typeof d.dimension.key !== "string") {
+        throw new Error("Cannot reconstitute an UnderstandingProfile with a malformed dimension");
+      }
+      map.set(d.dimension.key, d);
+    }
+    return new UnderstandingProfile(state.id, state.athleteRef, map);
   }
 
   updateFromOutcome(outcome: ReasoningOutcome): UnderstandingProfile {
@@ -82,7 +136,7 @@ export class UnderstandingProfile {
   }
 
   /** A read-only assessment for a dimension. Never recommends, never selects a voice. */
-  assess(dimensionKey: string): UnderstandingAssessment | undefined {
+  assess(dimensionKey: string, at?: Timestamp): UnderstandingAssessment | undefined {
     const d = this._dimensions.get(dimensionKey);
     if (d === undefined) {
       return undefined;
@@ -94,14 +148,28 @@ export class UnderstandingProfile {
         ? [`stale: ${d.staleness.reason}`]
         : []),
     ];
-    return Object.freeze({
+    // Freshness is the single freshness-based lowering: compute a freshness-FREE base ceiling, then
+    // clamp by freshness (derived from staleness). This reproduces the prior stale/fragility result
+    // without double-counting, and lets richer freshness states (set later) lower it further.
+    const freshness = freshnessFromStaleness(d.staleness);
+    const baseCeiling = deriveSafeVoiceCeiling(d.level, d.fragility, { status: "fresh" });
+    const safeVoiceCeiling = clampCeilingByFreshness(baseCeiling, freshness);
+    const refs: ProjectionSourceRef[] = [
+      projectionSourceRef("understanding-profile", String(this.id)),
+      ...d.traces.map((t) => projectionSourceRef("hypothesis", String(t.hypothesisId))),
+    ];
+    const base = {
       dimension: d.dimension,
       level: d.level,
       fragility: d.fragility,
       staleness: d.staleness,
-      safeVoiceCeiling: deriveSafeVoiceCeiling(d.level, d.fragility, d.staleness),
+      safeVoiceCeiling,
       reasons: Object.freeze(reasons),
       trace: d.traces,
-    });
+      freshness,
+      sourceRefs: projectionTrace(refs),
+      limitations: projectionLimitations(),
+    };
+    return Object.freeze(at === undefined ? base : { ...base, derivedAt: at });
   }
 }

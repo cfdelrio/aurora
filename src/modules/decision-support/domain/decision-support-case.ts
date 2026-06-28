@@ -45,6 +45,9 @@ interface CaseProps {
   readonly athleteDecisionRef: AthleteDecisionRef | undefined;
 }
 
+/** Persistence shape (adapter contract; NOT the primary public domain API). Mirrors CaseProps. */
+export type DecisionSupportCaseState = CaseProps;
+
 export class DecisionSupportCase {
   readonly id: DecisionSupportCaseId;
   readonly opportunity: DecisionOpportunity;
@@ -139,5 +142,28 @@ export class DecisionSupportCase {
       supportQuality: this.supportQuality,
       athleteDecisionRef: this.athleteDecisionRef,
     };
+  }
+
+  /** Persistence state export. Plain, serializable; exposes no mutable internal reference. */
+  toState(): DecisionSupportCaseState {
+    return Object.freeze(this.toProps());
+  }
+
+  /** Rebuild from persisted state. Does NOT re-run evaluate(); the selected output is stored. The
+   *  case carries only an AthleteDecisionRef -- it never owns an AthleteDecision object. */
+  static reconstitute(state: DecisionSupportCaseState): DecisionSupportCase {
+    if (state.id === undefined) {
+      throw new Error("Cannot reconstitute a DecisionSupportCase without an id");
+    }
+    if (state.opportunity === undefined) {
+      throw new Error("Cannot reconstitute a DecisionSupportCase without a DecisionOpportunity");
+    }
+    if (typeof state.claimState !== "string") {
+      throw new Error("Cannot reconstitute a DecisionSupportCase without a claimState");
+    }
+    if (state.assessment === undefined || state.purpose === undefined || state.trace === undefined) {
+      throw new Error("Cannot reconstitute a DecisionSupportCase without assessment/purpose/trace");
+    }
+    return new DecisionSupportCase(state);
   }
 }

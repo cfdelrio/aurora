@@ -15,3 +15,5 @@ export type {
   EvaluateInput,
   RecordAthleteDecisionInput,
 } from "./application/decision-support-coordinator.ts";
+export type { DecisionSupportCaseRepository } from "./application/decision-support-case-repository.ts";
+export { InMemoryDecisionSupportCaseRepository } from "./application/in-memory-decision-support-case-repository.ts";

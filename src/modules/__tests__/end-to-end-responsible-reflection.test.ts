@@ -371,7 +371,29 @@ test("the produced output is the SUCCESS case: Reflection is the correct, modest
 const here = dirname(fileURLToPath(import.meta.url));
 const modulesDir = join(here, ".."); // __tests__ -> modules
 // `athlete` is the approved upstream-context module added in Implementation 007 (Purpose-first).
-const ALLOWED_MODULES = new Set(["observation", "reasoning", "understanding", "decision-support", "athlete"]);
+// `event-recording` is the dependency-neutral occurrence-log module added in Implementation 011
+// (imports only shared-kernel; no domain module imports it; not part of this e2e flow).
+// `rendering` is the downstream presentation boundary added in Implementation 014 (imports only
+// shared-kernel + read-only decision-support types; no domain module imports it; not part of this e2e flow).
+// `delivery` is the downstream exposure boundary added in Implementation 016 (imports only shared-kernel +
+// read-only rendering; no module imports it; test-only sink; not part of this e2e flow).
+// `application-orchestration` is the explicit application COMPOSITION module added in Implementation 025 — it
+// owns no domain model/repository/persistence and introduces no bounded context; it composes the existing
+// public surfaces of rendering/delivery/event-recording over injected collaborators. It is an approved
+// application-composition module, not a new domain capability — so it is allowlisted here additively (the
+// nine domain/integration modules above + this one composition module); the guard keeps rejecting every
+// other unapproved UI/API/DB/LLM/event-bus/scheduler/queue/retry/workflow module.
+const ALLOWED_MODULES = new Set([
+  "observation",
+  "reasoning",
+  "understanding",
+  "decision-support",
+  "athlete",
+  "event-recording",
+  "rendering",
+  "delivery",
+  "application-orchestration",
+]);
 const MODULE_SURFACES = ["observation/index", "reasoning/index", "understanding/index", "decision-support/index"];
 
 function collectTsFiles(dir: string): string[] {

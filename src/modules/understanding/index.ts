@@ -17,3 +17,5 @@ export type {
   ProduceAssessmentInput,
   MarkStaleInput,
 } from "./application/understanding-coordinator.ts";
+export type { UnderstandingProfileRepository } from "./application/understanding-profile-repository.ts";
+export { InMemoryUnderstandingProfileRepository } from "./application/in-memory-understanding-profile-repository.ts";

@@ -38,6 +38,21 @@ export interface AttachEvidenceInput {
   readonly limitations?: readonly string[];
 }
 
+/** Persistence shape (adapter contract; NOT the primary public domain API). Mirrors the props. */
+export interface HypothesisState {
+  readonly id: HypothesisId;
+  readonly claim: HypothesisClaim;
+  readonly scope: HypothesisScope;
+  readonly athleteRef: string | undefined;
+  readonly purposeContextRef: string | undefined;
+  readonly state: HypothesisLifecycleState;
+  readonly confidence: ClaimConfidence;
+  readonly limitations: readonly string[];
+  readonly falsifiers: readonly Falsifier[];
+  readonly evidence: readonly EvidenceCase[];
+  readonly revisions: readonly HypothesisRevision[];
+}
+
 interface HypothesisProps {
   readonly id: HypothesisId;
   readonly claim: HypothesisClaim;
@@ -250,5 +265,36 @@ export class Hypothesis {
       evidence: this._evidence,
       revisions: this._revisions,
     };
+  }
+
+  /** Persistence state export. Plain, serializable; exposes no mutable internal reference. */
+  toState(): HypothesisState {
+    return Object.freeze(this.toProps());
+  }
+
+  /** Rebuild from persisted state, enforcing the falsifiable/calibrated invariants. */
+  static reconstitute(state: HypothesisState): Hypothesis {
+    if (!Array.isArray(state.falsifiers) || state.falsifiers.length === 0) {
+      throw new Error("Cannot reconstitute a Hypothesis without at least one falsifier");
+    }
+    if (state.claim === undefined || typeof state.claim.statement !== "string" || state.claim.statement.length === 0) {
+      throw new Error("Cannot reconstitute a Hypothesis without a claim statement");
+    }
+    if (state.confidence === undefined) {
+      throw new Error("Cannot reconstitute a Hypothesis without calibrated confidence");
+    }
+    return new Hypothesis({
+      id: state.id,
+      claim: state.claim,
+      scope: state.scope,
+      athleteRef: state.athleteRef,
+      purposeContextRef: state.purposeContextRef,
+      state: state.state,
+      confidence: state.confidence,
+      limitations: state.limitations,
+      falsifiers: state.falsifiers,
+      evidence: state.evidence,
+      revisions: state.revisions,
+    });
   }
 }

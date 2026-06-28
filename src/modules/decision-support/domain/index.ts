@@ -4,7 +4,7 @@
 // is mapped to a VoiceMode here -- the ceiling is not a VoiceMode.
 
 export { DecisionSupportCase } from "./decision-support-case.ts";
-export type { OpenCaseInput } from "./decision-support-case.ts";
+export type { OpenCaseInput, DecisionSupportCaseState } from "./decision-support-case.ts";
 export type { DecisionOpportunityId, DecisionSupportCaseId } from "./ids.ts";
 
 export { decisionOpportunity } from "./decision-opportunity.ts";
