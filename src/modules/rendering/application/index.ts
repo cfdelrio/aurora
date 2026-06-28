@@ -64,3 +64,16 @@ export type {
   EnvironmentResolverConfig,
   CredentialValidationPolicy,
 } from "./environment-provider-credential-resolver.ts";
+
+// Direct process-environment adapter (Impl 023) — the one approved file that reads the real process environment;
+// it feeds the injected EnvironmentCredentialSource shape, never replaces the resolver, never enables live calls.
+export {
+  ProcessEnvironmentCredentialSourceAdapter,
+  processEnvironmentCredentialSourceAdapter,
+  defaultProcessEnvironmentAccessor,
+  APPROVED_PROVIDER_CREDENTIAL_KEY,
+} from "./process-environment-credential-source-adapter.ts";
+export type {
+  ProcessEnvironmentAccessor,
+  ProcessEnvironmentAdapterConfig,
+} from "./process-environment-credential-source-adapter.ts";
