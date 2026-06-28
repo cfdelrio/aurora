@@ -77,3 +77,16 @@ export type {
   ProcessEnvironmentAccessor,
   ProcessEnvironmentAdapterConfig,
 } from "./process-environment-credential-source-adapter.ts";
+
+// Live provider smoke-test boundary (Impl 026) — a manual, opt-in, fail-closed operational WIRING CHECK through
+// the existing requestRealProviderRendering -> validateDraft seam. Injected collaborators only (opt-in/CI
+// indicators, credential resolver, live policy, client); redacted closed result; at most one provider call; no
+// process-environment read, no transport/delivery/event-recording/orchestration import, no persistence, no
+// delivery, no event, no domain mutation. Not a default/CI test; no operator script in this slice.
+export { liveProviderSmoke, LIVE_PROVIDER_SMOKE_STATUSES } from "./live-provider-smoke.ts";
+export type {
+  LiveProviderSmokeCommand,
+  LiveProviderSmokeDependencies,
+  LiveProviderSmokeResult,
+  LiveProviderSmokeStatus,
+} from "./live-provider-smoke.ts";
