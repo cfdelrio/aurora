@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 017).** **Seven parts of this paper are now realized.**
+> **Implementation status (post Impl 018).** **Eight parts of this paper are now realized.**
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -75,9 +75,22 @@
 > passes `validateDraft`. This slice **adds no persistence**: **provider drafts are not persisted** (they are
 > not source truth and not event records), **only validated `RenderedMessage`s** may *later* be persisted as
 > rendered-message records (Impl 015), and provider success/failure **triggers no review / display-eligibility /
-> delivery / event / domain mutation**. **Provider attempts are not persisted**; **provider events remain
-> future**; **a real provider SDK/API/network/prompt and a production DB/schema remain future.**
-> **Still future work:** **provider-attempt persistence / provider events**; **delivery event records / a delivery event surface**; a **real provider/channel
+> delivery / event / domain mutation**.
+> **(8) Impl 018** added a **provider-attempt audit repository** — **inside `rendering`** (not a new module):
+> an append-only **`ProviderAttemptRecord`** built by **observing** a `ProviderRenderOutcome` (Impl 017),
+> behind a **`ProviderAttemptRecordRepository` port + in-memory adapter** (deep-copy round-trip, mutation
+> isolation, validated reconstitution). It records a **safe summary** — status (`validation-passed`/
+> `validation-failed`/`provider-failed`/`unsafe-request-blocked`) + reasons (reusing the real `ProviderFailure`
+> + `RenderingFailure` catalogs) — and **retains no raw draft** (`rawDraftRetained` is literal `false`;
+> reconstitution rejects raw draft/text/content/prompt fields). **Provider-attempt persistence is
+> auditability, not source truth**: a record is not a `ProviderDraft`/`RenderedMessage`/`RenderedMessageRecord`
+> /`Evidence`/`Observation`/`Understanding`/`DecisionSupport`/`AthleteDecision`; the audit **observes** the
+> outcome and **does not call** the provider/`requestProviderRendering`/`validateDraft`; a **validation failure
+> is not domain invalidation**; and recording **triggers no review / display-eligibility / delivery / event /
+> retry / reprojection / reasoning / domain mutation**. A **`ProviderAttemptRecord` is not an event record** —
+> the audit **imports no `event-recording`** and the **event catalog is not expanded**; **only validated
+> `RenderedMessage`s** may *later* be persisted as rendered-message records (Impl 015).
+> **Still future work:** **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)

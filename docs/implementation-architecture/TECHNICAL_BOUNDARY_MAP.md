@@ -4,6 +4,29 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 018).** The **`rendering`** module now also owns a **provider-attempt
+> audit** (inside `rendering/domain` + `rendering/application`, **not a new module**): an append-only
+> **`ProviderAttemptRecord`** (+ `ProviderAttemptStatus`, `ProviderAttemptFailureReason`, `ProviderDraftSummary`),
+> a **`ProviderAttemptRecordRepository` port + in-memory adapter**, and an observe-only **`auditProviderAttempt`**
+> service. The audit **observes** an already-computed `ProviderRenderOutcome` (Impl 017) and records a **safe
+> summary** — status (`validation-passed`/`validation-failed`/`provider-failed`/`unsafe-request-blocked`;
+> `requested`/`draft-produced` reserved) + reasons (**reusing the real `ProviderFailure` + `RenderingFailure`
+> catalogs**, no invented parallel catalog) — with **no raw draft retention** (`rawDraftRetained` literal
+> `false`; reconstitution rejects raw draft/text/content/prompt fields). **Allowed imports** unchanged:
+> `shared-kernel` + read-only `decision-support` *types* + own `rendering` domain/application. **Forbidden
+> imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/**`delivery`**;
+> **no module outside `rendering` imports the audit**. **The audit is observe-only, auditability not
+> authority:** it **does not call** the provider / `requestProviderRendering` / `validateDraft`; a
+> `ProviderAttemptRecord` is not a `ProviderDraft`/source-truth/`Evidence`/`Observation`/`Understanding`/
+> `AthleteDecision`/`DecisionSupport`/`TerminalOutput`/`RenderedMessage`/`RenderedMessageRecord`; it **creates
+> no review/display-eligibility/delivery**, **appends no event**, **triggers no retry/reprojection/reasoning/
+> mutation**, and a **validation failure is not domain invalidation** (provider success ≠ recommendation
+> validation; provider failure ≠ `SupportQuality` weakening). It is **not model evaluation or telemetry
+> infrastructure**; there is **no provider event / event-catalog expansion / real provider SDK/API/network/
+> prompt** and **no `provider-audit`/`telemetry`/`evaluation` top-level module**. Module count is still
+> **nine** (Impl 018 added no module). The slice was **additive** — **no documented blocker was needed**. No
+> architecture decision below is superseded. The note below is the prior (Impl 017) status.
+>
 > **Implementation status (post Impl 017).** The **`rendering`** module now also owns a **provider adapter
 > seam** (inside `rendering/domain` + `rendering/application`, **not a new module**): a constrained
 > **`ProviderRenderingRequest`** (+ `providerRenderingRequestFrom` guard), an untrusted **`ProviderDraft`**, a

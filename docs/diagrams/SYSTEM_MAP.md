@@ -4,7 +4,7 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 017):** the reasoning core is **implemented end-to-end**.
+> **Status (post Implementation 018):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
 > Implementation 007 added a thin, **Purpose-first `athlete` module**. Implementation 008 made
@@ -51,7 +51,16 @@
 > to safe non-rendering**. The provider **never** selects/changes `VoiceMode`, creates a `TerminalOutput`/
 > `Recommendation`/`RenderedMessage`/record, persists/reviews/marks-display-eligible/delivers, emits an
 > event, or mutates the domain — and **no real provider SDK/API/network/prompt and no new provider/LLM
-> module** exist. The remaining absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
+> module** exist. Implementation 018 added **provider-attempt audit** *inside* `rendering` — an append-only
+> **`ProviderAttemptRecord`** (repository port + in-memory adapter) built by **observing** a
+> `ProviderRenderOutcome`: it records a **safe summary** (status + reasons, reusing the real `ProviderFailure`
+> + `RenderingFailure` catalogs) and **retains no raw draft** (`rawDraftRetained` literal `false`). The audit
+> **does not call** the provider / `requestProviderRendering` / `validateDraft`, **creates no
+> `RenderedMessage`/record/review/display-eligibility/delivery**, **appends no event**, and **triggers no
+> retry/reprojection/reasoning/mutation**; a **validation failure is not domain invalidation**, provider
+> success is not recommendation validation, and provider failure does not weaken support quality — it is
+> **auditability, not authority**, not model evaluation, and not telemetry infrastructure. The remaining
+> absences (**real provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
 > ingestion/**delivery & rendered-output events**/**production persistence & event store**/**event
 > bus**/**scheduler & retry**/**full** athlete model/**generic projection engine**/**full
 > DecisionOutcome**/**production reprojection service & projection repository**/**event sourcing**/production
@@ -108,6 +117,8 @@ flowchart LR
     PROV["Provider seam ✅ Impl 017 (DENTRO de rendering, fake/test-only)<br/>FakeProviderAdapter determinístico · reemplaza SOLO el paso draft-text<br/>ProviderRenderingRequest (constrained: sin chain-of-thought / handle / override)<br/>ProviderDraft = texto NO confiable · NO selecciona voz · NO crea TerminalOutput/Recommendation<br/>request inseguro → rechazado ANTES de llamar al provider<br/>NO SDK/API/network/prompt · NO persiste/review/display/delivery/evento/dominio"]
     PROV -- "draft NO confiable → validateDraft OBLIGATORIO (la autoridad)" --> REND
     PROV -. "provider failure / draft inseguro → safe non-rendering (sin RenderedMessage)" .-> PROV
+    PAUD["Provider attempt audit ✅ Impl 018 (DENTRO de rendering)<br/>auditProviderAttempt OBSERVA el ProviderRenderOutcome (no llama provider/validateDraft)<br/>ProviderAttemptRecord = safe summary (status + reasons reales)<br/>SIN raw draft (rawDraftRetained literal false) · repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO crea RenderedMessage/record/review/display/delivery<br/>NO evento · NO retry/reprojection · validation failure ≠ invalidación de dominio"]
+    PROV -. "observa el outcome del intento (auditoría, no llama al provider)" .-> PAUD
     REND --> HUMAN
     RREC["Registro/Review de presentación ✅ Impl 015 (dentro de rendering)<br/>RenderedMessageRecord (append-only, auditable)<br/>RenderReview (display-safety) · status derivado<br/>DisplayEligibility derivada (no delivery, no aprobación de dominio)<br/>repository port + in-memory adapter<br/>auditabilidad, NO autoridad · NO muta dominio · NO evento · NO delivery"]
     REND -- "registra/revisa artefacto de presentación (auditoría, no autoridad)" --> RREC
@@ -240,6 +251,27 @@ display eligibility, or to delivery. The seam imports only its own `rendering` s
 SDK/API/network/prompt and no `provider`/`llm` top-level module**. *A provider drafts; the validator decides;
 the domain stays the source of truth.*
 
+[FACT] **Provider attempt audit — remembering the attempt, never the draft (Implementation 018).** *Inside*
+`rendering` (not a new module), the audit **observes** an already-computed `ProviderRenderOutcome` and records
+an append-only **`ProviderAttemptRecord`** behind a **repository port + in-memory adapter**. `auditProviderAttempt`
+is a **pure mapping** — it **does not call** `requestProviderRendering` / `ProviderAdapter` / `validateDraft`
+(observe-only) — that classifies the outcome into a closed status (`validation-passed` / `validation-failed` /
+`provider-failed` / `unsafe-request-blocked`; `requested`/`draft-produced` reserved) and captures a **safe
+summary**: refs (renderable/source ref, terminal-output kind, domain `VoiceMode`), provider adapter kind, and
+**reasons reusing the real `ProviderFailure` + `RenderingFailure` catalogs** (no invented parallel catalog).
+**No raw draft is retained** — `ProviderDraftSummary` is reason/count-based, `rawDraftRetained` is the literal
+`false`, and reconstitution **rejects** any `draft`/`text`/`content`/`prompt` field or `rawDraftRetained: true`.
+The audit is **one-way and auditability-not-authority**: a `ProviderAttemptRecord` is **not** a `ProviderDraft`
+/ source truth / `Evidence` / `Observation` / `Understanding` / `AthleteDecision` / `DecisionSupport` /
+`TerminalOutput` / `RenderedMessage` / `RenderedMessageRecord`; there is **no arrow** from it back to the
+provider/validator, to the domain, to the rendered-message record/review, to display eligibility, or to
+delivery; it **appends no event** and **triggers no retry/reprojection/reasoning/mutation**. A **validation
+failure is not domain invalidation**, provider success is not recommendation validation, and provider failure
+does not weaken `SupportQuality`. It imports only its own `rendering` surfaces + read-only `decision-support`
+*types*; **no module outside `rendering` imports it**; and there is **no provider event, event-catalog
+expansion, real provider SDK/network/prompt, model evaluation, or telemetry infrastructure**. *The audit
+remembers what the seam did; the draft never becomes authority.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -328,6 +360,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🗄 | **Rendered-message record / review** *(audit of presentation, not domain; inside rendering)* | `rendering` (`domain`+`application`) | Append-only `RenderedMessageRecord` (source ref/kind/voice/flags preserved) + append-only `RenderReview` (closed catalogs; display-safety) + derived `DisplayEligibility`; repository port + in-memory adapter (mutation isolation, validated reconstitution). Auditability not authority; approval/rejection touch no domain; failed never display-eligible; revision/supersession preserve the old record. **No** events / delivery / production DB / UI / API / provider | ✅ Impl 015 |
 | 📤 | **Delivery / exposure** *(downstream exposure, not rendering, not domain)* | `delivery` (`domain`+`application`) | `requestDelivery` verifies `displayEligibilityOf(record)` (never re-derives), exposes only display-eligible records to a deterministic `InMemoryTestSink`, records an auditable `DeliveryRecord` (closed `DeliveryTarget`/`DeliveryOutcome`/`DeliveryFailureReason`; only `test-sink` supported); repository port + in-memory adapter (mutation isolation, validated reconstitution). Blocks not-reviewed/rejected/superseded/failed-render/missing-ref/unsupported-target without calling the sink. Success ≠ evidence; failure ≠ domain invalidation; mutates no rendered record/aggregate; imports only `shared-kernel` + read-only `rendering`. **No** event-recording / event catalog expansion / real provider/channel / UI / API / scheduler / retry / event bus / production DB | ✅ Impl 016 |
 | 🔌 | **Provider adapter seam** *(draft source behind rendering, fake/test-only, not a stage, not a module)* | `rendering` (`domain`+`application`) | `requestProviderRendering` builds a constrained `ProviderRenderingRequest` (rejects unsafe style/locale/empty before any call), `ProviderAdapter`/deterministic `FakeProviderAdapter` returns an untrusted `ProviderDraft`, then the **unchanged `validateDraft`** decides; `RenderedMessage` only if it passes. Closed `ProviderFailure` (network-flavored members fake-configurable); validation failure → `provider-output-failed-validation` + underlying `RenderingFailure[]`; every failure → safe non-rendering. Provider selects no voice, creates no `TerminalOutput`/`Recommendation`/`RenderedMessage`/record, persists/reviews/marks-display-eligible/delivers/emits/mutates nothing; imports only own `rendering` surfaces + read-only `decision-support` types. **No** real SDK / API / network / prompt templates / provider-LLM module / persistence / events / delivery side effect | ✅ Impl 017 |
+| 📋 | **Provider attempt audit** *(observe-only audit of the seam, inside rendering, not a stage, not a module)* | `rendering` (`domain`+`application`) | `auditProviderAttempt` **observes** a `ProviderRenderOutcome` (does not call provider/`requestProviderRendering`/`validateDraft`) and records an append-only `ProviderAttemptRecord` — closed `ProviderAttemptStatus` (`validation-passed`/`validation-failed`/`provider-failed`/`unsafe-request-blocked`; `requested`/`draft-produced` reserved); reasons reuse the real `ProviderFailure` + `RenderingFailure` catalogs; **safe summary, no raw draft** (`rawDraftRetained` literal `false`; reconstitution rejects raw draft/text/content/prompt). Repository port + in-memory adapter (mutation isolation, validated reconstitution). Auditability not authority; creates no `RenderedMessage`/record/review/display/delivery; appends no event; triggers no retry/reprojection/mutation; validation failure ≠ domain invalidation. **No** event-recording import / event catalog expansion / real SDK / network / prompt / telemetry / model evaluation | ✅ Impl 018 |
 | ※ | **Athlete / Purpose** *(context, not a stage)* | `athlete` | `Athlete` (thin), `Purpose`/`PurposeVersion`/`PurposeHistory` (append-only), `PurposeChanged`, `PurposeVersionRef`, `PurposeReinterpretationStatus` (type only). **No** inferred state/capacity/constraints/path-memory | ✅ Impl 007 (Purpose-first) |
 | ◇ | **Projection freshness** *(on `UnderstandingAssessment`)* | `understanding` | `ProjectionFreshness` (5 states), `derivedAt`, source refs, `RefreshTrigger`/`Policy`; non-current only lowers voice (invalid/unknown → ceiling `none`); flows downstream via `SafeVoiceCeiling`. **No** generic engine / `projection` module / `ImpactAssessment` | ✅ Impl 008 |
 | ↩ | **AthleteDecision feedback** *(context, not a stage)* | `athlete` | `AthleteDecision` (athlete-owned, append-only), `DecisionChoice`/`Rationale`/`Context`, `DecisionOutcomeRef` (ref only), `AthleteDecisionRecord` (amend/supersede); re-enters as `SubjectiveObservation` (neutral adapter). **No** compliance/obedience score / full `DecisionOutcome` / pattern engine | ✅ Impl 009 |
@@ -440,6 +473,14 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | provider failure **≠** domain invalidation · validation failure **≠** review rejection | A provider/validation failure degrades to safe non-rendering; it leaves the domain output and the review/record untouched. |
 | fake provider **≠** real provider integration · provider seam **≠** SDK/API/network/prompt implementation | The seam is deterministic and in-process; a real adapter would implement the same `ProviderAdapter` port behind the same validator, later. |
 | provider request **≠** raw private reasoning | `ProviderRenderingRequest` carries only domain-approved fields; chain-of-thought / hypotheses / mutable handles / override fields are unrepresentable. |
+| provider attempt record **≠** provider draft · **≠** source truth | A `ProviderAttemptRecord` is a safe summary of what the seam did; it retains no raw draft and is never authority (Impl 018). |
+| provider attempt record **≠** `Evidence`/`Observation`/`Understanding`/`AthleteDecision`/`DecisionSupport`/`TerminalOutput` | The record carries no domain field/write handle; it is an audit artifact, not a domain artifact. |
+| provider attempt record **≠** `RenderedMessage`/`RenderedMessageRecord` · audit **≠** rendered-message persistence/review | The audit creates no message/record/review; only a validated `RenderedMessage` may later be recorded (Impl 015). |
+| provider attempt audit **≠** display eligibility/delivery/event record | The audit marks nothing display-eligible, delivers nothing, and appends no event (it imports no `event-recording`). |
+| provider attempt audit **≠** model evaluation/telemetry infrastructure | The audit is for safety debugging/traceability of attempts; it infers no athlete state and grades no model/recommendation quality. |
+| audit observes outcome **≠** audit calls provider/validator | `auditProviderAttempt` reads a `ProviderRenderOutcome`; it never calls the provider / `requestProviderRendering` / `validateDraft`. |
+| validation failure **≠** domain invalidation · provider success **≠** recommendation validation · provider failure **≠** support-quality weakening | An attempt outcome is a rendering-attempt fact; it never grades the domain output or `SupportQuality`. |
+| no raw draft retention **≠** no auditability | `rawDraftRetained` is literal `false`; auditability comes from the safe summary (status + reasons), not from raw text. |
 
 ---
 
@@ -453,13 +494,15 @@ neutral check-only harness** (Impl 012); **a real manual "data in" boundary reco
 outputs as human-facing text** (Impl 014); **rendered messages are conserved + reviewed as auditable
 presentation artifacts** (Impl 015); **a downstream delivery boundary exposes display-eligible messages to a
 deterministic test sink + audit records** (Impl 016); **a provider adapter seam inside `rendering` lets a
-deterministic fake provider draft text behind the unchanged mandatory validator** (Impl 017); the following
-are **deliberately absent**, not failures:
+deterministic fake provider draft text behind the unchanged mandatory validator** (Impl 017); **provider
+attempts are audited inside `rendering` as safe-summary records with no raw draft retention** (Impl 018); the
+following are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
 - **No real LLM provider / SDK / prompt templates** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), and Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`; a real provider would implement the same `ProviderAdapter` port behind the same validator; **no real SDK/API/network/prompt-templates-as-code and no `provider`/`llm` module** exist; generated/drafted text must never become domain truth
 - **No real delivery provider/channel** — the delivery boundary is proven with a **deterministic `InMemoryTestSink`** (Impl 016); a real channel would implement the same `DeliverySink` interface behind the same eligibility gate; **delivery success/failure never affects domain state**
-- **No rendered-output or delivery event records** — a `RenderedMessageRecord`/`DeliveryRecord` is **not** an event record; `rendering` and `delivery` import no `event-recording` and the catalog is not expanded (Impl 015/016)
+- **No rendered-output / delivery / provider-attempt event records** — a `RenderedMessageRecord`/`DeliveryRecord`/`ProviderAttemptRecord` is **not** an event record; `rendering` and `delivery` import no `event-recording` and the catalog is not expanded (Impl 015/016/018)
+- **No provider telemetry / model-evaluation infrastructure** — provider-attempt audit (Impl 018) is auditability/safety-debugging only (safe summaries, no raw draft); it grades no model/recommendation quality and infers no athlete state
 - **No scheduler / retry / background-job layer** — `requestDelivery` is synchronous and deterministic; retries/cancellation lifecycles are deferred (Impl 016)
 - **No event bus / publish-subscribe / handlers / async delivery** — event records are *stored, never delivered or executed*; `PurposeChanged`, refresh triggers, and decision feedback are returned/derived values, not bus messages
 - **No event sourcing / production event store / serialization format** — the `event-recording` log records occurrences; aggregates rebuild via `reconstitute`, not by replaying the log
@@ -479,12 +522,13 @@ likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (proj
 Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory repositories), Spec 011
 (domain event/outcome records + traceability envelope), Spec 012 (reprojection harness), Spec 013
 (manual input adapter), Spec 014 (rendering boundary), Spec 015 (rendered-message record/review), Spec
-016 (delivery boundary), and Spec 017 (provider adapter seam) are done
-(Impl 007/008/009/010/011/012/013/014/015/016/017).** The next responsible missions (a **real provider
-integration boundary** behind the same `ProviderAdapter` port + unchanged validator, or a **provider-attempt
-audit** / **delivery event surface** recording occurrences as ref-only events — chosen explicitly, one at a
-time — then a real channel/transport and storage backend and the reasoning reinterpretation engine) add the
-rest without collapsing any distinction above. See the Core Completion Review for the full ledger.
+016 (delivery boundary), Spec 017 (provider adapter seam), and Spec 018 (provider-attempt audit) are done
+(Impl 007/008/009/010/011/012/013/014/015/016/017/018).** The next responsible missions (a **real provider
+integration boundary** behind the same `ProviderAdapter` port + unchanged validator — accepting SDK/secret/
+network concerns — or a **provider/delivery event surface** recording occurrences as ref-only events —
+chosen explicitly, one at a time — then a real channel/transport and storage backend and the reasoning
+reinterpretation engine) add the rest without collapsing any distinction above. See the Core Completion
+Review for the full ledger.
 
 ---
 
@@ -571,6 +615,18 @@ rest without collapsing any distinction above. See the Core Completion Review fo
   there is **no `src/{providers,prompts,api,ui,infrastructure}` and no `src/modules/{provider,llm,openai,
   anthropic,model}`**, **no SDK/network/`process.env`/prompt token** (structural guard), and the slice was
   **additive** — **no documented blocker was needed**.
+- **Provider attempt audit (Impl 018)** also lives **inside `rendering`** (no new module): `domain/`
+  (`provider-attempt-record.ts`, `provider-attempt-status.ts`, `provider-attempt-failure-reason.ts`,
+  `provider-draft-summary.ts`) and `application/` (`provider-attempt-record-repository.ts` port,
+  `in-memory-provider-attempt-record-repository.ts`, `provider-attempt-audit-service.ts`), surfaced additively
+  from `rendering/index.ts`. The repo-named files import only own `rendering` domain + `shared-kernel`
+  (persistence-boundary compliant); the audit files import only own `rendering` surfaces + read-only
+  `decision-support` *types*, and **import no `event-recording`/`delivery`/upstream module**. The audit
+  **observes** a `ProviderRenderOutcome` and **does not call** the provider/`requestProviderRendering`/
+  `validateDraft` (structural guard). The record is append-only/auditable, **no raw draft retained** —
+  **auditability, not authority**; there is **no `src/modules/{provider-audit,telemetry,evaluation}`**, **no
+  provider event / event-catalog expansion**, and **no SDK/network/prompt token** (structural guard); the
+  slice was **additive** — **no documented blocker was needed**.
 
 ---
 
