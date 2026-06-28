@@ -4,6 +4,33 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 021).** The **`rendering`** module now also owns the first
+> **opt-in live-provider boundary** (inside `rendering/application`, **not a new module**): a **`LiveCallPolicy`**
+> (injected value object; `disabled()`/`enabled({timeoutMs})`; **disabled by default**; never inferred from the
+> environment; no global state), a **`ProviderCredentialResolver`** port (+ opaque `ProviderCredentialToken`) with
+> a deterministic test/composition-only **`StaticProviderCredentialResolver`** (no env, non-secret sentinel), a
+> **`LiveProviderHttpTransport`** (the **only** production file permitted a native network token — `fetch` +
+> `AbortSignal.timeout` behind an **injected endpoint**; **no SDK, no dependency/lockfile change**), and a
+> **`LiveProviderClient`** that implements the existing async **`ProviderClientBoundary`** (a **sibling** of
+> `ConcreteProviderClient`, reusing the unchanged `serializeProviderInstruction`/`parseProviderResponse`/
+> `mapProviderError`). It **fails closed before any transport call** when the policy is disabled or the credential
+> is missing/invalid; it **never calls `validateDraft`** — validation stays owned by the unchanged
+> `requestRealProviderRendering`, so provider output is an **untrusted draft**; transport conditions map **down**
+> onto the existing `ProviderOperationalFailure → ProviderFailure` (**not expanded**). **Allowed imports**
+> unchanged: `shared-kernel` + read-only `decision-support` *types* + own `rendering` domain/application.
+> **Forbidden imports** unchanged: `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/
+> **`delivery`**; **no module outside `rendering` imports it**. The native-network guard exception is **surgical**:
+> the Impl 014 broad rendering scan and the Impl 017 `/provider-/` scan now allow a network token **only** in
+> `live-provider-http-transport.ts` (each asserts it is the *only* network file), while **vendor / SDK / `process.env`
+> tokens stay forbidden everywhere** (Impl 019/020 guards untouched). There is **no installed SDK/package dependency**
+> (`package.json`/lockfile unchanged), **no `process.env`/env resolver/raw secret/prompt template**, **no default/CI
+> live call or credential**, and **no retry/scheduler/record/review/display/delivery/event/domain side effect**. The
+> synchronous seam, `FakeProviderAdapter`, `FakeProviderClient`, and `ConcreteProviderClient` are **untouched**.
+> Module count is still **nine** (Impl 021 added no module). The slice was **additive** — only
+> `rendering/application/index.ts` exports and two rendering network guards changed (surgically); **no documented
+> blocker was needed**. No architecture decision below is superseded. The note below is the prior (Impl 020) status.
+>
+
 > **Implementation status (post Impl 020).** The **`rendering`** module now also owns the first
 > **concrete-provider adapter shell** (inside `rendering/application`, **not a new module**): a
 > **`ConcreteProviderClient`** (implements the Impl 019 async `ProviderClientBoundary`), a pure

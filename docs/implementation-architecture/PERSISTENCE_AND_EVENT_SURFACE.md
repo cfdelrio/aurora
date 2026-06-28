@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 020).** **Eight parts of this paper are now realized** (Impl 020 adds no persistence).
+> **Implementation status (post Impl 021).** **Eight parts of this paper are now realized** (Impl 020 and Impl 021 add no persistence).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -117,7 +117,22 @@
 > domain mutation**. **No SDK/package dependency was added** (`package.json`/lockfile unchanged). A **real (live)
 > provider call, real SDK/secret/network mechanism, production prompt templates, and provider events remain
 > future.**
-> **Still future work:** **live provider call enablement (SDK/secret/network opt-in)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
+> **(Impl 021 — opt-in live-provider boundary; no persistence change.)** Impl 021 added an opt-in live-provider
+> boundary **inside `rendering/application`** behind the Impl 019 async `ProviderClientBoundary` — a
+> **`LiveProviderClient`** (sibling of `ConcreteProviderClient`, reusing the unchanged serializer/parser/error-mapper)
+> driven by an injected **`LiveCallPolicy`** (disabled by default; explicit opt-in; no env inference), an injected
+> **`ProviderCredentialResolver`** + deterministic **`StaticProviderCredentialResolver`** (no env, non-secret
+> sentinel), and a single **`LiveProviderHttpTransport`** (native `fetch` behind an injected endpoint — the only
+> network-token file; no SDK/dependency). This slice **adds no persistence**: it reaches a `RenderedMessage` only
+> via the unchanged `validateDraft`, and the Impl 018 raw-free audit observes the outcome by **explicit composition**
+> (**no automatic provider-attempt persistence**). **No provider response is persisted raw** and **no prompt payload
+> is persisted** (the serializer emits a transient structured payload, not a stored template); **secrets are not
+> persisted as domain data** (no raw secret in records/responses/errors; no `process.env`; the credential is a
+> non-secret sentinel used transiently); **provider operational metadata is not evidence**; and the live boundary
+> **triggers no review / display-eligibility / delivery / event / retry / reprojection / reasoning / domain
+> mutation**. **No SDK/package dependency was added** (`package.json`/lockfile unchanged). A **production secret/
+> environment resolver, a real endpoint/SDK rollout, and provider events remain future.**
+> **Still future work:** **a production secret/environment resolver (env/secret-manager behind the injected ProviderCredentialResolver port)**; **a production live-call rollout (real endpoint + deliberate opt-in)**; **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
 > a **projection repository** (§6), a **production orchestration/service layer**, **external (FIT/wearable)
