@@ -90,3 +90,19 @@ export type {
   LiveProviderSmokeResult,
   LiveProviderSmokeStatus,
 } from "./live-provider-smoke.ts";
+
+// Operator live-smoke entrypoint support (Impl 027) — the PURE, typechecked core of the manual operator
+// entrypoint (scripts/operator-live-smoke.mjs). Reads no process environment, calls no provider, performs no side
+// effect: it parses injected operator indicators, builds a safe synthetic request, projects a redacted output, and
+// maps a safe exit code. The executable script wires the real collaborators and calls liveProviderSmoke once.
+export {
+  parseOperatorSmokeEnv,
+  syntheticSmokeRenderingRequest,
+  operatorSmokeOutput,
+  operatorSmokeExitCode,
+  OPERATOR_SMOKE_OPT_IN_KEY,
+  OPERATOR_SMOKE_OPT_IN_VALUE,
+  OPERATOR_SMOKE_CI_KEY,
+  OPERATOR_SMOKE_ENDPOINT_KEY,
+} from "./operator-live-smoke-entrypoint.ts";
+export type { OperatorSmokeIndicators, OperatorSmokeOutput } from "./operator-live-smoke-entrypoint.ts";

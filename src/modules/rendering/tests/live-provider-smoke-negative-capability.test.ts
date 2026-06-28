@@ -109,9 +109,16 @@ test("no event-bus / queue / scheduler / retry / telemetry / evaluation / provid
   }
 });
 
-test("no operator script was added under scripts/", () => {
-  // Implementation 026 ships the pure helper only; the operator script is deferred (Tech Spec 026A §14).
-  assert.equal(existsSync(join(repoRoot, "scripts")), false, "no scripts/ directory should exist in this slice");
+test("the smoke helper is not an operator script — it is pure (reads no env) and lives in src, never under scripts/", () => {
+  // Reconciled for Impl 027: the operator entrypoint now exists at scripts/operator-live-smoke.mjs (OUTSIDE src,
+  // Tech Spec 027A). The enduring Impl 026 invariant: the smoke HELPER stays pure — imported, never self-executed,
+  // reads no process environment — and remains a src module, not the operator script.
+  const helper = join(here, "..", "application", "live-provider-smoke.ts");
+  assert.equal(existsSync(helper), true, "the pure smoke helper must remain in rendering/application");
+  const src = readFileSync(helper, "utf8");
+  assert.equal(new RegExp("process" + "\\s*\\.\\s*env", "i").test(src), false, "the smoke helper must read no process environment");
+  // the operator entrypoint (Impl 027) lives OUTSIDE src — at repoRoot/scripts/, never inside the src tree
+  assert.equal(existsSync(join(srcDir, "scripts")), false, "no operator script directory may live inside src/");
 });
 
 test("the redacted smoke result contains no raw draft/prompt/payload/response/secret/env value/rendered body", async () => {
