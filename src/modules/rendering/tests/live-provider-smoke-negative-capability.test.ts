@@ -109,16 +109,42 @@ test("no event-bus / queue / scheduler / retry / telemetry / evaluation / provid
   }
 });
 
-test("the smoke helper is not an operator script — it is pure (reads no env) and lives in src, never under scripts/", () => {
-  // Reconciled for Impl 027: the operator entrypoint now exists at scripts/operator-live-smoke.mjs (OUTSIDE src,
-  // Tech Spec 027A). The enduring Impl 026 invariant: the smoke HELPER stays pure — imported, never self-executed,
-  // reads no process environment — and remains a src module, not the operator script.
+test("post-Impl-027: scripts/ exists only for the approved operator entrypoint, and the smoke helper stays pure", () => {
+  // Reconciled, NOT weakened (Impl 026 → 027). Before Impl 027 the invariant was "no scripts/ yet" (operator
+  // entrypoint deferred). After Impl 027 the invariant is "scripts/ may exist, but ONLY with the approved manual
+  // entrypoint scripts/operator-live-smoke.mjs": no npm script, no other unapproved script, outside the default
+  // suite, and the smoke HELPER stays pure (reads no env) in src. The guard's intent is unchanged — the smoke must
+  // not become automatic execution or an unapproved operational surface. (The approved script's internal boundary
+  // — no delivery/event/orchestration imports, redacted output, no retry/loop — is asserted in
+  // operator-live-smoke-entrypoint-negative-capability.test.ts.)
+
+  // 1. the smoke HELPER stays pure: in src, reads no process environment, and is not itself the operator script
   const helper = join(here, "..", "application", "live-provider-smoke.ts");
   assert.equal(existsSync(helper), true, "the pure smoke helper must remain in rendering/application");
-  const src = readFileSync(helper, "utf8");
-  assert.equal(new RegExp("process" + "\\s*\\.\\s*env", "i").test(src), false, "the smoke helper must read no process environment");
-  // the operator entrypoint (Impl 027) lives OUTSIDE src — at repoRoot/scripts/, never inside the src tree
+  assert.equal(
+    new RegExp("process" + "\\s*\\.\\s*env", "i").test(readFileSync(helper, "utf8")),
+    false,
+    "the smoke helper must read no process environment",
+  );
+
+  // 2. no operator script directory may live inside src/ (the entrypoint lives at repoRoot/scripts/)
   assert.equal(existsSync(join(srcDir, "scripts")), false, "no operator script directory may live inside src/");
+
+  // 3. if a repo-root scripts/ exists, it contains ONLY the approved manual entrypoint — no other unapproved script
+  const scriptsDir = join(repoRoot, "scripts");
+  if (existsSync(scriptsDir)) {
+    assert.deepEqual(
+      readdirSync(scriptsDir).sort(),
+      ["operator-live-smoke.mjs"],
+      "scripts/ may contain only the approved operator-live-smoke.mjs",
+    );
+  }
+
+  // 4. package.json wires NO npm script to the operator entrypoint (it stays manual + default-suite-excluded)
+  const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { scripts?: Record<string, string> };
+  for (const [name, value] of Object.entries(pkg.scripts ?? {})) {
+    assert.equal(value.includes("operator-live-smoke"), false, `package script '${name}' must not invoke the operator entrypoint`);
+  }
 });
 
 test("the redacted smoke result contains no raw draft/prompt/payload/response/secret/env value/rendered body", async () => {
