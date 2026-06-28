@@ -56,10 +56,23 @@ test("provider files' decision-support imports are type-only (read-only)", () =>
 });
 
 test("provider files contain no real provider SDK / network / prompt token", () => {
-  const forbidden = /\b(openai|anthropic|axios|node:https|node:http)\b|fetch\s*\(|https?:\/\/|process\.env/i;
+  // Impl 021 — SURGICAL exception: native network tokens are allowed ONLY in the single approved live
+  // transport file; vendor / SDK / env tokens stay forbidden EVERYWHERE, including that file.
+  const network = /\bnode:https?\b|fetch\s*\(|https?:\/\//i;
+  const nonNetwork = /\b(openai|anthropic|axios)\b|process\.env/i;
+  const APPROVED_NETWORK_FILE = "live-provider-http-transport.ts";
   for (const f of providerFiles()) {
-    assert.equal(forbidden.test(readFileSync(f, "utf8")), false, `forbidden provider/network token in ${f}`);
+    const src = readFileSync(f, "utf8");
+    assert.equal(nonNetwork.test(src), false, `forbidden vendor/SDK/env token in ${f}`);
+    if (!f.endsWith(APPROVED_NETWORK_FILE)) {
+      assert.equal(network.test(src), false, `forbidden network token in ${f}`);
+    }
   }
+  // positive assertion: the approved transport file is the ONLY provider file containing a network token.
+  const withNetwork = providerFiles()
+    .filter((f) => network.test(readFileSync(f, "utf8")))
+    .map((f) => f.split("/").pop());
+  assert.deepEqual(withNetwork, [APPROVED_NETWORK_FILE], "exactly one approved network file is allowed");
   assert.ok(providerFiles().length >= 5, "expected the provider seam files to exist");
 });
 

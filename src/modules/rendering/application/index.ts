@@ -39,3 +39,19 @@ export { parseProviderResponse } from "./concrete-provider-response-parser.ts";
 export type { ConcreteProviderResponseShape } from "./concrete-provider-response-parser.ts";
 export { mapProviderError } from "./concrete-provider-error-mapper.ts";
 export type { ConcreteProviderErrorKind, ConcreteProviderErrorShape } from "./concrete-provider-error-mapper.ts";
+
+// Live provider call enablement (Impl 021) — opt-in, fail-closed live client behind the same async
+// ProviderClientBoundary; native HTTP in one approved transport file; disabled by default; no SDK, no env read.
+export { LiveCallPolicy } from "./live-call-policy.ts";
+export { providerCredentialToken } from "./provider-credential-resolver.ts";
+export type {
+  ProviderCredentialResolver,
+  ProviderCredentialResolution,
+  ProviderCredentialToken,
+} from "./provider-credential-resolver.ts";
+export { StaticProviderCredentialResolver } from "./static-provider-credential-resolver.ts";
+export type { StaticCredentialStatus } from "./static-provider-credential-resolver.ts";
+export { liveProviderHttpTransport } from "./live-provider-http-transport.ts";
+export type { LiveProviderTransport, LiveProviderTransportResult } from "./live-provider-http-transport.ts";
+export { LiveProviderClient } from "./live-provider-client.ts";
+export type { LiveProviderClientDeps } from "./live-provider-client.ts";
