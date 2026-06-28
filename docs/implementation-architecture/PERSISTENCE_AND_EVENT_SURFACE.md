@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 018).** **Eight parts of this paper are now realized.**
+> **Implementation status (post Impl 019).** **Eight parts of this paper are now realized.**
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -90,6 +90,18 @@
 > retry / reprojection / reasoning / domain mutation**. A **`ProviderAttemptRecord` is not an event record** —
 > the audit **imports no `event-recording`** and the **event catalog is not expanded**; **only validated
 > `RenderedMessage`s** may *later* be persisted as rendered-message records (Impl 015).
+> **(Impl 019 — real-provider-ready boundary; no persistence change.)** Impl 019 added a **real-provider-*ready***
+> async client boundary **inside `rendering`** — an async `ProviderClientBoundary` + a deterministic **fake
+> in-process client**, `ProviderSecretRef` (operational refs), structured `ProviderInstruction`, and a
+> `ProviderOperationalFailure` catalog mapped **down** to the existing `ProviderFailure`. This slice **adds no
+> persistence**: the async `requestRealProviderRendering` reuses the unchanged `providerRenderingRequestFrom`
+> guard + the mandatory `validateDraft` and returns the existing `ProviderRenderOutcome` (so the Impl 018
+> raw-free audit observes it unchanged, by **explicit composition** — **no automatic provider-attempt
+> persistence**). **No provider response is persisted raw**; **secret refs are not secrets and are not
+> persisted as domain data** (no raw secret in records/responses/errors; no `process.env`); **provider
+> operational metadata is not evidence**; and the real-provider-ready path **triggers no review /
+> display-eligibility / delivery / event / retry / reprojection / reasoning / domain mutation**. A **real
+> SDK/API/network/secret mechanism, production prompt templates, and provider events remain future.**
 > **Still future work:** **provider-attempt / delivery event records (event surfaces)**; a **real provider/channel
 > adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
 > provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,

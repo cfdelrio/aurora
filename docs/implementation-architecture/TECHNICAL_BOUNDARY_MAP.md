@@ -4,6 +4,33 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 019).** The **`rendering`** module now also owns a **real-provider-*ready***
+> boundary (inside `rendering/domain` + `rendering/application`, **not a new module**): a `ProviderSecretRef`
+> (+ `ProviderCredentialStatus`), a non-secret `ProviderClientConfig`, a structured `ProviderInstruction`
+> (+ `providerInstructionFrom`), `ProviderClientRequest`/`ProviderClientResponse` (+ operational metadata only),
+> a closed `ProviderOperationalFailure` (+ `toProviderFailure` mapping), an **async `ProviderClientBoundary`**
+> port, a deterministic **`FakeProviderClient`**, a **`RealProviderAdapter`**, and an async
+> **`requestRealProviderRendering`** service. It **changes only the draft source**: the existing
+> **synchronous** seam (`ProviderAdapter`/`FakeProviderAdapter`/`requestProviderRendering`, Impl 017) is
+> **untouched**; the async path **reuses** the unchanged `providerRenderingRequestFrom` guard + the mandatory
+> **`validateDraft`** and returns the existing `ProviderRenderOutcome` (so the Impl 018 raw-free audit observes
+> it by explicit composition). **Allowed imports** unchanged: `shared-kernel` + read-only `decision-support`
+> *types* + own `rendering` domain/application. **Forbidden imports** unchanged:
+> `observation`/`reasoning`/`understanding`/`athlete`/**`event-recording`**/**`delivery`**; **no module
+> outside `rendering` imports it**. **Real-provider-*ready*, not real-provider-*integrated*:** the
+> `FakeProviderClient` is in-process and deterministic; a **`ProviderSecretRef`** is an operational reference
+> (status + opaque ref), **never a raw secret** (no secret in records/responses/errors; **no `process.env`**);
+> a **`ProviderInstruction`** is structured/derived (no prompt template / arbitrary prompt / chain-of-thought);
+> `ProviderOperationalFailure` maps **down** to the existing `ProviderFailure` (**catalog not expanded**);
+> provider output is **untrusted draft** (only `validateDraft` makes a message); **provider metadata is
+> operational, not evidence**; every failure **degrades to safe non-rendering** with **no automatic retry**;
+> and there is **no automatic persistence / review / display-eligibility / delivery / event / domain
+> mutation** and **no real SDK/API/network/prompt or `provider`/`llm`/`telemetry`/`evaluation` top-level
+> module**. This slice introduces the codebase's **first `async` surface**, isolated to the real-ready path.
+> Module count is still **nine** (Impl 019 added no module). The slice was **additive** — **no documented
+> blocker was needed**. No architecture decision below is superseded. The note below is the prior (Impl 018)
+> status.
+>
 > **Implementation status (post Impl 018).** The **`rendering`** module now also owns a **provider-attempt
 > audit** (inside `rendering/domain` + `rendering/application`, **not a new module**): an append-only
 > **`ProviderAttemptRecord`** (+ `ProviderAttemptStatus`, `ProviderAttemptFailureReason`, `ProviderDraftSummary`),
