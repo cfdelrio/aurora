@@ -377,6 +377,12 @@ const modulesDir = join(here, ".."); // __tests__ -> modules
 // shared-kernel + read-only decision-support types; no domain module imports it; not part of this e2e flow).
 // `delivery` is the downstream exposure boundary added in Implementation 016 (imports only shared-kernel +
 // read-only rendering; no module imports it; test-only sink; not part of this e2e flow).
+// `application-orchestration` is the explicit application COMPOSITION module added in Implementation 025 — it
+// owns no domain model/repository/persistence and introduces no bounded context; it composes the existing
+// public surfaces of rendering/delivery/event-recording over injected collaborators. It is an approved
+// application-composition module, not a new domain capability — so it is allowlisted here additively (the
+// nine domain/integration modules above + this one composition module); the guard keeps rejecting every
+// other unapproved UI/API/DB/LLM/event-bus/scheduler/queue/retry/workflow module.
 const ALLOWED_MODULES = new Set([
   "observation",
   "reasoning",
@@ -386,6 +392,7 @@ const ALLOWED_MODULES = new Set([
   "event-recording",
   "rendering",
   "delivery",
+  "application-orchestration",
 ]);
 const MODULE_SURFACES = ["observation/index", "reasoning/index", "understanding/index", "decision-support/index"];
 
