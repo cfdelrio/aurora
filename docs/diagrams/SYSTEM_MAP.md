@@ -4,7 +4,27 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 032R-A — latest):** the reasoning core is **implemented end-to-end**, and Aurora
+> **Status (post Implementation 035-A/035-B — latest):** the reasoning core is **implemented end-to-end**, Aurora
+> has its **first PRODUCT-RUNTIME code slice (Impl 032R-A)**, and that runtime is now **admission-gated** by an
+> **ENFORCED three-tier external renderable contract**. Implementation 035-A added **`admitExternalRenderable(...)`**
+> — a **pure synchronous structural Tier 2 admission check** in `application-orchestration/application/` that
+> inspects an external renderable / `RenderingRequest` seam and returns **admitted** or **rejected**; Implementation
+> 035-B **wired it into `offlineReflectionRuntime`** — **AFTER** the manual-intake step and **BEFORE** the render-only
+> orchestration — adding the additive closed status **`renderable-inadmissible`**. **ADMITTED:** `admitExternalRenderable(...)`
+> → admitted → render-only `orchestrateRenderDeliver(...)` → downstream `validateDraft` → rendered reflection →
+> delivery withheld → decision-capture prompt/ref → athlete decision remains future athlete-declared/reported.
+> **REJECTED:** `admitExternalRenderable(...)` → rejected → **`renderable-inadmissible`** → `deliveryWithheld: true`
+> → **no provider call, no `validateDraft`, no delivery, no `AthleteDecision`**. **Tier 1 caller guarantees remain
+> outside machine proof; Tier 2 admission is STRUCTURAL only; Tier 3 `validateDraft` remains mandatory downstream.**
+> The admission check is **not whole-core composition, not truth validation, not recommendation-quality proof**;
+> **AC20 remains intact**; **whole-core composition remains test-harness only**. **+32 tests (035-A) + +10 tests
+> (035-B); 779/779 pass; `tsc --noEmit` clean; `process.env` one-file seal intact; operator script unchanged;
+> `package.json`/lockfile unchanged.** `external renderable ≠ truth; caller guarantee ≠ machine proof; admitted ≠
+> evidence-backed fact; admitted ≠ recommendation quality; admission check ≠ validateDraft; RenderingRequest ≠
+> provider call; renderable-inadmissible ≠ delivery failure; delivery withheld ≠ delivery failure; AC20 seam ≠
+> whole-core composer.`
+>
+> **Status (post Implementation 032R-A):** the reasoning core is **implemented end-to-end**, and Aurora
 > now has its **first PRODUCT-RUNTIME code slice**. Implementation 032R-A added a **pure application-level function
 > `offlineReflectionRuntime(command, deps)`** in `application-orchestration/application/` that composes the
 > operator-mediated offline reflection runtime: **athlete manual input → operator-mediated offline reflection runtime
@@ -744,6 +764,27 @@ to a validated rendered reflection, and **nothing here mutates the domain**. **+
 rendered reflection is not delivery, delivery is not an athlete decision, and a decision-capture prompt is not an
 `AthleteDecision`.*
 
+[FACT] **Three-tier external renderable contract — now ENFORCED by an admission-gated runtime (Implementations
+035-A / 035-B).** A **pure synchronous structural Tier 2 admission check**, **`admitExternalRenderable(...)`**, lives
+in `application-orchestration/application/` (no new module). It inspects an **external renderable / `RenderingRequest`
+seam** and returns **admitted** or **rejected** — a **structural** decision only. Implementation 035-A added the
+check and its catalog (**+32 tests**); Implementation 035-B **wired it into `offlineReflectionRuntime`** — placed
+**AFTER** the injected manual-intake step and **BEFORE** the render-only `orchestrateRenderDeliver` orchestration —
+and added the **additive closed status `renderable-inadmissible`** (**+10 tests**). The contract is **three-tier and
+each tier stays distinct**: **Tier 1** caller guarantees remain **outside machine proof** (a caller's promise is not
+a machine-checked fact); **Tier 2** admission (`admitExternalRenderable`) is **STRUCTURAL only** (it proves shape,
+never truth, evidence, or recommendation quality); **Tier 3** `validateDraft` remains **mandatory downstream** (the
+only path to a validated rendered reflection). On **ADMITTED**, the runtime proceeds to render-only
+`orchestrateRenderDeliver(...)` → downstream `validateDraft` → rendered reflection → **delivery withheld** →
+decision-capture prompt/ref → athlete decision remains future athlete-declared/reported. On **REJECTED**, the runtime
+fails closed to **`renderable-inadmissible`** with **`deliveryWithheld: true`** — **no provider call, no
+`validateDraft`, no delivery, no `AthleteDecision`**. The admission check is **not whole-core composition, not truth
+validation, and not recommendation-quality proof**; **AC20 remains intact** (no whole-core composer added; whole-core
+composition stays a **test harness** only); and the runtime still **mutates no domain**. **+32 tests (035-A) + +10
+tests (035-B); 779/779 pass; `tsc --noEmit` clean.** *External renderable ≠ truth; a caller guarantee is not a
+machine proof; admitted ≠ evidence-backed fact; admitted ≠ recommendation quality; the admission check is not
+`validateDraft`; `renderable-inadmissible` is not a delivery failure; delivery withheld is not a delivery failure.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -851,6 +892,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🔐 | **Managed-secret credential source** *(provider-neutral async seam inside rendering, NOT a stage, NOT a module)* | `rendering` (`application`) | `ManagedSecretStoreClient` interface (async `retrieve(secretName): Promise<ManagedSecretResolution>`, always resolves, no cloud SDK, injected in all usage). 4-state `ManagedSecretResolution` (`available`/`missing`/`invalid`/`unavailable`). `ManagedSecretCredentialSource.toEnvironmentCredentialSource()` (pre-fetch pattern: retrieves ONE configured secret; `available` → `{ [secretName]: value }`; non-`available` → `{}` → downstream resolver classifies `missing` → no provider call). `FakeManagedSecretStoreClient` (4 deterministic scenarios; default `available`; sentinel `"opaque:test-managed-secret"`; no real secret; no SDK; constructed explicitly — never a global singleton). Downstream synchronous `EnvironmentProviderCredentialResolver` chain **unchanged**. No cloud SDK, no `process.env` read, no dependency change. *secret manager = credential source; ≠ live-call enablement ≠ cloud adapter ≠ production rollout.* | ✅ Impl 028 |
 | ☁️ | **Cloud-secret adapter contract** *(cloud-like adapter CONTRACT behind the managed-secret seam inside rendering, NOT a stage, NOT a selected provider, NOT an SDK)* | `rendering` (`application`) | `CloudSecretValueClient` (**injected** cloud-like transport boundary; pure TS; **MAY throw** — adapter catches; no SDK). Richer cloud-like `CloudSecretLookupResult` outcome union. `CloudSecretStoreAdapter implements ManagedSecretStoreClient` (maps richer outcomes + any thrown exception into the existing 4-state `ManagedSecretResolution`; **fails closed**; **redacts** raw secret + raw cloud response). Closed redacted `CloudSecretAdapterFailureCode` classification enum. `FakeCloudSecretValueClient` (deterministic; scenarios incl. `"throws"`; sentinel `"opaque:test-cloud-secret"`; no real secret/SDK/network). Mapping: found→`available`; blank/control found value→`invalid`; malformed→`invalid`; not_found/empty ref→`missing`; denied/unauthenticated/unavailable/timeout/throttled/thrown→`unavailable`; `retrieve()` always resolves, never rejects. Chain: **`CloudSecretValueClient` → `CloudSecretStoreAdapter` → `ManagedSecretStoreClient` → `ManagedSecretCredentialSource` → `EnvironmentProviderCredentialResolver`** (Impl 028 seam + downstream synchronous chain **unchanged**). The map must **NOT** draw an AWS/GCP/Azure node, an SDK/cloud-network node, a production-infra node, operator-smoke default wiring, source precedence, or a live-call trigger; stays SEPARATE from `LiveCallPolicy` / operator opt-in / CI guard / `validateDraft` / delivery / event recording / application orchestration / domain mutation. No cloud provider selected, no real cloud SDK, no production wiring, no dependency change. *cloud adapter contract ≠ cloud provider selection ≠ SDK ≠ production wiring; credential available ≠ live-call enabled; safe failure code ≠ raw cloud response.* | ✅ Impl 029 |
 | 🪞 | **Operator-mediated offline reflection runtime** *(product-runtime COMPOSITION FUNCTION, NOT a stage, NOT API/UI/CLI/worker, NOT deployment, NOT operator smoke)* | `application-orchestration` (`application/`) | Pure application-level function `offlineReflectionRuntime(command, deps)` — Aurora's **FIRST product-runtime surface**. Composes: **athlete manual input → operator-mediated offline reflection runtime → injected manual-intake collaborator → render-only `orchestrateRenderDeliver` → validated rendered record/reflection → delivery withheld → decision-capture prompt/ref → athlete decision remains future athlete-declared/reported input.** Offline + operator-mediated **only**; **operator smoke remains operational-only and SEPARATE**; not API/UI/CLI/worker; not deployment; not live-provider enablement. **Does not call delivery** (delivery withheld; surfaces a decision-capture prompt/ref), **records no event implicitly**, **creates no `AthleteDecision`** (athlete decision is a future athlete-declared/reported input only), and **does not invent the missing observation→renderable reasoning pipeline** — the renderable/`RenderingRequest` is **injected** and the manual-intake step is **injected** to preserve the Impl 025 application-orchestration import guard (**no `observation` import** from the production `application-orchestration` file). `validateDraft` stays the only path to a validated reflection; mutates no domain. **No** live transport / `process.env` / cloud-secret adapter / package script. +27 tests; **737/737**; `tsc` clean | ✅ Impl 032R-A |
+| 🛂 | **External renderable admission check (Tier 2 structural gate)** *(pure synchronous structural admission, NOT whole-core composition, NOT truth validation, NOT recommendation-quality proof, NOT a stage)* | `application-orchestration` (`application/`) | Pure **synchronous structural** `admitExternalRenderable(...)` inspects the **external renderable / `RenderingRequest` seam** and returns **admitted** or **rejected** — **STRUCTURAL only** (proves shape, never truth/evidence/recommendation quality). **035-B wired it into `offlineReflectionRuntime` AFTER manual intake and BEFORE render-only orchestration**, adding the additive closed status **`renderable-inadmissible`**. **ADMITTED** → render-only `orchestrateRenderDeliver(...)` → downstream `validateDraft` → rendered reflection → delivery withheld → decision-capture prompt/ref → athlete decision remains future athlete-declared/reported. **REJECTED** → **`renderable-inadmissible`** → `deliveryWithheld: true` → **no provider call / no `validateDraft` / no delivery / no `AthleteDecision`**. Three-tier contract: **Tier 1** caller guarantees stay **outside machine proof**; **Tier 2** admission is **structural only**; **Tier 3** `validateDraft` stays **mandatory downstream**. **Not whole-core composition, not truth validation, not recommendation-quality proof**; **AC20 remains intact** (whole-core composition stays test-harness only); mutates no domain. **+32 (035-A) + +10 (035-B) tests; 779/779; `tsc --noEmit` clean** | ✅ Impl 035-A/B |
 
 ---
 
@@ -1037,6 +1079,16 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | manual input **≠** automatic evidence (Impl 032R-A) | Athlete manual input enters faithfully as source material; it becomes evidence only by traveling the full ladder — unless an **existing boundary** already says otherwise. |
 | reflection **≠** prescription (Impl 032R-A) | The runtime produces a reflection (voice preserved, agency preserved); it never escalates into a prescription/command. |
 | decision-capture prompt **≠** `AthleteDecision` (Impl 032R-A) | The prompt/ref invites a future decision; the `AthleteDecision` is **athlete-declared/reported only** and is never created by the runtime. |
+| external renderable **≠** truth (Impl 035-A/B) | An external renderable / `RenderingRequest` is admitted on **shape**, never on truth; admission asserts nothing about whether its content is correct or real. |
+| caller guarantee **≠** machine proof (Impl 035-A/B) | Tier 1 caller guarantees remain **outside machine proof**; a caller's promise about the renderable is never a machine-checked fact. |
+| admitted **≠** evidence-backed fact (Impl 035-A/B) | `admitExternalRenderable` returning **admitted** is a structural pass; it produces no `Evidence`/`Observation`/`Understanding` and backs no fact. |
+| admitted **≠** recommendation quality (Impl 035-A/B) | A structural admission says nothing about the correctness or quality of any recommendation; quality is never proven by admission. |
+| admission check **≠** `validateDraft` (Impl 035-A/B) | Tier 2 `admitExternalRenderable` is a **structural** pre-orchestration gate; Tier 3 `validateDraft` is the **mandatory downstream** safety-of-form validator — separate gates, neither replaces the other. |
+| `validateDraft` **≠** recommendation quality (Impl 035-A/B) | The mandatory validator proves safety-of-form for the rendered reflection; it never grades the correctness or quality of any recommendation. |
+| `RenderingRequest` **≠** provider call (Impl 035-A/B) | The external renderable / `RenderingRequest` seam is the admission input; a rejected request makes **no provider call** and an admitted one only then reaches render-only orchestration. |
+| `renderable-inadmissible` **≠** delivery failure (Impl 035-A/B) | The status means the renderable failed the **structural admission** before any orchestration; it is not a delivery outcome and never implies a failed delivery. |
+| delivery withheld **≠** delivery failure (Impl 035-A/B) | `deliveryWithheld: true` is the runtime's render-only/no-exposure posture; it is a deliberate withholding, never a failed or attempted delivery. |
+| AC20 seam **≠** whole-core composer (Impl 035-A/B) | The admission check is not whole-core composition; AC20 remains intact and whole-core composition remains **test-harness only** — no production whole-core composer is introduced. |
 
 ---
 
@@ -1125,6 +1177,7 @@ the following are **deliberately absent**, not failures:
   `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
 - **No production reprojection service / scheduler / projection repository** — reprojection is proven as a *neutral check-only harness* (Impl 012); a production recompute service, an event-driven/scheduled refresh, and a projection store are deferred
 - **The first product-runtime slice exists, but is offline/operator-mediated only (Impl 032R-A)** — `offlineReflectionRuntime(command, deps)` (pure application-level function in `application-orchestration/application/`) is Aurora's first product-runtime surface: it composes athlete manual input → operator-mediated offline reflection runtime → injected manual-intake collaborator → render-only `orchestrateRenderDeliver` → validated rendered record/reflection → delivery withheld → decision-capture prompt/ref, with the renderable/`RenderingRequest` and the manual-intake step **injected** (preserving the Impl 025 application-orchestration import guard; no `observation` import), **delivery never called**, **no implicit event recording**, and **no `AthleteDecision` created**. But there is still **NO API/UI/worker**, **no deployment**, **no production rollout**, **no live transport / `process.env` / cloud-secret adapter / package script**; **operator smoke stays operational-only and SEPARATE**; and the **observation→renderable reasoning composition remains future** (the runtime injects the renderable rather than inventing the missing reasoning pipeline)
+- **The external renderable seam is now admission-gated — Tier 2 ENFORCED (Impl 035-A/B)** — `admitExternalRenderable(...)` (a pure synchronous **structural** Tier 2 check in `application-orchestration/application/`) is now **wired into `offlineReflectionRuntime` AFTER manual intake and BEFORE render-only orchestration**, with the additive closed status `renderable-inadmissible` (rejected → `deliveryWithheld: true`, no provider call, no `validateDraft`, no delivery, no `AthleteDecision`). But the admission is **structural only**: **Tier 1 caller guarantees remain outside machine proof** and **Tier 3 `validateDraft` remains mandatory downstream**. The admission check is **not whole-core composition, not truth validation, and not recommendation-quality proof**; **whole-core composition remains a test harness (AC20 intact)** — there is **no production whole-core composer** and **no `reflection-composition` module**
 - **An explicit application orchestration boundary exists (Impl 025)** — `application-orchestration` composes the existing rendering/audit/record/review/display/delivery/event services over injected collaborators in explicit ordered steps (no domain model/repository/persistence of its own; no event bus/scheduler/retry/workflow; no automatic delivery; no event-triggered step; no domain mutation; AC20 updated additively) — but **no production orchestration *entrypoint*** (a UI/API/use-case surface, or a scheduler/event-driven trigger, that *invokes* `orchestrateRenderDeliver`) exists yet; the remaining cross-module purpose/refresh/decision/reprojection seams still live in the neutral test harness
 - **A live-provider smoke-test boundary helper exists (Impl 026)** — `liveProviderSmoke(command, deps)` in `rendering/application` verifies the live path with **one** bounded call through the existing seam behind the unchanged validator, gated fail-closed (opt-in → CI → credential → live policy, each before any call), redacted, reading no env, importing no transport/adapter/delivery/event/orchestration internal, persisting/delivering/recording/mutating nothing — **no npm script** and **no CI-live lane** exist; the default suite + CI make no live call and need no credential. The operator live-smoke entrypoint (outside `src/`) was realized in Impl 027. *A smoke test proves wiring, not wisdom.*
 - **An operator live-smoke entrypoint exists (Impl 027)** — `scripts/operator-live-smoke.mjs` (plain ESM, outside `src/`/`tsconfig.include`/the default test glob/both guard scan roots, runnable via Node 22 native type-stripping) reads the real opt-in/CI/credential env flags outside `src`, wires the approved `ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver` credential chain, calls `liveProviderSmoke` exactly once, and prints one redacted `OperatorSmokeOutput` JSON (`rawRetained: false`, `wiringOnly`, `sideEffects: "none"`) — **no npm script, no CI live lane, persisting/delivering/recording/mutating nothing** — but **no cloud adapter behind the managed-secret seam**, **no production secret rollout**, and **no production orchestration entrypoint** exist yet. *Smoke proves wiring, not wisdom; operator success is not evidence; a redacted exit code is not domain truth.*
@@ -1447,6 +1500,25 @@ above. See the Core Completion Review for the full ledger.
   export — and **`package.json`/lockfile are unchanged** (devDeps stay `typescript` + `@types/node`). *A runtime is
   not a deployment; a rendered reflection is not delivery; delivery is not an athlete decision; a decision-capture
   prompt is not an `AthleteDecision`.*
+- **External renderable admission check + admission-gated runtime (Impl 035-A / 035-B)** live **inside
+  `application-orchestration`** (no new module): Impl 035-A adds `application/external-renderable-admission.ts` — the
+  pure synchronous **structural** Tier 2 `admitExternalRenderable(...)` + its closed admitted/rejected result type —
+  surfaced additively through `application-orchestration/application/index.ts`, with tests
+  `application-orchestration/tests/external-renderable-admission.test.ts` +
+  `…-negative-capability.test.ts` (deterministic, fakes only; **+32 tests**). Impl 035-B **wires the check into
+  `offlineReflectionRuntime`** (in `application/offline-reflection-runtime.ts`) — **after** the injected manual-intake
+  step and **before** the render-only `orchestrateRenderDeliver` orchestration — adding the additive closed status
+  `renderable-inadmissible` (rejected → `deliveryWithheld: true`, no provider call, no `validateDraft`, no delivery,
+  no `AthleteDecision`), with the runtime's tests updated (`offline-reflection-runtime.test.ts` +
+  `…-negative-capability.test.ts`; **+10 tests**). The check is **structural only** (Tier 1 caller guarantees stay
+  outside machine proof; Tier 3 `validateDraft` stays mandatory downstream); it is **not whole-core composition, not
+  truth validation, not recommendation-quality proof**; **AC20 stays intact** (whole-core composition remains a test
+  harness; no production whole-core composer, **no `reflection-composition` module**); and the production
+  `application-orchestration` file still imports **no `observation`**. **+32 (035-A) + +10 (035-B) tests; 779/779;
+  `tsc --noEmit` clean.** The slice was **additive** — the only existing-file changes are the
+  `application-orchestration/application/index.ts` exports and the runtime wiring — and **`package.json`/lockfile are
+  unchanged** (devDeps stay `typescript` + `@types/node`). *External renderable ≠ truth; admitted ≠ evidence-backed
+  fact; the admission check is not `validateDraft`; `renderable-inadmissible` is not a delivery failure.*
 
 ---
 

@@ -4,6 +4,40 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 035-A/035-B).** Impl 035-A (commit `52cb193`) and Impl 035-B (commit
+> `268ccf2`) added a **pure Tier 2 external-renderable admission check** — **`admitExternalRenderable`** (in
+> `src/modules/application-orchestration/application/external-renderable-admission.ts`) — inside the
+> **`application-orchestration` application layer** (an **application-layer admission gate, NOT domain** — it owns no
+> domain model/repository/persistence and introduces no bounded context), and **wired it into `offlineReflectionRuntime`
+> BEFORE render-only orchestration** with an **additive `renderable-inadmissible` status**. The admission check imports
+> **rendering PUBLIC types only** (`RenderingRequest` / `RenderableDomainOutput` via `rendering/index`); it imports **no
+> `observation`/`reasoning`/`understanding`/`athlete` (upstream domain) module**, **no provider/live transport**, **no
+> delivery implementation**, and **no cloud-secret adapter**; it **reads no `process.env`**, **calls no `validateDraft`**,
+> **calls no `orchestrateRenderDeliver`**, **creates no `AthleteDecision`**, **records no events**, and **persists
+> nothing** — it is a pure predicate over a caller-supplied renderable. `offlineReflectionRuntime` **imports the admission
+> check from the same module** and **gates BEFORE orchestration**: a rejected renderable returns the additive
+> `renderable-inadmissible` status and **does not reach rendering/provider/validation/delivery**; only an admitted
+> renderable proceeds to the unchanged render-only composition (the **mandatory `validateDraft`** stays the only path to a
+> `RenderedMessage`, **delivery stays withheld**). This adds **no new top-level module**, **no `reflection-composition`
+> module**, **AC20 is unchanged**, the **package.json/lockfile is unchanged**, and the **operator script is unchanged**.
+> **Two new test files** carry the admission slice —
+> `src/modules/application-orchestration/tests/external-renderable-admission.test.ts` and
+> `src/modules/application-orchestration/tests/external-renderable-admission-negative-capability.test.ts` (the latter
+> asserting no upstream-domain / provider / live-transport / delivery-impl / cloud-secret import, no `process.env`, no
+> `validateDraft`, no `orchestrateRenderDeliver`, no `AthleteDecision`, no event-recording, and no persistence) — beside
+> the new admission file itself
+> (`src/modules/application-orchestration/application/external-renderable-admission.ts`); the **UPDATED files** are
+> `src/modules/application-orchestration/application/offline-reflection-runtime.ts` (gates on the admission check before
+> orchestration; additive `renderable-inadmissible` status) and its test
+> `src/modules/application-orchestration/tests/offline-reflection-runtime.test.ts`, and the only other existing-file
+> change is **additive**: `src/modules/application-orchestration/application/index.ts` exports the new function. Validation:
+> **779/779 tests pass** · `tsc --noEmit` clean. `external renderable ≠ truth; caller guarantee ≠ machine proof; admitted
+> ≠ evidence-backed fact; admitted ≠ recommendation quality; admission check ≠ validateDraft; RenderingRequest ≠ provider
+> call; renderable-inadmissible ≠ delivery failure; delivery withheld ≠ delivery failure; validated reflection ≠
+> AthleteDecision; AC20 seam ≠ whole-core composer.` **Still future:** the **three-tier contract is now enforced (Tier 2
+> wired)** at the offline-runtime seam; the **whole-core observation→renderable composition remains a test harness**, not
+> a wired product path. No architecture decision below is superseded. The note below is the prior (Impl 032R-A) status.
+>
 > **Implementation status (post Impl 032R-A).** Impl 032R-A (commit `52a93f4`) added Aurora's **first
 > product-runtime code slice** — a **pure, fully-injected application-level function `offlineReflectionRuntime(command,
 > deps)`** inside **`application-orchestration/application`** (in

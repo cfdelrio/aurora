@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 032R-A).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
+> **Implementation status (post Impl 035-B).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -313,6 +313,28 @@
 > module, no dependency change, no `process.env` read — **additive only**. Validation: **737/737 tests pass** ·
 > `tsc --noEmit` clean. `offline-reflection runtime = pure composition over injected collaborators; delivery withheld ≠
 > delivery failure; reflection-ready ≠ athlete decision; provider output ≠ truth; reflection ≠ prescription.`
+> **(Impl 035-A/035-B — Tier 2 external-renderable admission check wired into the offline-reflection runtime; no
+> persistence added, no event surface added.)** Impl 035-A added a **Tier 2 external-renderable admission check**
+> and Impl 035-B **wired it into `offlineReflectionRuntime`** so an externally supplied renderable is admitted
+> (or rejected) **before** it can reach provider rendering. This slice **adds no persistence**: it **adds no
+> repository**, **adds no DB/schema**, **adds no migration**, **records no events** (no event recording — no
+> implicit event emission), makes **no provider-attempt audit persistence change**, makes **no orchestration-trace
+> persistence change**, makes **no delivery request/outcome persistence change**, and makes **no rendered-message
+> persistence change on rejected renderables** (a rejected renderable never reaches orchestration, so **no record is
+> written**). It **creates no athlete decision**, **creates no evidence**, and **performs no domain mutation outside
+> existing boundaries**; it **persists no raw provider output** and **persists no hidden reasoning**. The conceptual
+> distinctions / fail-closed facts the admission check must keep legible: a **rejected renderable STOPS before
+> provider rendering, before `validateDraft`, and before delivery**; **renderable-inadmissible is not a delivery
+> failure**; the **`admissionReason` is a safe closed reason code** (never raw content / hidden reasoning); an
+> **admitted renderable is not truth, not evidence-backed fact, and not recommendation quality**; **delivery
+> withheld remains delivery withheld, not delivery failure**; a **decision-capture prompt/ref remains not an
+> `AthleteDecision`**; and the non-identities: **operator mediation ≠ athlete decision**; **provider output ≠
+> truth**; **reflection ≠ prescription**. No new module, no dependency change, no `process.env` read — **additive
+> only**. Validation: **779/779 tests pass** · `tsc --noEmit` clean. `Tier 2 external-renderable admission =
+> fail-closed pre-render gate; rejected renderable stops before rendering/validateDraft/delivery; renderable-
+> inadmissible ≠ delivery failure; admissionReason = safe closed code ≠ raw content / hidden reasoning; admitted
+> renderable ≠ truth ≠ evidence ≠ recommendation quality; operator mediation ≠ athlete decision; provider output ≠
+> truth; reflection ≠ prescription.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
@@ -328,8 +350,11 @@
 > layer**, **event bus**, **event sourcing**, a **projection repository** (§6), **external (FIT/wearable) ingestion**,
 > and any **production event store / serialization format / DB / ORM / cache / persistence backend**. The
 > **offline-reflection runtime composition now exists** (Impl 032R-A, pure, fully injected; **no persistence / no
-> event surface**), but the **missing observation→renderable reasoning composition remains future** (**recommended
-> next: Spec 034 — Observation-to-Renderable Reasoning Composition Boundary**). This paper is otherwise unchanged.
+> event surface**), and the **external renderable contract is now enforced** (Impl 035-A/035-B, a Tier 2 admission
+> check wired into the offline-reflection runtime as a fail-closed pre-render gate; **no persistence / no event
+> surface**), but the **whole-core composition remains a test harness** (AC20 intact) and the **missing
+> observation→renderable reasoning composition remains future** (**recommended next: Spec 034 —
+> Observation-to-Renderable Reasoning Composition Boundary**). This paper is otherwise unchanged.
 
 ---
 
