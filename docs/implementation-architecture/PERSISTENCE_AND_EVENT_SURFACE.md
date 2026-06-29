@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 035-B).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
+> **Implementation status (post Impl 036-A).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -335,6 +335,27 @@
 > inadmissible ≠ delivery failure; admissionReason = safe closed code ≠ raw content / hidden reasoning; admitted
 > renderable ≠ truth ≠ evidence ≠ recommendation quality; operator mediation ≠ athlete decision; provider output ≠
 > truth; reflection ≠ prescription.`
+> **(Impl 036-A — first operator-mediated reflection-session harness; TEST-ONLY; no persistence added, no event
+> surface added.)** Impl 036-A added the **first operator-mediated reflection-session harness** — a **TEST-ONLY**
+> proof that composes the existing offline-reflection runtime into a single operator-mediated session at the test
+> level. This slice **adds no persistence**: it **adds no repository**, **adds no DB/schema**, **adds no migration**,
+> **records no events** (no event recording — no implicit event emission), makes **no provider-attempt audit
+> persistence change**, makes **no orchestration-trace persistence change**, makes **no delivery request/outcome
+> persistence change**, and makes **no rendered-message persistence change beyond the existing runtime/orchestration
+> behavior**. It **creates no athlete decision**, **creates no evidence outside existing boundaries**, and **performs
+> no domain mutation outside existing boundaries**; it **persists no raw provider output** and **persists no hidden
+> reasoning**. The conceptual distinctions / fail-closed facts the harness must keep legible: **delivery is withheld
+> on every path** — and **reflection-ready is NOT delivery**; **renderable-inadmissible is NOT a delivery failure**;
+> **not-rendered is fail-closed rendering/validation behavior** (a draft that fails `validateDraft` is not rendered);
+> **input-rejected stops before rendering**; a **decision-capture prompt/ref is NOT an `AthleteDecision`**; a
+> **validated reflection is NOT an `AthleteDecision`**; **operator mediation ≠ athlete decision**; **provider output ≠
+> truth**; **reflection ≠ prescription**; **Aurora advises, the athlete decides**. No new module, no dependency change,
+> no `process.env` read — **additive only** (test-only). The **whole-core composition remains a test harness** (AC20
+> intact). Validation: **784/784 tests pass** · `tsc --noEmit` clean. `operator-mediated reflection-session harness =
+> test-only proof; delivery withheld on every path; reflection-ready ≠ delivery; renderable-inadmissible ≠ delivery
+> failure; not-rendered = fail-closed rendering/validation; input-rejected stops before rendering; decision-capture
+> prompt/ref ≠ AthleteDecision; validated reflection ≠ AthleteDecision; operator mediation ≠ athlete decision;
+> provider output ≠ truth; reflection ≠ prescription; Aurora advises, the athlete decides.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
@@ -352,9 +373,10 @@
 > **offline-reflection runtime composition now exists** (Impl 032R-A, pure, fully injected; **no persistence / no
 > event surface**), and the **external renderable contract is now enforced** (Impl 035-A/035-B, a Tier 2 admission
 > check wired into the offline-reflection runtime as a fail-closed pre-render gate; **no persistence / no event
-> surface**), but the **whole-core composition remains a test harness** (AC20 intact) and the **missing
-> observation→renderable reasoning composition remains future** (**recommended next: Spec 034 —
-> Observation-to-Renderable Reasoning Composition Boundary**). This paper is otherwise unchanged.
+> surface**), and the **first operator-mediated reflection session is now a test-level proof** (Impl 036-A, a
+> TEST-ONLY harness; **no persistence / no event surface**), but the **whole-core composition remains a test harness**
+> (AC20 intact) and the **missing observation→renderable reasoning composition remains future** (**recommended next:
+> Spec 034 — Observation-to-Renderable Reasoning Composition Boundary**). This paper is otherwise unchanged.
 
 ---
 

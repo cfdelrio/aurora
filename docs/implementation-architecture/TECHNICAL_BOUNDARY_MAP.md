@@ -4,6 +4,29 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 036-A).** Impl 036-A (commit `d39cd21`) added a **TEST-ONLY end-to-end
+> harness** — `src/modules/__tests__/first-operator-mediated-reflection-session.test.ts` (**+5 tests**) — proving
+> Aurora's **first operator-mediated reflection session** end-to-end. It is a **test, not production code** — it adds
+> **no production module** and ships **no production source file**. The harness lives **under
+> `src/modules/__tests__/`**, and because **AC20 excludes test files from the production import scan**, it **MAY import
+> the whole-core surfaces** (`observation` / `reasoning` / `understanding` / `decision-support` / `rendering`) **+ the
+> `application-orchestration` runtime** to compose the session within a single test. The harness **adds no production
+> module, does not alter any production import, does not add a `reflection-composition` module, and adds no CLI /
+> runtime shell / executable script / npm-or-package command**. It **does not alter `offlineReflectionRuntime`**, **does
+> not alter `admitExternalRenderable`**, **does not alter the operator smoke** helper, and **changes no package files**
+> (package.json/lockfile unchanged). It proves five cases end-to-end — the **safe** (admitted, validated,
+> reflection-ready) path, the **inadmissible** (rejected before render/provider/validation/delivery) path, the
+> **validation-failure** path, the **manual-input-rejected** path, and the **cross-path no-decision / no-delivery**
+> guarantee (no `AthleteDecision` constructed, delivery withheld across paths). **AC20 remains unchanged** — all AC20
+> guards stay green. Validation: **784/784 tests pass** · `tsc --noEmit` clean. `operator-mediated session ≠ operator
+> smoke; session harness ≠ production whole-core composer; test harness ≠ production service; caller-supplied
+> RenderingRequest ≠ truth; admitted ≠ evidence-backed fact; validateDraft ≠ recommendation quality; reflection-ready ≠
+> delivered; delivery withheld ≠ delivery failure; decision-capture prompt ≠ AthleteDecision; AC20 seam ≠ whole-core
+> composer.` **Still future:** the first operator-mediated reflection session is now a **test-level proof**; a
+> **production session service / wrapper / CLI** remains future, and the **whole-core observation→renderable composition
+> remains a test harness**, not a wired product path. No architecture decision below is superseded. The note below is
+> the prior (Impl 035-A/035-B) status.
+>
 > **Implementation status (post Impl 035-A/035-B).** Impl 035-A (commit `52cb193`) and Impl 035-B (commit
 > `268ccf2`) added a **pure Tier 2 external-renderable admission check** — **`admitExternalRenderable`** (in
 > `src/modules/application-orchestration/application/external-renderable-admission.ts`) — inside the
