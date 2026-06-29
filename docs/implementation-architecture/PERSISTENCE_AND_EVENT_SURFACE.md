@@ -356,6 +356,28 @@
 > failure; not-rendered = fail-closed rendering/validation; input-rejected stops before rendering; decision-capture
 > prompt/ref ≠ AthleteDecision; validated reflection ≠ AthleteDecision; operator mediation ≠ athlete decision;
 > provider output ≠ truth; reflection ≠ prescription; Aurora advises, the athlete decides.`
+> **(Impl 037-A — post-reflection athlete decision capture harness; TEST-ONLY; no persistence/event surface added.)**
+> Impl 037-A added the **post-reflection athlete decision capture** proof as a **TEST-ONLY documented-usage harness**,
+> exercising the existing decision machinery (`athleteDecision(...)` → `decisionContext({ decisionSupportCaseRef })` →
+> `recordAthleteDecision(...)`). It adds **no new persistence/event surface beyond existing test usage**: **no
+> production repository added**, **no DB/schema**, **no migration**, **no auth/session/user system**, **no event
+> recording integration added**, **no provider-attempt audit persistence change**, **no orchestration-trace
+> persistence change**, **no delivery request/outcome persistence change**, and **no rendered-message persistence
+> change**. There is **no automatic athlete-decision persistence from reflection**, **none from delivery**, and
+> **none from silence or inferred behavior** — the test harness may use the **existing in-memory decision recording
+> only** (`InMemoryAthleteDecisionRecordRepository`). **Decision capture remains explicit `athlete-declared`/
+> `athlete-reported` input**; the **linked context uses the existing `decisionContext({ decisionSupportCaseRef })`**
+> (the reflection's `sourceCaseRef`); **feedback re-entry is `SubjectiveObservation` only**; **no `Signal`/`Evidence`
+> is created directly** and **no reasoning/understanding update is triggered directly**. **Following Aurora is not
+> persisted as obedience-success**; **delivery withheld remains delivery withheld, not delivery failure**; the
+> **`AthleteDecision` remains athlete-owned**. `offlineReflectionRuntime` unchanged; no new module; no dependency
+> change; no `process.env` read — **additive only** (test-only). **AC20 intact.** Validation: **795/795 tests pass** ·
+> `tsc --noEmit` clean. `reflection-ready ≠ AthleteDecision; validated reflection ≠ AthleteDecision; delivery success
+> ≠ AthleteDecision; delivery withheld ≠ delivery failure; admission success ≠ AthleteDecision; validateDraft success
+> ≠ AthleteDecision; operator mediation ≠ AthleteDecision; operator scribe ≠ decision source; athlete-reported ≠
+> system-inferred; observed behavior ≠ decision; silence ≠ decision; following Aurora ≠ obedience-success;
+> AthleteDecision re-entry as SubjectiveObservation ≠ Signal/Evidence; decision capture ≠ runtime rendering ≠ delivery
+> ≠ recommendation-quality proof; Aurora advises, the athlete decides; Aurora never presents inference as fact.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source

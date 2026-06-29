@@ -4,6 +4,29 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 037-A — latest).** Impl 037-A (commit `efd32ba`) added a **TEST-ONLY
+> documented-usage harness** — `src/modules/__tests__/post-reflection-athlete-decision-capture.test.ts`
+> (**+11 tests**) — proving the **post-reflection athlete decision capture loop**. It is a **test, not production
+> code**: it adds **no production module**, ships **no production source file**, and lives **under
+> `src/modules/__tests__/`**. It uses the **existing** decision machinery only — `athleteDecision(...)`,
+> `decisionContext({ decisionSupportCaseRef })` (linking capture to reflection/session context via the reflection's
+> `sourceCaseRef` / decision-support case ref), and `recordAthleteDecision(...)` — and proves: **athlete-declared
+> capture**; **athlete-reported capture**; **operator/scribe is not the decision source** (valid only as
+> `athlete-reported`); **invalid/non-athlete sources are rejected at runtime and impossible at compile time**;
+> **`reflection-ready` alone does not create an `AthleteDecision`**; **delivery withheld / future delivery success is
+> not an `AthleteDecision`**; **silence/no response is not an `AthleteDecision`**; **feedback re-enters only as a
+> `SubjectiveObservation`**; **no `Signal`/`Evidence` is created directly**. It **does not add a production module**,
+> **does not alter production imports**, **does not alter `offlineReflectionRuntime`**, **does not alter event
+> recording**, **does not add persistence/auth/session/deployment**, and **does not add a CLI / runtime shell /
+> script / package command** or change package files (package.json/lockfile unchanged); operator script unchanged.
+> **AC20 remains unchanged** — all AC20 guards stay green. Validation: **795/795 tests pass** · `tsc --noEmit` clean.
+> `reflection-ready ≠ AthleteDecision; validated reflection ≠ AthleteDecision; delivery withheld ≠ delivery failure;
+> operator mediation ≠ AthleteDecision; operator scribe ≠ decision source; athlete-reported ≠ system-inferred;
+> silence ≠ decision; observed behavior ≠ decision; following Aurora ≠ obedience-success; decision capture ≠ runtime
+> rendering ≠ delivery ≠ recommendation-quality proof; AthleteDecision re-entry as SubjectiveObservation ≠
+> Signal/Evidence; Aurora advises, the athlete decides.` No architecture decision below is superseded. The note
+> below is the prior (Impl 036-A) status.
+>
 > **Implementation status (post Impl 036-A).** Impl 036-A (commit `d39cd21`) added a **TEST-ONLY end-to-end
 > harness** — `src/modules/__tests__/first-operator-mediated-reflection-session.test.ts` (**+5 tests**) — proving
 > Aurora's **first operator-mediated reflection session** end-to-end. It is a **test, not production code** — it adds
