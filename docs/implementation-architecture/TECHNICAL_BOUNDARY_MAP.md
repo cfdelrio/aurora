@@ -4,6 +4,40 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 032R-A).** Impl 032R-A (commit `52a93f4`) added Aurora's **first
+> product-runtime code slice** — a **pure, fully-injected application-level function `offlineReflectionRuntime(command,
+> deps)`** inside **`application-orchestration/application`** (in
+> `src/modules/application-orchestration/application/offline-reflection-runtime.ts`). It is an **application-layer
+> composition function, NOT domain** — it owns no domain model/repository/persistence and introduces no bounded
+> context. It **composes an injected manual-intake step + the render-only Impl 025 `orchestrateRenderDeliver`** in a
+> fixed order over **injected** collaborators: the **mandatory `validateDraft`** stays the only path to a
+> `RenderedMessage`, a **reflection is projected from the rendered record**, **delivery is withheld**, and
+> **reflection-ready is keyed off the rendered record** (a no-review render stops at **"display-ineligible"**, which
+> gates **delivery only**, not the reflection). It imports **no observation symbol from the production
+> `application-orchestration` runtime file** — the manual-intake step is **INJECTED**, and the **real `ingestManualInput`
+> is wired ONLY in tests** through the injected collaborator. **Guard preservation:** the **Impl 025
+> application-orchestration negative-capability guard remains intact** (this was the true blocker — resolved by
+> **injection + a generic submission type**, **no guard weakened**). It carries **no executable script** (the
+> **operator script remains the only approved script**), **no package command/npm script**, and is **no
+> API/server/UI/CLI/worker/auth/db module**; it touches **no deployment/CI files** and adds **no SDK/dependency**
+> (package.json/lockfile unchanged). It imports **no live transport**, reads **no `process.env`**, imports **no
+> cloud-secret adapter** and **no operator-smoke** helper. It has **no delivery side effect**, **no event-recording
+> side effect**, and **constructs no `AthleteDecision`**. **Three files** carry the slice —
+> `src/modules/application-orchestration/application/offline-reflection-runtime.ts`,
+> `src/modules/application-orchestration/tests/offline-reflection-runtime.test.ts`, and
+> `src/modules/application-orchestration/tests/offline-reflection-runtime-negative-capability.test.ts` (the latter
+> asserting no live transport / `process.env` / cloud-secret / operator-smoke / delivery / event-recording /
+> `AthleteDecision`) — and the only existing-file change is **additive**: `src/modules/application-orchestration/
+> application/index.ts` exports the new function. Validation: **737/737 tests pass** · `tsc --noEmit` clean.
+> `operator-mediated runtime ≠ operator smoke; operator mediation ≠ athlete decision; offline runtime ≠ deployment
+> target ≠ production rollout; runtime function ≠ CLI/package command; application service composition ≠ executable
+> runtime shell; reflection-ready ≠ delivered; delivery withheld ≠ delivery failure; delivery success ≠ athlete
+> decision; decision-capture prompt ≠ AthleteDecision; rendered record ≠ athlete decision; provider output ≠ truth;
+> manual intake ≠ full reasoning pipeline; renderable injected ≠ inferred pipeline result.` **Still future:** the
+> missing **observation→renderable reasoning composition** remains future (recommended next: **Spec 034 —
+> Observation-to-Renderable Reasoning Composition Boundary**). No architecture decision below is superseded. The note
+> below is the prior (Impl 029) status.
+>
 > **Implementation status (post Impl 029).** Impl 029 added a **cloud-secret adapter contract with an injected fake
 > cloud client** inside `rendering/application` — **`CloudSecretStoreAdapter`** (in
 > `src/modules/rendering/application/cloud-secret-store-adapter.ts`) that **implements the unchanged Impl 028

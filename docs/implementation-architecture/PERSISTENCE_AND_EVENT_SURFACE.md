@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 029).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
+> **Implementation status (post Impl 032R-A).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -292,6 +292,27 @@
 > clean. `cloud-like adapter contract = injected fake cloud client; CloudSecretValueClient ≠ ManagedSecretStoreClient;
 > cloud adapter contract ≠ selected provider ≠ SDK ≠ production rollout ≠ raw secret persisted ≠ raw cloud response
 > persisted.`
+> **(Impl 032R-A — pure offline-reflection runtime composition; no persistence infrastructure added, no event
+> surface added.)** Impl 032R-A added a **pure application-level function** `offlineReflectionRuntime(command, deps)`
+> in `application-orchestration/application/` that composes existing reflection steps over **injected** collaborators.
+> This slice **adds no persistence**: it **adds no repository**, **adds no DB/schema**, **adds no migration**,
+> **records no events** (no event recording — no implicit event emission), makes **no provider-attempt audit
+> persistence change**, makes **no orchestration-trace persistence change**, makes **no delivery request/outcome
+> persistence change**, and makes **no rendered-message persistence change beyond the existing render-only
+> orchestration behavior** (the rendered-message-record save is the **existing Impl 015/025 boundary**; in-memory
+> only). It **creates no athlete decision**, **creates no evidence**, and **performs no domain mutation outside
+> existing boundaries**; it **persists no raw provider output** and **persists no hidden reasoning**. The conceptual
+> distinctions the runtime must keep legible: **delivery is withheld** — and **delivery withheld is not delivery
+> failure**; **reflection-ready is not an athlete decision**; a **decision-capture prompt/ref is not an
+> `AthleteDecision`**; **operator mediation is not an athlete decision**; **manual input is not automatic evidence**
+> unless an existing boundary explicitly creates it; **provider output ≠ truth**, **a validated draft ≠ recommendation
+> quality**, and **reflection ≠ prescription**; an **`AthleteDecision` must be athlete-declared or athlete-reported**.
+> Note: the **manual-intake step is injected** (the production `application-orchestration` file imports no observation
+> module); the **only persistence effects are the existing in-memory observation-set save** (via the injected intake,
+> wired in tests) **and the existing in-memory rendered-message-record save** — **no new persistence surface**. No new
+> module, no dependency change, no `process.env` read — **additive only**. Validation: **737/737 tests pass** ·
+> `tsc --noEmit` clean. `offline-reflection runtime = pure composition over injected collaborators; delivery withheld ≠
+> delivery failure; reflection-ready ≠ athlete decision; provider output ≠ truth; reflection ≠ prescription.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
@@ -305,8 +326,10 @@
 > and event persistence do not); a **real provider/channel adapter** (email/SMS/push/WhatsApp/web) behind the
 > `DeliverySink` interface; **UI / API / a real LLM provider / prompt templates**; a **production scheduler / retry
 > layer**, **event bus**, **event sourcing**, a **projection repository** (§6), **external (FIT/wearable) ingestion**,
-> and any **production event store / serialization format / DB / ORM / cache / persistence backend**. This paper is
-> otherwise unchanged.
+> and any **production event store / serialization format / DB / ORM / cache / persistence backend**. The
+> **offline-reflection runtime composition now exists** (Impl 032R-A, pure, fully injected; **no persistence / no
+> event surface**), but the **missing observation→renderable reasoning composition remains future** (**recommended
+> next: Spec 034 — Observation-to-Renderable Reasoning Composition Boundary**). This paper is otherwise unchanged.
 
 ---
 
