@@ -106,3 +106,16 @@ export {
   OPERATOR_SMOKE_ENDPOINT_KEY,
 } from "./operator-live-smoke-entrypoint.ts";
 export type { OperatorSmokeIndicators, OperatorSmokeOutput } from "./operator-live-smoke-entrypoint.ts";
+
+// Managed secret credential source (Impl 028) — provider-neutral async managed-secret credential-source
+// boundary behind the existing EnvironmentProviderCredentialResolver / ProviderCredentialResolver seam.
+// Pre-fetch pattern: await toEnvironmentCredentialSource() before constructing the synchronous resolver.
+// No cloud SDK, no process environment read, no dependency change.
+// secret manager = credential source; secret manager ≠ live-call enablement.
+export { ManagedSecretCredentialSource, FakeManagedSecretStoreClient } from "./managed-secret-credential-source.ts";
+export type {
+  ManagedSecretResolution,
+  ManagedSecretStoreClient,
+  ManagedSecretSourceConfig,
+  ManagedSecretClientScenario,
+} from "./managed-secret-credential-source.ts";
