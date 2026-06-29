@@ -15,3 +15,20 @@ export { ORCHESTRATION_OUTCOME_KINDS } from "./orchestration-result.ts";
 export type { OrchestrationOutcome, OrchestrationOutcomeKind } from "./orchestration-result.ts";
 export { ORCHESTRATION_STAGES } from "./orchestration-trace.ts";
 export type { OrchestrationStage, OrchestrationTrace } from "./orchestration-trace.ts";
+
+// Operator-mediated offline reflection runtime (Impl 032R-A) — a pure composition function that wires
+// faithful manual intake (INJECTED, generic — this module imports no observation) + render-only
+// orchestration into a safe, inference-marked, athlete-facing reflection; delivery withheld; no
+// AthleteDecision created. No script, no live provider, no real secret, no process-env, no auth/DB/UI/API.
+export { offlineReflectionRuntime, OFFLINE_REFLECTION_STATUSES } from "./offline-reflection-runtime.ts";
+export type {
+  OfflineReflectionRuntimeCommand,
+  OfflineReflectionRuntimeDependencies,
+  OfflineReflectionRuntimeOutcome,
+  OfflineReflectionStatus,
+  OperatorMediationMarker,
+  ManualIntakeStep,
+  ManualReflectionIntakeOutcome,
+  SafeReflectionProjection,
+  DecisionCapturePrompt,
+} from "./offline-reflection-runtime.ts";

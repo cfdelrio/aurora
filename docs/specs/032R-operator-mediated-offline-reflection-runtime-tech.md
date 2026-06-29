@@ -7,6 +7,22 @@
 > no deployment file, no CI config, no SDK, no dependency, no secret; it changes no operator smoke and no
 > live-provider behavior, and weakens no guard. Recent sequence: `e8c1a77` (Spec 033) → `d0e46de`
 > (Spec 032R). Validation at authorship: `tsc --noEmit` clean; `node --test` 710/710.
+>
+> **Implementation addendum (Impl 032R-A, `2026-06-29`).** During implementation a true blocker surfaced
+> against §11 / Decision 1 of this plan: the **Impl 025 negative-capability guard**
+> (`explicit-orchestration-negative-capability.test.ts`) forbids any `application-orchestration` production
+> file from importing an upstream domain module — including `observation`. Directly importing
+> `ingestManualInput` here would break that guard, and the implementation mission forbids weakening guards.
+> **Resolution (no guard weakened):** the manual-intake step is **injected** (`deps.runManualIntake`) and the
+> command is **generic over the submission type**, so the production runtime imports **no** observation
+> module; the **tests** (excluded from the production-file scan) wire the real `ingestManualInput` into
+> `runManualIntake`. This preserves the plan's intent — compose real manual intake + render-only orchestration
+> over injected collaborators (the module's own charter) — without touching any guard. A second adjustment:
+> with no review selected, a successful render stops at the orchestration `display-ineligible` disposition
+> (display-eligibility gates *delivery*, which is withheld), so the runtime keys `reflection-ready` off the
+> **rendered record** (status `rendered` + text) rather than the `rendered` outcome kind. Delivered as
+> `offlineReflectionRuntime` with +27 tests; 737/737; placement, executable-deferral, delivery-withheld,
+> deterministic-fake, no-persistence, and no-AthleteDecision decisions are otherwise exactly as planned.
 
 ---
 
