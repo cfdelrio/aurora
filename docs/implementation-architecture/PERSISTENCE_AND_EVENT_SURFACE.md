@@ -378,6 +378,27 @@
 > system-inferred; observed behavior ≠ decision; silence ≠ decision; following Aurora ≠ obedience-success;
 > AthleteDecision re-entry as SubjectiveObservation ≠ Signal/Evidence; decision capture ≠ runtime rendering ≠ delivery
 > ≠ recommendation-quality proof; Aurora advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 038-A — operator session runbook proof + checklist; TEST-ONLY/docs-only; no persistence/event surface added.)**
+> Impl 038-A added the **operator session runbook** as a **TEST-ONLY proof**
+> (`src/modules/__tests__/operator-session-runbook.test.ts`) plus a **docs-only checklist**
+> (`docs/runbooks/operator-session-runbook.md`). It adds **no new persistence/event surface**: **no repository
+> added**, **no DB/schema**, **no migration**, **no auth/session/user system**, **no event recording integration
+> added**, **no provider-attempt audit persistence change**, **no orchestration-trace persistence change**, **no
+> delivery request/outcome persistence change**, and **no rendered-message persistence change**. There is **no
+> automatic athlete-decision persistence from the runtime** — the test harness may use the **existing in-memory
+> decision recording only** (`InMemoryAthleteDecisionRecordRepository`); the **runbook checklist is docs-only**.
+> **Delivery remains withheld** (`reflection-ready is not delivery`; `delivery withheld is not delivery failure`).
+> The **runbook outcome statuses are operational dispositions, not persistence events**: `renderable-inadmissible`
+> is not a delivery failure; `not-rendered` is fail-closed rendering/validation behavior; `input-rejected` stops
+> before rendering; **silence/no-response creates no `AthleteDecision`**. **Decision-feedback re-entry is a
+> `SubjectiveObservation` only**; **no `Signal`/`Evidence` is created directly** and **no reasoning/understanding
+> update is triggered directly**. **Following Aurora is not persisted as obedience-success.** `offlineReflectionRuntime`
+> unchanged; no new module; no dependency change; no `process.env` read — **additive only** (test-only + docs-only).
+> **AC20 intact.** Validation: **803/803 tests pass** · `tsc --noEmit` clean. `runbook ≠ CLI ≠ runtime shell ≠
+> deployment; caller assembly ≠ proof of truth; admission success ≠ evidence-backed fact; validateDraft success ≠
+> recommendation quality; reflection-ready ≠ delivered ≠ AthleteDecision; delivery withheld ≠ delivery failure;
+> operator mediation ≠ athlete decision; operator scribe ≠ decision source; silence ≠ decision; decision feedback ≠
+> Signal/Evidence; Aurora advises, the athlete decides; Aurora never presents inference as fact.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source

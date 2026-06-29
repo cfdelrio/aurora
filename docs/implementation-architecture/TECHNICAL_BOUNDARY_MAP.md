@@ -4,7 +4,30 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
-> **Implementation status (post Impl 037-A — latest).** Impl 037-A (commit `efd32ba`) added a **TEST-ONLY
+> **Implementation status (post Impl 038-A — latest).** Impl 038-A (commit `aebb11c`) added a **TEST-ONLY
+> runbook proof** — `src/modules/__tests__/operator-session-runbook.test.ts` (**+8 tests**) — and a **docs-only
+> operator checklist** — `docs/runbooks/operator-session-runbook.md`. The test-only runbook proof lives under
+> `src/modules/__tests__/` and **may compose whole-core artifacts** there (AC20 excludes test files from the
+> production import scan); the **checklist is docs-only under `docs/runbooks/`**. It binds the 036-A session paths
+> and the 037-A capture half into one executable runbook: **athlete manual input → caller-assembled
+> `RenderingRequest` (preferred: real `TerminalOutput` → `renderableFromTerminalOutput`) → `offlineReflectionRuntime`
+> → `admitExternalRenderable` (before rendering) → render-only orchestration → `validateDraft` (downstream) →
+> reflection-ready → delivery withheld → no `AthleteDecision` → later explicit `athlete-declared`/`athlete-reported`
+> capture → `recordAthleteDecision(...)` → `SubjectiveObservation` only.** Later decision capture uses the
+> **existing** `athleteDecision(...)`, `decisionContext({ decisionSupportCaseRef })`, and `recordAthleteDecision(...)`;
+> feedback re-enters **only** as a `SubjectiveObservation`. It adds **no production module, no production wrapper,
+> no `src/modules/session`, no runtime shell, no CLI/script/package command, no `reflection-composition`, and no
+> production whole-core composer**; `offlineReflectionRuntime` is **unchanged**; the operator smoke script and
+> package files are **unchanged**; the runbook proof uses **deterministic fakes** (no live provider / real secret /
+> `process.env`, no delivery sink, no automatic `AthleteDecision`). **AC20 remains unchanged** — all AC20 guards
+> stay green. Validation: **803/803 tests pass** · `tsc --noEmit` clean. `runbook ≠ CLI ≠ runtime shell ≠
+> deployment; caller assembly ≠ proof of truth; TerminalOutput preferred path ≠ production whole-core composer;
+> admission success ≠ evidence-backed fact; validateDraft success ≠ recommendation quality; reflection-ready ≠
+> delivered ≠ AthleteDecision; delivery withheld ≠ delivery failure; operator mediation ≠ athlete decision; operator
+> scribe ≠ decision source; silence ≠ decision; decision feedback ≠ Signal/Evidence; Aurora advises, the athlete
+> decides.` No architecture decision below is superseded. The note below is the prior (Impl 037-A) status.
+>
+> **Implementation status (post Impl 037-A).** Impl 037-A (commit `efd32ba`) added a **TEST-ONLY
 > documented-usage harness** — `src/modules/__tests__/post-reflection-athlete-decision-capture.test.ts`
 > (**+11 tests**) — proving the **post-reflection athlete decision capture loop**. It is a **test, not production
 > code**: it adds **no production module**, ships **no production source file**, and lives **under

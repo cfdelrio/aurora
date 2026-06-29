@@ -4,11 +4,13 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 037-A — latest):** the reasoning core is **implemented end-to-end**, Aurora has
+> **Status (post Implementation 038-A — latest):** the reasoning core is **implemented end-to-end**, Aurora has
 > its **first PRODUCT-RUNTIME code slice (Impl 032R-A)**, that runtime is **admission-gated** by an **ENFORCED
 > three-tier external renderable contract (Impl 035-A/B)**, the **first operator-mediated reflection session is
-> PROVEN as a TEST-ONLY harness (Impl 036-A)**, and the **post-reflection athlete decision capture loop is now PROVEN
-> as a TEST-ONLY documented-usage harness (Impl 037-A)**. Implementation 036-A added the first operator-mediated reflection session as a
+> PROVEN as a TEST-ONLY harness (Impl 036-A)**, the **post-reflection athlete decision capture loop is PROVEN
+> as a TEST-ONLY documented-usage harness (Impl 037-A)**, and the **operator session runbook is now PROVEN as a
+> TEST-ONLY proof + documented as a docs-only checklist (Impl 038-A, `docs/runbooks/operator-session-runbook.md`)**.
+> Implementation 036-A added the first operator-mediated reflection session as a
 > **TEST-ONLY harness** (`src/modules/__tests__/first-operator-mediated-reflection-session.test.ts`, **+5 tests**) —
 > **no production code**. It proves the first whole session loop end-to-end **in test only**: **athlete manual input →
 > whole-core responsible-reflection harness (test-only) → real `TerminalOutput` → `renderableFromTerminalOutput` →
@@ -55,6 +57,34 @@
 > AthleteDecision; delivery success ≠ AthleteDecision; delivery withheld ≠ delivery failure; silence ≠ decision;
 > observed behavior ≠ decision; following Aurora ≠ obedience-success; decision feedback as SubjectiveObservation ≠
 > Signal/Evidence; Aurora advises, the athlete decides.`
+>
+> **Operator session runbook (Impl 038-A):** Implementation 038-A proved the **operator session runbook**
+> end-to-end as a **TEST-ONLY proof** (`src/modules/__tests__/operator-session-runbook.test.ts`, **+8 tests**) and
+> documented it as a **docs-only checklist** (`docs/runbooks/operator-session-runbook.md`) — **no production code,
+> no wrapper, no CLI/runtime shell, no script/package command**; `offlineReflectionRuntime` is exercised
+> **unchanged**. The proven runbook path:
+> ```text
+> operator-session runbook
+>   → athlete manual input
+>   → caller-assembled RenderingRequest
+>   → preferred TerminalOutput → renderableFromTerminalOutput
+>   → offlineReflectionRuntime → runManualIntake → admitExternalRenderable
+>   → render-only orchestration → validateDraft
+>   → reflection-ready → delivery withheld → no AthleteDecision
+>   → later explicit athlete-declared / athlete-reported decision capture
+>   → recordAthleteDecision → SubjectiveObservation feedback only
+> ```
+> Fail-closed outcome handling (each proven): `renderable-inadmissible → stop runbook → no provider/render/validate/
+> deliver/decision → do not remove safety fields to force admission`; `not-rendered → stop/revise assembly or
+> provider draft path → provider output is not safe → no delivery → no AthleteDecision`; `input-rejected → correct
+> athlete manual input → no admission/rendering → no AthleteDecision`; `silence/no-response → no AthleteDecision`.
+> **+8 tests; 803/803 pass; `tsc --noEmit` clean; no production change; operator script unchanged;
+> `package.json`/lockfile unchanged; AC20 unchanged.** `runbook ≠ CLI; runbook ≠ runtime shell; runbook ≠
+> deployment; caller assembly ≠ proof of truth; TerminalOutput preferred path ≠ production whole-core composer;
+> admission success ≠ evidence-backed fact; validateDraft success ≠ recommendation quality; reflection-ready ≠
+> delivered; reflection-ready ≠ AthleteDecision; operator mediation ≠ athlete decision; operator scribe ≠ decision
+> source; silence ≠ decision; decision feedback ≠ Signal/Evidence; Aurora advises, the athlete decides; Aurora never
+> presents inference as fact.`
 >
 > **Status (post Implementation 035-A/035-B):** the reasoning core is **implemented end-to-end**, Aurora
 > has its **first PRODUCT-RUNTIME code slice (Impl 032R-A)**, and that runtime is now **admission-gated** by an
@@ -987,6 +1017,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🛂 | **External renderable admission check (Tier 2 structural gate)** *(pure synchronous structural admission, NOT whole-core composition, NOT truth validation, NOT recommendation-quality proof, NOT a stage)* | `application-orchestration` (`application/`) | Pure **synchronous structural** `admitExternalRenderable(...)` inspects the **external renderable / `RenderingRequest` seam** and returns **admitted** or **rejected** — **STRUCTURAL only** (proves shape, never truth/evidence/recommendation quality). **035-B wired it into `offlineReflectionRuntime` AFTER manual intake and BEFORE render-only orchestration**, adding the additive closed status **`renderable-inadmissible`**. **ADMITTED** → render-only `orchestrateRenderDeliver(...)` → downstream `validateDraft` → rendered reflection → delivery withheld → decision-capture prompt/ref → athlete decision remains future athlete-declared/reported. **REJECTED** → **`renderable-inadmissible`** → `deliveryWithheld: true` → **no provider call / no `validateDraft` / no delivery / no `AthleteDecision`**. Three-tier contract: **Tier 1** caller guarantees stay **outside machine proof**; **Tier 2** admission is **structural only**; **Tier 3** `validateDraft` stays **mandatory downstream**. **Not whole-core composition, not truth validation, not recommendation-quality proof**; **AC20 remains intact** (whole-core composition stays test-harness only); mutates no domain. **+32 (035-A) + +10 (035-B) tests; 779/779; `tsc --noEmit` clean** | ✅ Impl 035-A/B |
 | 🧪🔁 | **First operator-mediated reflection session** *(test-only PROOF of the first whole session loop, NOT a production service, NOT a whole-core composer, NOT operator smoke, NOT a stage, NOT a module)* | `src/modules/__tests__` (`first-operator-mediated-reflection-session.test.ts`) | **TEST-ONLY harness** (**no production code**) proving the first whole session loop end-to-end: **athlete manual input → whole-core responsible-reflection harness (test-only) → real `TerminalOutput` → `renderableFromTerminalOutput` → `RenderingRequest` → `offlineReflectionRuntime` → `runManualIntake` → `admitExternalRenderable` → render-only `orchestrateRenderDeliver` → `validateDraft` → reflection-ready → delivery withheld → decision-capture prompt/ref → future athlete-declared/reported `AthleteDecision` only.** Composes **existing** seams (invents nothing). **Fail-closed paths proven**: inadmissible `RenderingRequest` → **`renderable-inadmissible`** (no provider, no `validateDraft`, no delivery, no `AthleteDecision`); admitted-but-invalid draft → **not-rendered** (delivery withheld, no `AthleteDecision`); invalid manual input → **input-rejected** (no admission, no rendering, no `AthleteDecision`). A **PROOF, not a production service**; a **test harness, not a production whole-core composer**; an **operator-mediated session, not operator smoke**; **operator mediation is not the athlete's decision**. **AC20 intact** (whole-core composition stays test-only; no production whole-core composer; **no `reflection-composition` module**); mutates no domain. **+5 tests; 784/784; `tsc --noEmit` clean; no production change** | ✅ Impl 036-A |
 | 🧪🤝 | **Post-reflection athlete decision capture** *(test-only PROOF of the reflection-to-decision loop by documented usage of existing decision machinery, NOT a production service, NOT a production decision-capture wrapper, NOT runtime integration, NOT a stage, NOT a module)* | `src/modules/__tests__` (`post-reflection-athlete-decision-capture.test.ts`) | **TEST-ONLY harness** (**no production code**) proving the post-reflection capture loop by **documented usage of the existing Impl 009 machinery**: **reflection-ready session context → decision-capture invitation/ref → explicit `athlete-declared`/`athlete-reported` input → `athleteDecision(...)` → `decisionContext({ decisionSupportCaseRef: sourceCaseRef })` → `recordAthleteDecision(...)` → `SubjectiveObservation` feedback output only.** Captured decisions link back to reflection/session context via the **existing** `decisionContext({ decisionSupportCaseRef })` (the reflection's `sourceCaseRef` is a decision-support case ref). **No-auto-creation proven**: `reflection-ready` / `validateDraft` success / admission success / delivery withheld / future delivery success / silence / observed behavior **create no `AthleteDecision`** (the runtime only invites one). **Source honesty (structural)**: only `athlete-declared` / `athlete-reported`; **operator/scribe valid only as `athlete-reported`; operator is not the decision source**; non-athlete sources are a compile error and fail closed at runtime. Feedback **re-enters only as `SubjectiveObservation`**; **no `Signal`/`Evidence` created directly**; no reasoning/understanding update triggered directly. `offlineReflectionRuntime` is **exercised unchanged**; **no new production module / wrapper / persistence / event surface** (existing in-memory `AthleteDecisionRecordRepository` only). **AC20 intact**; mutates no domain. **+11 tests; 795/795; `tsc --noEmit` clean; no production change** | ✅ Impl 037-A |
+| 🧪📋 | **Operator session runbook** *(test-only PROOF of the operator runbook + docs-only checklist, NOT a production service, NOT a wrapper, NOT a CLI/runtime shell, NOT deployment, NOT a stage, NOT a module)* | `src/modules/__tests__` (`operator-session-runbook.test.ts`) + `docs/runbooks/operator-session-runbook.md` | **TEST-ONLY proof** (**no production code**) binding the 036-A session paths and the 037-A capture half into one runbook: **athlete manual input → caller-assembled `RenderingRequest` (PREFERRED: real `TerminalOutput` → `renderableFromTerminalOutput`) → `offlineReflectionRuntime` → `runManualIntake` → `admitExternalRenderable` (before rendering) → render-only orchestration → `validateDraft` → reflection-ready → delivery withheld → no `AthleteDecision` → later explicit `athlete-declared`/`athlete-reported` capture → `recordAthleteDecision(...)` → `SubjectiveObservation` feedback only.** **Per-outcome operator obligations proven**: `renderable-inadmissible` → stop (no provider/render/validate/deliver/decision; do not strip safety to force admission); `not-rendered` → stop/revise (provider output not safe; no delivery/decision); `input-rejected` → correct input (no admission/rendering/decision); silence → no `AthleteDecision`; cross-path → never delivers, never auto-creates a decision. The **checklist** (`docs/runbooks/`) is the **docs-only** human companion. Deterministic fakes only (no live provider / real secret / `process.env` / delivery sink). `offlineReflectionRuntime` **exercised unchanged**; **no production module / wrapper / CLI / shell / script / package command**. **AC20 intact**; mutates no domain. **+8 tests; 803/803; `tsc --noEmit` clean; no production change** | ✅ Impl 038-A |
 
 ---
 
@@ -1652,6 +1683,24 @@ above. See the Core Completion Review for the full ledger.
   unchanged; operator script unchanged; **`package.json`/lockfile unchanged**. *reflection-ready ≠ AthleteDecision;
   delivery withheld ≠ delivery failure; operator scribe ≠ decision source; silence ≠ decision; decision feedback as
   SubjectiveObservation ≠ Signal/Evidence; Aurora advises, the athlete decides.*
+- **Operator session runbook (Impl 038-A)** is a **TEST-ONLY proof + docs-only checklist** with **no production
+  change**: the new files are `src/modules/__tests__/operator-session-runbook.test.ts` (**+8 tests**) and
+  `docs/runbooks/operator-session-runbook.md`. The test binds the 036-A session paths and the 037-A capture half
+  into one runbook — athlete manual input → caller-assembled `RenderingRequest` (preferred: real `TerminalOutput`
+  → `renderableFromTerminalOutput`) → `offlineReflectionRuntime` → `admitExternalRenderable` (before rendering) →
+  `validateDraft` → reflection-ready → delivery withheld → no `AthleteDecision` → later explicit
+  `athlete-declared`/`athlete-reported` capture → `recordAthleteDecision(...)` → `SubjectiveObservation` only — and
+  proves per-outcome operator obligations (`renderable-inadmissible`/`not-rendered`/`input-rejected`/silence each
+  stop the runbook without delivery or auto-decision). It adds **no production module/file/wrapper**, **no CLI/
+  runtime shell/script/package command**, **no new persistence/event surface** (existing in-memory
+  `AthleteDecisionRecordRepository` only), and **no new symbol** — `offlineReflectionRuntime` is exercised
+  unchanged; deterministic fakes only (no live provider / real secret / `process.env` / delivery sink). **+8 tests;
+  803/803; `tsc --noEmit` clean**; module count unchanged; operator script unchanged; **`package.json`/lockfile
+  unchanged**. *runbook ≠ CLI ≠ runtime shell ≠ deployment; caller assembly ≠ proof of truth; TerminalOutput
+  preferred path ≠ production whole-core composer; admission success ≠ evidence-backed fact; validateDraft success
+  ≠ recommendation quality; reflection-ready ≠ delivered ≠ AthleteDecision; delivery withheld ≠ delivery failure;
+  operator mediation ≠ athlete decision; operator scribe ≠ decision source; silence ≠ decision; decision feedback ≠
+  Signal/Evidence; Aurora advises, the athlete decides; Aurora never presents inference as fact.*
 
 ---
 
