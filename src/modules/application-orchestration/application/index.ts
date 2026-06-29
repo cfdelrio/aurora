@@ -43,3 +43,11 @@ export type {
   ExternalRenderableAdmissionStatus,
   ExternalRenderableRejectionReason,
 } from "./external-renderable-admission.ts";
+
+export { toOperatorSessionEnvelope } from "./operator-session-envelope.ts";
+export type {
+  OperatorSessionEnvelope,
+  OperatorSessionReflectionFlags,
+  OperatorSessionDecisionCapture,
+  OperatorSessionTraceSummary,
+} from "./operator-session-envelope.ts";
