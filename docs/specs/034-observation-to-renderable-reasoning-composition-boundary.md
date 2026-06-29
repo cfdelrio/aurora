@@ -8,6 +8,28 @@
 > no guard. Recent sequence: `52a93f4` (Impl 032R-A) → `a4f8302` (Docs post 032R-A). Validation at
 > authorship: `tsc --noEmit` clean; `node --test` 737/737.
 
+> **⛔ BLOCKED — Option C conflicts with the AC20 invariant (recorded `2026-06-29`, during Impl 034-A).**
+> Implementation 034-A surfaced a **true architectural blocker**: the selected **Option C** (a new production
+> `reflection-composition` module that composes all four core surfaces) **violates AC20**, the defining
+> acceptance criterion enforced by `src/modules/__tests__/end-to-end-responsible-reflection.test.ts`:
+> (a) **no new top-level module** beyond the nine allowlisted ones, and (b) **no production file may import
+> all four core surfaces** (`observation`/`reasoning`/`understanding`/`decision-support`) — *"no layer owns
+> the whole core."* AC20 is precisely the codification of **"the whole-core composition must stay a test
+> harness, not a production service."** This spec's analysis (§4, §6 Option C) cited the Impl 006 harness as
+> *promotable* but **missed that AC20 structurally forbids promoting it**. (Note: `application-orchestration`
+> was allowlisted into AC20 only because it composes rendering/delivery/event-recording — **not** the four
+> cores — so it satisfies AC20b; a whole-core composer does not.)
+>
+> **Resolution chosen by the maintainer:** **keep AC20 fully intact** and **pause Option C**. No production
+> module was created (the spike was reverted; tree green at `737/737`). The `offlineReflectionRuntime`
+> injected-renderable seam (Impl 032R-A) therefore **remains the contract**: a caller / test harness supplies
+> the `RenderingRequest`; the whole-core composition stays a **test harness** (Impl 006), not a production
+> service. **§6 Decision (Option C) is hereby superseded by this addendum and must be re-decided** — a future
+> Spec 034 revision (or `Spec 034R`) must choose a boundary that respects AC20 (e.g. leave the bridge as a
+> test-harness composition; or, only as a deliberate, separately-approved architecture amendment, extend AC20
+> to permit one approved whole-core application-composition module). Until then, **Tech Spec 034A and
+> Implementation 034-A do not proceed.**
+
 ---
 
 ## 0. Phase confirmation

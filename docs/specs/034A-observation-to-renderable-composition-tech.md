@@ -8,6 +8,14 @@
 > `52a93f4` (Impl 032R-A) → `a4f8302` (Docs post 032R-A) → `09e4487` (Spec 034). Validation at authorship:
 > `tsc --noEmit` clean; `node --test` 737/737.
 
+> **⛔ SUPERSEDED — this plan does not proceed (recorded `2026-06-29`).** Implementation 034-A surfaced a true
+> architectural blocker: its placement (a new production `reflection-composition` module composing all four
+> core surfaces) **violates the AC20 invariant** ("no new top-level module"; "no production file owns the whole
+> core" — the whole-core composition must stay a test harness). See the **blocked addendum in
+> `docs/specs/034-observation-to-renderable-reasoning-composition-boundary.md`**. The maintainer chose to keep
+> AC20 intact and **pause** the work; the `offlineReflectionRuntime` injected-renderable seam remains the
+> contract. This tech spec is therefore on hold pending a Spec 034 re-decision that respects AC20.
+
 ---
 
 ## 0. Phase confirmation
