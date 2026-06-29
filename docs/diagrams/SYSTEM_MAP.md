@@ -4,6 +4,20 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
+> **Status (post Implementation 028):** the reasoning core is **implemented end-to-end**, and the
+> credential chain now has a **provider-neutral async managed-secret seam**. Implementation 028 added
+> **`ManagedSecretStoreClient`** (pure TypeScript async interface; `retrieve(secretName):
+> Promise<ManagedSecretResolution>`; always resolves; no cloud SDK; injected in all usage),
+> **`ManagedSecretCredentialSource`** (`async toEnvironmentCredentialSource()` — pre-fetch pattern;
+> `available` → `{ [secretName]: value }`; non-`available` → `{}` → resolver classifies as `missing` →
+> no provider call), 4-state **`ManagedSecretResolution`**, and **`FakeManagedSecretStoreClient`** (4
+> deterministic scenarios; sentinel `"opaque:test-managed-secret"`). The downstream synchronous
+> `EnvironmentProviderCredentialResolver` is **entirely unchanged**. No cloud SDK, no `process.env`
+> read, no dependency, no new module, no live-call enablement. +39 tests; **672/672 pass**;
+> `tsc --noEmit` clean; process-env seal intact; operator script unchanged; package.json/lockfile
+> unchanged. `secret manager = credential source; ≠ live-call enablement ≠ cloud adapter ≠
+> production rollout.`
+>
 > **Status (post Implementation 027):** the reasoning core is **implemented end-to-end**, and the live
 > wiring is now **runnable on demand by an operator**. Implementation 027 added a **manual, executable
 > `scripts/operator-live-smoke.mjs`** (plain ESM, **outside `src`/`tsconfig.include`/the default test
@@ -668,6 +682,8 @@ typechecked, env-free `src` helper (`operator-live-smoke-entrypoint.ts`). The Im
 **No package/lockfile change, no SDK, no dependency.** *The operator can now run the wire; the wire still proves
 wiring, not wisdom; operator success is not product readiness.*
 
+[FACT] **Provider-neutral managed-secret credential-source boundary (Implementation 028).** A **`ManagedSecretStoreClient`** pure TypeScript interface (async `retrieve(secretName): Promise<ManagedSecretResolution>`, always resolves — never rejects; implementations catch all exceptions internally; no cloud SDK; injected in all usage) + a **4-state `ManagedSecretResolution`** discriminated union (`available`/`missing`/`invalid`/`unavailable`) + a **`ManagedSecretCredentialSource`** class (async `toEnvironmentCredentialSource()`: retrieves ONE configured secret, maps `available` → `{ [secretName]: value }`, non-`available` → `{}` → downstream resolver classifies as `missing` → no provider call; **pre-fetch pattern** — the downstream synchronous `EnvironmentProviderCredentialResolver` chain is **unchanged**) + a **`FakeManagedSecretStoreClient`** (4 deterministic scenarios, default `available`, sentinel `"opaque:test-managed-secret"`, no real secret, no SDK, constructed explicitly — never a global singleton) now exist inside `rendering/application/`. **+39 tests; 672/672 pass; `tsc --noEmit` clean; `process.env` one-file seal intact; operator script unchanged; `package.json`/lockfile unchanged.** The seam is **provider-neutral and async** — a real cloud adapter implementing `ManagedSecretStoreClient` is the next slice. *secret manager = credential source; managed-secret seam ≠ live-call enablement ≠ cloud adapter ≠ production rollout.*
+
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);
 `event-recording` (Impl 011) answers *"what happened?"* (an append-only, ref-only log of occurrences).
@@ -772,6 +788,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🎼 | **Application orchestration** *(explicit composition layer, NOT a domain capability, not a stage, not a bus)* | `application-orchestration` (`application/`) | `orchestrateRenderDeliver(command, deps)` composes the **existing** rendering/provider-audit/record/review/display/delivery/event services in a **fixed, explicit order** over **injected** collaborators → closed `OrchestrationOutcome` (8 kinds: `delivered`/`delivery-failed`/`rendered`/`review-rejected`/`display-ineligible`/`provider-not-rendered`/`recording-failed`/`partial-success`) + ref-only `OrchestrationTrace` (10-stage catalog). Owns **no domain model / repository / persistence of its own** / bounded context. Each step is an **explicit call**; **no event or repository save triggers the next step**; **delivery is never automatic** (display eligibility necessary, not sufficient); a **delivery failure does not retry**; an **event-append failure → non-invalidating `partial-success`**. Persistence asymmetry honored (audit/record/review return → explicit save; review appended to the record; `requestDelivery` self-persists; events `append`). Trace/result are **safe refs only** (no raw draft/prompt/payload/secret/env value/message body). Imports **only public module indexes** (+ `shared-kernel`) + the `ProviderClientBoundary` abstraction; **no** live transport/credential-resolver/process-env/concrete-provider internals; rendering/delivery/event-recording import it back. `validateDraft` stays the only path to a `RenderedMessage`; provider success ≠ evidence; delivery success ≠ athlete decision; no domain mutation. **AC20 updated additively.** **No** event bus / queue / scheduler / retry / workflow engine / telemetry / DB / UI / API / dependency change | ✅ Impl 025 |
 | 🔌🧪 | **Live-provider smoke-test** *(operational wiring check inside rendering, NOT a stage, NOT a module, NOT an operator script)* | `rendering` (`application`) | `liveProviderSmoke(command, deps)` exercises **one** live provider call through the existing `requestRealProviderRendering(...)` seam (so the unchanged mandatory `validateDraft` stays the only path to a `RenderedMessage`), **only** behind explicit fail-closed gates — **opt-in → CI → credential → live policy, each stopping before any provider call** (credential resolved only after opt-in + CI pass; call only when credential available + policy enabled). **At most one call, no loops, no re-issue.** Returns a closed, redacted `LiveProviderSmokeResult` (`rawRetained: false`; 9 closed statuses: `not-enabled`/`ci-disabled`/`credential-missing`/`credential-invalid`/`live-policy-disabled`/`provider-failed`/`validation-failed`/`passed`/`unexpected-failure`) — **no rendered body / raw draft / prompt / payload / response / secret / env value / metadata bag**. Opt-in/CI are **injected indicators** (reads no `process.env`); resolver/policy/client **injected**. Imports **no** live HTTP transport / process-env adapter / concrete-provider internals / `delivery` / `event-recording` / `application-orchestration` / upstream-domain; carries no network/vendor/secret/retry token; imported by no module outside `rendering`. **Persists nothing, delivers nothing, records no event, creates no rendered-message record / review / evidence / athlete decision, mutates no domain.** Default suite + CI: **no live call, no credential**; `process.env` one-file guard + live-provider guard green; AC20 untouched (no module). No operator script, no npm script, no `scripts/` (**operator entrypoint realized Impl 027**). *A smoke test proves wiring, not wisdom.* | ✅ Impl 026 |
 | 🖥️⚙️ | **Manual operator live-smoke entrypoint** *(thin operational adapter outside `src`, NOT a stage, NOT a module, NOT a domain capability)* | `scripts/operator-live-smoke.mjs` (outside `src`/`tsconfig.include`/default test glob/both guard scan roots) + `src/modules/rendering/application/operator-live-smoke-entrypoint.ts` (pure `src` support helper, typechecked, env-free) | Plain ESM; runnable via **Node 22 native type-stripping** (no build, no dependency). Reads `AURORA_LIVE_PROVIDER_SMOKE`, `AURORA_CI`, `AURORA_PROVIDER_CREDENTIAL` outside `src` (legitimate, no new in-`src` env token); credential via **approved chain** (`ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver`). Support helper exports: `parseOperatorSmokeEnv(env)`, `syntheticSmokeRenderingRequest()`, `operatorSmokeOutput(result)`, `operatorSmokeExitCode(status)`. Calls `liveProviderSmoke` **exactly once** through existing `ProviderClientBoundary` → existing `requestRealProviderRendering` → unchanged mandatory `validateDraft`. Prints **one redacted `OperatorSmokeOutput` JSON** (`rawRetained: false`, `wiringOnly`, `sideEffects: "none"`) — **no raw credential / draft / prompt / payload / provider-response / secret / env value surfaced**. Exit codes: `0` for `passed`/`not-enabled`/`ci-disabled`; `1` for operational failures. **No npm script** (manual only); **excluded from default test suite** (not in test glob, not a spec file); **no CI live lane**. Impl 026 `scripts/` guard **reconciled (strengthened, not weakened)**: "no `scripts/` yet" → "if `scripts/` exists, may only contain `operator-live-smoke.mjs`". Module count unchanged; no new in-`src` `process.env` read; production `process.env` seal untouched. **Persists nothing, delivers nothing, records no event, creates no rendered-message record / review / evidence / athlete decision, mutates no domain.** *Smoke proves wiring, not wisdom; operator success is not evidence; a redacted exit code is not domain truth.* | ✅ Impl 027 |
+| 🔐 | **Managed-secret credential source** *(provider-neutral async seam inside rendering, NOT a stage, NOT a module)* | `rendering` (`application`) | `ManagedSecretStoreClient` interface (async `retrieve(secretName): Promise<ManagedSecretResolution>`, always resolves, no cloud SDK, injected in all usage). 4-state `ManagedSecretResolution` (`available`/`missing`/`invalid`/`unavailable`). `ManagedSecretCredentialSource.toEnvironmentCredentialSource()` (pre-fetch pattern: retrieves ONE configured secret; `available` → `{ [secretName]: value }`; non-`available` → `{}` → downstream resolver classifies `missing` → no provider call). `FakeManagedSecretStoreClient` (4 deterministic scenarios; default `available`; sentinel `"opaque:test-managed-secret"`; no real secret; no SDK; constructed explicitly — never a global singleton). Downstream synchronous `EnvironmentProviderCredentialResolver` chain **unchanged**. No cloud SDK, no `process.env` read, no dependency change. *secret manager = credential source; ≠ live-call enablement ≠ cloud adapter ≠ production rollout.* | ✅ Impl 028 |
 
 ---
 
@@ -937,6 +954,11 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | provider reachable **≠** provider output trusted · validation pass **≠** wisdom (Impl 026) | Reaching the provider proves transport; only `validateDraft` makes a message, and passing it proves safety-of-form, not correctness. |
 | injected opt-in/CI indicators **≠** env read · credential available **≠** automatic live call · live policy enabled for the helper **≠** global production live enablement | The helper reads no `process.env` (opt-in/CI injected); the call runs only after all four gates pass; enabling the policy for one smoke call enables nothing globally. |
 | redacted smoke result **≠** raw provider transcript (Impl 026) | The closed `LiveProviderSmokeResult` carries safe codes only (`rawRetained: false`) — no rendered body / draft / prompt / payload / response / secret / env value / metadata bag. |
+| `ManagedSecretCredentialSource` **≠** cloud adapter / production secret store (Impl 028) | The provider-neutral seam (interface + pre-fetch class + fake client) is in place inside `rendering/application/`; a real cloud SDK adapter implementing `ManagedSecretStoreClient` (AWS Secrets Manager / GCP / Azure / Vault) is the next slice. |
+| managed-secret credential source **≠** live-call enablement (Impl 028) | Credential availability — even from a real secret manager — does not enable a live call; a disabled `LiveCallPolicy` and a missing/invalid credential each independently block the transport. |
+| `ManagedSecretResolution: available` **≠** credential classified available by resolver | The resolution is an intermediate step; the value is placed into the `EnvironmentCredentialSource` map and then classified by the downstream `EnvironmentProviderCredentialResolver` — the resolver remains the authority. |
+| non-`available` managed-secret resolution **≠** domain failure | `missing`/`invalid`/`unavailable` each produce an empty `EnvironmentCredentialSource`; the resolver classifies the result as `missing`; no provider call occurs; the domain output is untouched. |
+| `FakeManagedSecretStoreClient` **≠** real secret manager | The fake is deterministic and in-process (sentinel `"opaque:test-managed-secret"`); it exercises the seam without touching any real store, network, or credential. |
 
 ---
 
@@ -978,7 +1000,18 @@ mutation** (Impl 025); **the live-provider path is now verifiable by a pure, inj
 only behind explicit fail-closed opt-in → CI → credential → live-policy gates (each stopping before any call),
 returning a closed redacted result, reading no environment, importing no transport/adapter/delivery/event/
 orchestration internal, and persisting/delivering/recording/mutating nothing — with no operator script, no npm
-script, and no default/CI live call** (Impl 026); the following are **deliberately absent**, not failures:
+script, and no default/CI live call** (Impl 026); **the operator can now run the wiring check on demand —
+`scripts/operator-live-smoke.mjs` (outside `src/`/`tsconfig.include`/the default test glob/both guard scan roots)
+reads the real opt-in/CI/credential flags outside `src`, wires the approved `ProcessEnvironmentCredentialSourceAdapter
+→ EnvironmentProviderCredentialResolver` chain, calls `liveProviderSmoke` exactly once, and prints one redacted
+`OperatorSmokeOutput` JSON — no npm script, no CI live lane, persisting/delivering/recording/mutating nothing**
+(Impl 027); **a provider-neutral managed-secret credential-source seam is now in place — a `ManagedSecretStoreClient`
+pure TypeScript interface (async `retrieve`, always resolves, no cloud SDK, injected in all usage), a
+`ManagedSecretCredentialSource` async pre-fetch class (maps `available` → `EnvironmentCredentialSource`; non-`available`
+→ empty → resolver classifies `missing` → no call; downstream synchronous resolver chain unchanged), and a
+`FakeManagedSecretStoreClient` (4 deterministic scenarios; sentinel `"opaque:test-managed-secret"`) — inside
+`rendering/application/`, no cloud SDK, no `process.env` read, no dependency, and no cloud adapter** (Impl 028);
+the following are **deliberately absent**, not failures:
 
 - **No UI** · **No API** · **No real delivery channel** — delivery exists only as a **downstream boundary with a deterministic `test-sink` + audit records** (Impl 016); there is **no email/SMS/push/WhatsApp/web channel or provider** · **No external/FIT/wearable ingestion** (the real ingress is the in-process **manual adapter**, Impl 013) · **No production DB/ORM/schema/migrations** (persistence is ports + in-memory only) · **No cache**
 - **No real LLM provider SDK / production secret-env mechanism / production live-call rollout** — the rendering boundary is proven with a **deterministic fake renderer + mandatory validator** (Impl 014), Impl 017 added a **provider adapter seam with a deterministic fake provider** behind the **unchanged** `validateDraft`, Impl 019 added a **real-provider-*ready* async client boundary**, Impl 020 added the **vendor-neutral selected-provider shell** (disabled by default), and Impl 021 added the **opt-in live-provider boundary** — a fail-closed `LiveCallPolicy`, an injected credential resolver, and native `fetch` sealed in one approved transport file — Impl 022 added the **injected environment credential resolver** (one configured key from an injected source map), and Impl 023 added the **one-file process-environment source adapter** (the real `process.env` bound through one approved, guard-sealed file) — so a real call is **possible only when explicitly enabled** behind the same validator and a credential can be resolved from the real environment through one auditable file; but **no production live call, no real SDK/installed dependency, no production secret manager, no production prompts, and no `provider`/`llm`/`telemetry`/`evaluation` module** exist (real-provider-**ready, shelled, live-call-capable, and credential-resolving from the real environment through one approved file**, not **deployed**); generated/drafted text must never become domain truth, the vendor never leaks into a guarded provider file, the network token lives in exactly one approved file, and `process.env` is sealed to exactly one approved file
@@ -998,7 +1031,9 @@ script, and no default/CI live call** (Impl 026); the following are **deliberate
   `understanding` for the one concrete projection; **no `ImpactAssessment`** second projection yet
 - **No production reprojection service / scheduler / projection repository** — reprojection is proven as a *neutral check-only harness* (Impl 012); a production recompute service, an event-driven/scheduled refresh, and a projection store are deferred
 - **An explicit application orchestration boundary exists (Impl 025)** — `application-orchestration` composes the existing rendering/audit/record/review/display/delivery/event services over injected collaborators in explicit ordered steps (no domain model/repository/persistence of its own; no event bus/scheduler/retry/workflow; no automatic delivery; no event-triggered step; no domain mutation; AC20 updated additively) — but **no production orchestration *entrypoint*** (a UI/API/use-case surface, or a scheduler/event-driven trigger, that *invokes* `orchestrateRenderDeliver`) exists yet; the remaining cross-module purpose/refresh/decision/reprojection seams still live in the neutral test harness
-- **A live-provider smoke-test boundary helper exists (Impl 026)** — `liveProviderSmoke(command, deps)` in `rendering/application` verifies the live path with **one** bounded call through the existing seam behind the unchanged validator, gated fail-closed (opt-in → CI → credential → live policy, each before any call), redacted, reading no env, importing no transport/adapter/delivery/event/orchestration internal, persisting/delivering/recording/mutating nothing — but **no operator live-smoke *entrypoint*** (a deliberate runbook *outside* `src/` that reads the real opt-in/CI env flags and wires the real transport/credential adapter), **no npm script**, and **no CI-live lane** exist yet; the default suite + CI make no live call and need no credential. *A smoke test proves wiring, not wisdom.*
+- **A live-provider smoke-test boundary helper exists (Impl 026)** — `liveProviderSmoke(command, deps)` in `rendering/application` verifies the live path with **one** bounded call through the existing seam behind the unchanged validator, gated fail-closed (opt-in → CI → credential → live policy, each before any call), redacted, reading no env, importing no transport/adapter/delivery/event/orchestration internal, persisting/delivering/recording/mutating nothing — **no npm script** and **no CI-live lane** exist; the default suite + CI make no live call and need no credential. The operator live-smoke entrypoint (outside `src/`) was realized in Impl 027. *A smoke test proves wiring, not wisdom.*
+- **An operator live-smoke entrypoint exists (Impl 027)** — `scripts/operator-live-smoke.mjs` (plain ESM, outside `src/`/`tsconfig.include`/the default test glob/both guard scan roots, runnable via Node 22 native type-stripping) reads the real opt-in/CI/credential env flags outside `src`, wires the approved `ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver` credential chain, calls `liveProviderSmoke` exactly once, and prints one redacted `OperatorSmokeOutput` JSON (`rawRetained: false`, `wiringOnly`, `sideEffects: "none"`) — **no npm script, no CI live lane, persisting/delivering/recording/mutating nothing** — but **no cloud adapter behind the managed-secret seam**, **no production secret rollout**, and **no production orchestration entrypoint** exist yet. *Smoke proves wiring, not wisdom; operator success is not evidence; a redacted exit code is not domain truth.*
+- **A provider-neutral managed-secret credential-source seam exists (Impl 028)** — `ManagedSecretStoreClient` (pure TypeScript async interface; always resolves; no cloud SDK; injected in all usage), `ManagedSecretCredentialSource` (async pre-fetch class; `available` → `{ [secretName]: value }` → fed into unchanged synchronous `EnvironmentProviderCredentialResolver`; non-`available` → empty → resolver classifies `missing` → no call), and `FakeManagedSecretStoreClient` (4 deterministic scenarios; sentinel `"opaque:test-managed-secret"`) now exist inside `rendering/application/` — no cloud SDK, no `process.env` read, no dependency change — but **no cloud adapter implementing `ManagedSecretStoreClient`** (AWS Secrets Manager / GCP / Azure / Vault) exists yet; the seam is in place; a real adapter is the next slice. *secret manager = credential source; managed-secret seam ≠ live-call enablement ≠ cloud adapter ≠ production rollout.*
 
 [ASSUMPTION] Each was excluded so the core's invariants could be proven *before* the surfaces most
 likely to erode them are introduced. **Spec 007 (purpose change), Spec 008 (projection freshness),
@@ -1009,16 +1044,17 @@ Spec 009 (athlete-decision feedback), Spec 010 (persistence ports + in-memory re
 (real-provider-ready boundary), Spec 020 (concrete-provider adapter shell), Spec 021 (opt-in live-provider
 boundary), Spec 022 (injected environment credential resolver), Spec 023 (one-file process-environment source
 adapter), Spec 024 (ref-only provider/rendering/delivery occurrence event surface), Spec 025 (explicit
-application orchestration boundary), and Spec 026 (opt-in live-provider smoke-test boundary) are done (Impl
-007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022/023/024/025/026).** The
-next responsible mission — now that the live path is **verifiable by a pure, injected wiring check** (Impl 026) — is
-an **operator live-smoke *entrypoint* boundary** (Spec 027: a deliberate runbook *outside* `src/` that reads the real
-opt-in/CI flags and wires the real transport/credential adapter into `liveProviderSmoke`, never in the default suite/
-CI) **or** a **production secret manager boundary** (a managed store behind the same injected resolver/source seam) —
-chosen explicitly, one at a time; then a production orchestration **entrypoint** (UI/API/scheduler that invokes the
-composition), a real endpoint/live-call rollout, an event-bus/persistence for the event surface, a real channel/
-transport and storage backend, and the reasoning reinterpretation engine — each adding the rest without collapsing
-any distinction above. See the Core Completion Review for the full ledger.
+application orchestration boundary), Spec 026 (opt-in live-provider smoke-test boundary), Spec 027 (manual
+operator live-smoke entrypoint), and Spec 028 (provider-neutral managed-secret credential-source boundary) are done
+(Impl 007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022/023/024/025/026/027/028).** The
+next responsible mission — now that the live path is **verifiable by a pure, injected wiring check** (Impl 026), the
+**operator can run the wiring check on demand** (Impl 027), and the **managed-secret credential-source seam is in
+place** (Impl 028) — is a **cloud adapter behind the managed-secret seam** (Spec 029: a real AWS Secrets Manager /
+GCP / Azure / Vault adapter implementing `ManagedSecretStoreClient`, behind the same injected resolver seam, never
+weakening a guard); then a production orchestration **entrypoint** (UI/API/scheduler that invokes the composition),
+a real endpoint/live-call rollout, an event-bus/persistence for the event surface, a real channel/transport and
+storage backend, and the reasoning reinterpretation engine — each adding the rest without collapsing any distinction
+above. See the Core Completion Review for the full ledger.
 
 ---
 
@@ -1247,7 +1283,37 @@ any distinction above. See the Core Completion Review for the full ledger.
   (no new module). Tests (`rendering/tests/live-provider-smoke-boundary.test.ts` + `…-negative-capability.test.ts`)
   are deterministic, fakes only — **no live network, no real env, no CI credential**. The slice was **additive** — the
   only existing-file change is the `rendering/application/index.ts` exports — and **`package.json`/lockfile are
-  unchanged** (devDeps stay `typescript` + `@types/node`). The **operator entrypoint (outside `src/`) remains future.**
+  unchanged** (devDeps stay `typescript` + `@types/node`). The **operator entrypoint (outside `src/`) was realized in
+  Impl 027.**
+- **Manual operator live-smoke entrypoint (Impl 027)** is **outside `src/`** (no new module, no new in-`src` file):
+  `scripts/operator-live-smoke.mjs` (plain ESM, outside `src/`/`tsconfig.include`/the default test glob/both guard
+  scan roots) + `src/modules/rendering/application/operator-live-smoke-entrypoint.ts` (pure `src` support helper,
+  typechecked, env-free). The `.mjs` reads `AURORA_LIVE_PROVIDER_SMOKE`, `AURORA_CI`, `AURORA_PROVIDER_CREDENTIAL`
+  **outside `src`** (legitimate; no new in-`src` `process.env` token; the production `process.env` seal intact),
+  wires the approved `ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver` credential
+  chain, calls `liveProviderSmoke` **exactly once**, and prints one redacted `OperatorSmokeOutput` JSON. The support
+  helper exports `parseOperatorSmokeEnv`/`syntheticSmokeRenderingRequest`/`operatorSmokeOutput`/`operatorSmokeExitCode`
+  — typechecked, env-free, tested with fakes only. **No npm script; excluded from the default test suite; no CI live
+  lane; persists/delivers/records/mutates nothing.** The Impl 026 `scripts/` guard was **reconciled (strengthened, not
+  weakened)**: "no `scripts/` yet" → "if `scripts/` exists, may only contain `operator-live-smoke.mjs`". Module count
+  unchanged; **`package.json`/lockfile unchanged** (devDeps stay `typescript` + `@types/node`). The slice was
+  **additive** — the only `src/` change is the new support-helper file and `rendering/application/index.ts` exports.
+  *Smoke proves wiring; operator success is not evidence.*
+- **Provider-neutral managed-secret credential-source boundary (Impl 028)** lives **inside `rendering/application`**
+  (no new module): `managed-secret-credential-source.ts` holds `ManagedSecretStoreClient` (async interface; always
+  resolves; no cloud SDK; injected), `ManagedSecretResolution` (4-state discriminated union), `ManagedSecretCredentialSource`
+  (async pre-fetch class; `toEnvironmentCredentialSource()`; `available` → `{ [secretName]: value }`; non-`available`
+  → `{}` → downstream resolver classifies `missing` → no provider call; pre-fetch pattern — the synchronous
+  `EnvironmentProviderCredentialResolver` chain is **unchanged**), `ManagedSecretSourceConfig`, `ManagedSecretClientScenario`,
+  and `FakeManagedSecretStoreClient` (4 deterministic scenarios; default `available`; sentinel `"opaque:test-managed-secret"`;
+  no real secret; no SDK; constructed explicitly — never a global singleton), surfaced additively from
+  `rendering/application/index.ts`. **No cloud SDK, no `process.env` token, no dependency change** — a new
+  `managed-secret-negative-capability.test.ts` re-asserts: no `process.env` in the new file; process-env seal intact
+  (exactly one approved file); no vendor/SDK/network/retry token; no forbidden import; no module outside `rendering`
+  imports the new symbols; operator script unchanged and not referencing `ManagedSecretCredentialSource`; and a package
+  guard. **`package.json`/lockfile unchanged** (devDeps stay `typescript` + `@types/node`). The slice was **additive**
+  — the only existing-file changes are `rendering/application/index.ts` exports. *secret manager = credential source;
+  managed-secret seam ≠ live-call enablement ≠ cloud adapter ≠ production rollout.*
 
 ---
 

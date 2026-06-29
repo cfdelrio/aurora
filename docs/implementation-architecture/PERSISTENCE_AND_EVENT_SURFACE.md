@@ -242,16 +242,39 @@
 > path is triggered**. The production `process.env` seal (exactly one approved in-`src` file) is **untouched** — the
 > script's env reads live outside `src/` by design. Validation: **633/633 tests pass** · `tsc --noEmit` clean. *Smoke
 > proves wiring, not wisdom; operator success is not evidence; a redacted exit code is not domain truth.*
-> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production
-> live-call rollout (real endpoint + deliberate opt-in)**; a **production orchestration *entrypoint*** (a UI/API
-> use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025
-> — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an
-> eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence
-> *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel adapter**
-> (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM provider / prompt
-> templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**, a **projection repository**
-> (§6), **external (FIT/wearable) ingestion**, and any **production event store / serialization format / DB / ORM /
-> cache / persistence backend**. This paper is otherwise unchanged.
+> **(Impl 028 — provider-neutral managed-secret credential-source boundary; no persistence infrastructure added,
+> returns a pre-fetched EnvironmentCredentialSource map only.)** Impl 028 added a **pure TypeScript async
+> managed-secret seam** inside `rendering/application` — **`ManagedSecretStoreClient`** (interface; `retrieve(secretName):
+> Promise<ManagedSecretResolution>`; always resolves; implementations catch all exceptions; injected in all usage),
+> **`ManagedSecretResolution`** (4-state: `available`/`missing`/`invalid`/`unavailable`),
+> **`ManagedSecretCredentialSource`** (`async toEnvironmentCredentialSource(): Promise<EnvironmentCredentialSource>`;
+> pre-fetch pattern: `available` → `{ [secretName]: value }`; non-`available` → `{}` → resolver classifies as
+> `missing` → no provider call), and **`FakeManagedSecretStoreClient`** (4 deterministic scenarios; sentinel
+> `"opaque:test-managed-secret"`; no real secret, no network, no SDK). This slice **adds no persistence
+> infrastructure**: **no raw secret is persisted** (the `available` value is placed in the `EnvironmentCredentialSource`
+> map transiently; it never enters a failure, outcome, audit record, domain state, or test assertion); **no credential
+> is logged or traced**; **no event is recorded** and **no domain aggregate is mutated**; the managed-secret seam
+> **triggers no review / display-eligibility / delivery / event / retry / reprojection / reasoning / provider call /
+> domain mutation** (non-`available` → empty source → resolver's `missing` path → the existing gate blocks the
+> transport). The downstream **synchronous `EnvironmentProviderCredentialResolver` is entirely unchanged** (pre-fetch
+> pattern: caller `await`s `toEnvironmentCredentialSource()` before constructing the synchronous resolver). No cloud
+> SDK, no `process.env` read, no dependency change, no new module, no live-call enablement — **additive only**
+> (only `rendering/application/index.ts` exports were changed). The process-env one-file seal remains intact; operator
+> script unchanged; package.json/lockfile unchanged; AC20 untouched. +39 tests. Validation: **672/672 tests pass** ·
+> `tsc --noEmit` clean. `secret manager = credential source; managed-secret seam ≠ live-call enablement ≠ cloud
+> adapter ≠ production rollout ≠ raw secret persisted.`
+> **Still future work:** a **cloud adapter implementing `ManagedSecretStoreClient`** (Impl 028 seam exists; a real
+> AWS Secrets Manager / GCP / Azure / Vault adapter behind it is the next slice); **a production secret manager (with
+> rotation)** wired via that cloud adapter; **a production live-call rollout (real endpoint + deliberate opt-in)**; a
+> **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that
+> *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records
+> occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime
+> delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus,
+> and event persistence do not); a **real provider/channel adapter** (email/SMS/push/WhatsApp/web) behind the
+> `DeliverySink` interface; **UI / API / a real LLM provider / prompt templates**; a **production scheduler / retry
+> layer**, **event bus**, **event sourcing**, a **projection repository** (§6), **external (FIT/wearable) ingestion**,
+> and any **production event store / serialization format / DB / ORM / cache / persistence backend**. This paper is
+> otherwise unchanged.
 
 ---
 

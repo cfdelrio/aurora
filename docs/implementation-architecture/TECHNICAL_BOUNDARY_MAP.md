@@ -4,6 +4,25 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 028).** Impl 028 added a **provider-neutral managed-secret credential-source
+> boundary** inside `rendering/application` — **`ManagedSecretStoreClient`** (pure TypeScript async interface;
+> `retrieve(secretName): Promise<ManagedSecretResolution>`; always resolves; never rejects; implementations must catch
+> internally; injected in all usage; no cloud SDK, no network token, no vendor dependency), **`ManagedSecretResolution`**
+> (4-state: `available`/`missing`/`invalid`/`unavailable`), **`ManagedSecretCredentialSource`** (`async
+> toEnvironmentCredentialSource(): Promise<EnvironmentCredentialSource>`; pre-fetch pattern: `available` →
+> `{ [secretName]: value }`; non-`available` → `{}` → resolver classifies as `missing` → no provider call),
+> **`ManagedSecretSourceConfig`**, **`ManagedSecretClientScenario`**, and **`FakeManagedSecretStoreClient`** (4
+> deterministic scenarios; sentinel `"opaque:test-managed-secret"`; no real secret, no network, no SDK). The downstream
+> **synchronous `EnvironmentProviderCredentialResolver` is entirely unchanged** (pre-fetch pattern: `await
+> toEnvironmentCredentialSource()` before constructing the synchronous resolver). No cloud SDK, no `process.env` read,
+> no dependency change, no new module, no live-call enablement — **additive only** (only `rendering/application/index.ts`
+> exports were changed). The process-env one-file seal remains intact; operator script unchanged and not referencing
+> `ManagedSecretCredentialSource`; package.json/lockfile unchanged; AC20 untouched. +39 tests. Validation:
+> **672/672 tests pass** · `tsc --noEmit` clean. `secret manager = credential source; managed-secret seam ≠ live-call
+> enablement ≠ cloud adapter ≠ production rollout ≠ provider trust ≠ domain evidence.` No architecture decision below
+> is superseded. The note below is the prior (Impl 027) status.
+>
+
 > **Implementation status (post Impl 027).** Impl 027 added a **manual, executable operator live-smoke entrypoint**
 > — `scripts/operator-live-smoke.mjs` (plain ESM, **outside `src`/`tsconfig.include`/the default test glob/both guard
 > scan roots**; verified runnable via **Node 22 native type-stripping** with no build and no dependency) and a **pure,
