@@ -4,6 +4,27 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
+> **Status (post Implementation 027):** the reasoning core is **implemented end-to-end**, and the live
+> wiring is now **runnable on demand by an operator**. Implementation 027 added a **manual, executable
+> `scripts/operator-live-smoke.mjs`** (plain ESM, **outside `src`/`tsconfig.include`/the default test
+> glob/both guard scan roots**; verified runnable via Node 22 native type-stripping, no build/dependency)
+> and a **pure, typechecked `src` support helper** (`operator-live-smoke-entrypoint.ts`) that holds the
+> env-free, injected logic: `parseOperatorSmokeEnv(env)` (exact `AURORA_LIVE_PROVIDER_SMOKE === "1"` opt-in;
+> CI truthy blocks), `syntheticSmokeRenderingRequest()` (synthetic, no athlete-sensitive data),
+> `operatorSmokeOutput(result)` (redacted projection: `rawRetained: false`, `wiringOnly`, `sideEffects: "none"`),
+> `operatorSmokeExitCode(status)` (0 for `passed`/`not-enabled`/`ci-disabled`; 1 for failures). The script
+> reads the real opt-in/CI/endpoint flags **outside `src`** (legitimate there — no in-`src` token added, the
+> production `process.env` seal intact), resolves the credential **only** through the approved
+> `ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver` chain, wires
+> `LiveCallPolicy.enabled` + `LiveProviderClient` + `liveProviderHttpTransport` + the unchanged
+> serializer/parser/error-mapper, and **calls `liveProviderSmoke` once** — duplicating no smoke semantics,
+> bypassing neither `liveProviderSmoke` nor `requestRealProviderRendering` nor the mandatory `validateDraft`.
+> It prints **one redacted JSON object** and exits per the policy. **Manual only** (no npm script, not in
+> `npm run check`/the default suite, no CI-live lane), persisting/delivering/recording/orchestrating/mutating
+> nothing. The Impl 026 `scripts/` guard was **reconciled (strengthened, not weakened)** to allow only the
+> approved `operator-live-smoke.mjs`. **No package/lockfile change, no SDK, no dependency.** Module count
+> unchanged. **The operator can now run the wire; the wire still proves wiring, not wisdom.**
+>
 > **Status (post Implementation 026):** the reasoning core is **implemented end-to-end**.
 > All five stages exist in code and Implementation 006 composes them into one demonstrated chain
 > whose first full output is `DecisionSupport` with `VoiceMode: Reflection` — not `Recommendation`.
@@ -173,10 +194,9 @@
 > record / review / evidence / athlete decision, and mutates no domain**. The **default suite and CI make no live call
 > and need no credential**; the repo-wide `process.env` one-file guard and the live-provider guard (which catches
 > `live-provider-smoke.ts`) stay green; **AC20 is untouched** (no new module). **A smoke test proves wiring, not
-> wisdom; smoke success is not evidence and smoke failure is not domain failure; the operator entrypoint that reads
-> real env flags remains future.** The remaining
-> absences (**an operator live-smoke *entrypoint* (outside `src/`) that reads the real env flags + wires the real
-> transport/credential adapter**/**a production orchestration *entrypoint* (UI/API/scheduler) that invokes the composition**/**real
+> wisdom; smoke success is not evidence and smoke failure is not domain failure.** The operator live-smoke entrypoint
+> is **realized (Impl 027)**. The remaining
+> absences (**a production orchestration *entrypoint* (UI/API/scheduler) that invokes the composition**/**real
 > provider/channel/UI/API**/**real LLM provider & prompts**/external FIT
 > ingestion/**auto-emission, an event bus, or persistence for the (now-existing, ref-only) provider/rendering/
 > delivery occurrence event surface**/**production persistence & event store**/**scheduler & retry**/**full**
@@ -280,12 +300,16 @@ flowchart LR
     ORCH -- "7 · registra ocurrencias (factories Impl 024) + eventRepository.append (paso terminal, no disparador)" --> EVREC
     ORCH -- "devuelve (solo refs)" --> ORES
 
-    subgraph SMOKEL["Live-provider smoke-test (operational WIRING CHECK · NO dominio · NO stage · NO operator script aún) ✅ Impl 026"]
-      SMOKE["liveProviderSmoke(command, deps) ✅ Impl 026 (DENTRO de rendering/application)<br/>WIRING CHECK puro/injectado · NO operator script · NO npm script · NO scripts/<br/>gates fail-closed EN ORDEN: opt-in → CI → credential → live policy (cada uno PARA antes de cualquier provider call)<br/>credential se resuelve SOLO tras opt-in+CI · call SOLO si credential available + policy enabled<br/>opt-in/CI = indicadores INYECTADOS (NO lee process.env) · resolver/policy/client INYECTADOS<br/>UNA sola call (sin loops, sin re-issue) vía requestRealProviderRendering → validateDraft OBLIGATORIO<br/>NO importa live transport / process-env adapter / concrete provider / delivery / event-recording / application-orchestration<br/>NO persiste · NO entrega · NO evento · NO evidence · NO athlete decision · NO muta dominio<br/>suite default + CI: SIN live call, SIN credential · operator entrypoint = futuro"]
+    subgraph SMOKEL["Live-provider smoke-test + operator entrypoint (operational WIRING CHECK · NO dominio · NO stage) ✅ Impl 026 · ✅ Impl 027"]
+      SMOKE["liveProviderSmoke(command, deps) ✅ Impl 026 (DENTRO de rendering/application)<br/>WIRING CHECK puro/injectado · NO npm script<br/>gates fail-closed EN ORDEN: opt-in → CI → credential → live policy (cada uno PARA antes de cualquier provider call)<br/>credential se resuelve SOLO tras opt-in+CI · call SOLO si credential available + policy enabled<br/>opt-in/CI = indicadores INYECTADOS (NO lee process.env) · resolver/policy/client INYECTADOS<br/>UNA sola call (sin loops, sin re-issue) vía requestRealProviderRendering → validateDraft OBLIGATORIO<br/>NO importa live transport / process-env adapter / concrete provider / delivery / event-recording / application-orchestration<br/>NO persiste · NO entrega · NO evento · NO evidence · NO athlete decision · NO muta dominio<br/>suite default + CI: SIN live call, SIN credential"]
       SMOKERES["LiveProviderSmokeResult (cerrado, REDACTED) ✅ Impl 026<br/>status (9 cerrados) · validationPassed? · providerFailureCode? · reason? · durationMs? · rawRetained: false<br/>NO rendered body · NO draft/prompt/payload/response · NO secret/token · NO process env value · NO metadata bag"]
+      OPENTRY["scripts/operator-live-smoke.mjs ✅ Impl 027 (FUERA de src/ · ESM plano · MANUAL ONLY)<br/>FUERA de tsconfig.include / test glob / ambos guard scan roots · Node 22 type-stripping (sin build, sin dependency)<br/>helper src puro (operator-live-smoke-entrypoint.ts): parseOperatorSmokeEnv / syntheticSmokeRenderingRequest<br/>operatorSmokeOutput (redacted: rawRetained:false · wiringOnly · sideEffects:none) · operatorSmokeExitCode<br/>script lee flags reales FUERA de src/ (opt-in/CI/endpoint) · credential SOLO vía adapter chain aprobado<br/>wires LiveCallPolicy.enabled + LiveProviderClient + liveProviderHttpTransport<br/>llama liveProviderSmoke UNA vez · imprime UN JSON redactado · sale 0/1<br/>NO npm script · NO en suite/CI · NO persiste/entrega/registra/orquesta/muta<br/>guard Impl 026 reconciliado (reforzado): SOLO permite operator-live-smoke.mjs"]
+      OPOUT["OperatorSmokeOutput (redacted) ✅ Impl 027<br/>status · rawRetained:false · wiringOnly · sideEffects:none · validationPassed? · providerFailureCode? · reason?<br/>exit 0: passed/not-enabled/ci-disabled · exit 1: credential/provider/validation/unexpected failures<br/>NO rendered body · NO secret · NO env value · wiring success ≠ product readiness"]
     end
     SMOKE -- "UNA call explícita (SOLO tras los gates) → MISMO validateDraft OBLIGATORIO" --> RPROV
     SMOKE -- "mapea outcome → resultado seguro (solo refs/códigos)" --> SMOKERES
+    OPENTRY -- "llama liveProviderSmoke UNA vez (los gates y la redacción pertenecen al helper)" --> SMOKE
+    OPENTRY -- "imprime resultado redactado (un único JSON)" --> OPOUT
 
     LADDER["Etapas 1–5 + Athlete (ocurrencias)"]
     O -.- LADDER
@@ -620,12 +644,29 @@ and client are **injected**. There is **no arrow** from the smoke helper to `del
 `application-orchestration`, the live HTTP transport internals, the process-env adapter, concrete-provider internals,
 Observation/Reasoning/Understanding/Athlete mutation surfaces, an event bus/scheduler/retry, telemetry/model
 evaluation, or a DB; it **persists nothing, delivers nothing, records no event, derives no display eligibility for
-delivery, creates no rendered-message record / review / evidence / athlete decision, and mutates no domain**. **No
-operator script, no npm script, no `scripts/`**; the **default suite and CI make no live call and need no
+delivery, creates no rendered-message record / review / evidence / athlete decision, and mutates no domain**. the **default suite and CI make no live call and need no
 credential**; the repo-wide `process.env` one-file guard and the live-provider guard (which catches
-`live-provider-smoke.ts`) stay green; **AC20 is untouched** (no new module). *A smoke test proves wiring, not wisdom;
-smoke success is not evidence and smoke failure is not domain failure; provider reachable is not provider output
-trusted; validation pass is not wisdom; the operator entrypoint that reads real env flags remains future.*
+`live-provider-smoke.ts`) stay green; **AC20 is untouched** (no new module). The **operator entrypoint is
+realized (Impl 027)**. *A smoke test proves wiring, not wisdom; smoke success is not evidence and smoke
+failure is not domain failure; provider reachable is not provider output trusted; validation pass is not
+wisdom.*
+
+[FACT] **Operator live-smoke entrypoint — the live wiring is now runnable on demand (Implementation 027).**
+`scripts/operator-live-smoke.mjs` (plain ESM, **outside `src`/`tsconfig.include`/the default test glob/both
+guard scan roots**; verified runnable via **Node 22 native type-stripping** with no build/dependency) is a
+**thin adapter** around `liveProviderSmoke` — it reads the real opt-in/CI/endpoint flags **outside `src`**
+(legitimate there: no in-`src` token added; the production `process.env` seal intact), resolves the credential
+**only** via the approved `ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver`
+chain, wires the existing public live surfaces, and **calls `liveProviderSmoke` once** — duplicating no smoke
+semantics, bypassing neither `liveProviderSmoke` nor `requestRealProviderRendering` nor the mandatory
+`validateDraft`. It prints **one redacted JSON object** (`OperatorSmokeOutput`: `rawRetained: false`,
+`wiringOnly`, `sideEffects: "none"`) and exits 0 for `passed`/`not-enabled`/`ci-disabled`, 1 for failures.
+**Manual only** — no npm script, not in `npm run check` or the default suite, no CI-live lane;
+persisting/delivering/recording/orchestrating/mutating nothing. The **decidable logic** lives in the pure,
+typechecked, env-free `src` helper (`operator-live-smoke-entrypoint.ts`). The Impl 026 `scripts/` guard was
+**reconciled (strengthened, not weakened)**: scripts/ may exist only for the approved `operator-live-smoke.mjs`.
+**No package/lockfile change, no SDK, no dependency.** *The operator can now run the wire; the wire still proves
+wiring, not wisdom; operator success is not product readiness.*
 
 [FACT] **`event-recording` and persistence are *support seams*, not stages and not a bus.** Neither sits
 in the epistemic ladder. Persistence (Impl 010) answers *"what is the aggregate now?"* (state round-trip);

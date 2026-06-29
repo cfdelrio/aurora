@@ -4,6 +4,30 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 027).** Impl 027 added a **manual, executable operator live-smoke entrypoint**
+> — `scripts/operator-live-smoke.mjs` (plain ESM, **outside `src`/`tsconfig.include`/the default test glob/both guard
+> scan roots**; verified runnable via **Node 22 native type-stripping** with no build and no dependency) and a **pure,
+> typechecked `src` support helper** (`src/modules/rendering/application/operator-live-smoke-entrypoint.ts`) — without
+> adding any module, package dependency, npm script, SDK, or production DB. The script is a **thin adapter** that reads
+> narrowly-scoped operator flags (`AURORA_LIVE_PROVIDER_SMOKE === "1"` opt-in; CI truthy blocks) **outside `src/`** (so
+> no new in-`src` `process.env` token site is introduced), resolves the credential **only** through the **approved
+> `ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver` chain**
+> (`APPROVED_PROVIDER_CREDENTIAL_KEY`), wires `LiveCallPolicy.enabled` + `LiveProviderClient` +
+> `liveProviderHttpTransport`, calls **`liveProviderSmoke` exactly once** (which owns the gates and the redaction), and
+> prints **one redacted `OperatorSmokeOutput` JSON object** before exiting with `0` (passed/not-enabled/ci-disabled) or
+> `1` (credential/provider/validation/unexpected failures). The pure `src` support helper (`operator-live-smoke-entrypoint.ts`)
+> is **injected** — reads no `process.env`, imports nothing side-effecting, exports only **pure parsing/projection/exit-code
+> functions**: `parseOperatorSmokeEnv(env)` (exact opt-in/CI parse), `syntheticSmokeRenderingRequest()` (no
+> athlete-sensitive data), `operatorSmokeOutput(result)` (`rawRetained: false`, `wiringOnly`, `sideEffects: "none"`),
+> `operatorSmokeExitCode(status)`. The script **persists nothing, delivers nothing, records no event, and triggers no
+> domain mutation**. The **Impl 026 `scripts/` guard was reconciled (strengthened, not weakened)**: the prior invariant
+> "no `scripts/` yet" became "if `scripts/` exists, it may contain **only** `operator-live-smoke.mjs`; no npm script
+> wires it; `src` smoke helper reads no `process.env`." Module count is unchanged (**nine core/domain/integration
+> modules + one application-composition module**). Validation: **633/633 tests pass** · `tsc --noEmit` clean. *The
+> operator can now run the wire; the wire still proves wiring, not wisdom.* No architecture decision below is
+> superseded. The note below is the prior (Impl 026) status.
+>
+
 > **Implementation status (post Impl 026).** The **`rendering`** module now also owns the first **live-provider
 > smoke-test boundary helper** (inside `rendering/application`, **not a new module**): a **pure, fully-injected**
 > **`liveProviderSmoke(command, deps)`** (+ the closed `LiveProviderSmokeStatus` / `LIVE_PROVIDER_SMOKE_STATUSES`,
@@ -29,12 +53,13 @@
 > live-provider guard also catches `live-provider-smoke.ts`** and stays green (no network/vendor/env/retry token); the
 > repo-wide **`process.env` one-file guard** stays green (the helper is not a new token site); **AC20 is untouched**
 > (no new top-level module). **No SDK/package dependency** (`package.json`/lockfile unchanged; devDeps stay
-> `typescript` + `@types/node`). **No operator script yet, no npm script, no real env-flag reading, no default/CI live
-> call, no CI credential, no production prompt template.** Module count is still **nine core/domain/integration
-> modules + one application-composition module** (Impl 026 added no module). The slice was **additive** — only
-> `rendering/application/index.ts` exports + the new helper/tests were added; **no documented blocker.** **A smoke test
-> proves wiring, not wisdom; the operator entrypoint that reads real env flags (outside `src/`) remains future.** No
-> architecture decision below is superseded. The note below is the prior (Impl 025) status.
+> `typescript` + `@types/node`). **No operator script yet (realized Impl 027), no npm script, no real env-flag reading
+> (outside `src/` only, realized Impl 027), no default/CI live call, no CI credential, no production prompt template.**
+> Module count is still **nine core/domain/integration modules + one application-composition module** (Impl 026 added
+> no module). The slice was **additive** — only `rendering/application/index.ts` exports + the new helper/tests were
+> added; **no documented blocker.** **A smoke test proves wiring, not wisdom; the operator entrypoint that reads real
+> env flags (outside `src/`) was realized in Impl 027.** No architecture decision below is superseded. The note below
+> is the prior (Impl 025) status.
 >
 
 > **Implementation status (post Impl 025).** A **new top-level module `application-orchestration`** realizes the

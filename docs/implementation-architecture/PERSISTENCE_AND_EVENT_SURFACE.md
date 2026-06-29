@@ -226,12 +226,32 @@
 > failure.** The slice was **additive** (the only existing-file change is the `rendering/application/index.ts` exports)
 > and **adds no dependency** (`package.json`/lockfile unchanged); the default suite + CI make **no live call** and need
 > **no credential**.
-> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; an **operator live-smoke *entrypoint*** (a deliberate runbook *outside* `src/` that reads the real opt-in/CI flags and wires the real transport/credential adapter into the now-built `liveProviderSmoke` — Impl 026 — never in the default suite/CI); a **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel
-> adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
-> provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
-> a **projection repository** (§6), **external (FIT/wearable)
-> ingestion**, and any **production event store / serialization format / DB / ORM / cache / persistence
-> backend**. This paper is otherwise unchanged.
+> **(Impl 027 — manual operator live-smoke entrypoint; no persistence infrastructure added, returns a redacted
+> result only.)** Impl 027 added a **manual, executable operator live-smoke entrypoint** —
+> `scripts/operator-live-smoke.mjs` (plain ESM, **outside `src`/`tsconfig.include`/the default test glob/both guard
+> scan roots**; verified runnable via Node 22 native type-stripping with no build and no dependency) and a **pure, env-free
+> `src` support helper** (`rendering/application/operator-live-smoke-entrypoint.ts`) — without adding any module,
+> repository, package dependency, npm script, or production DB. The script **adds no persistence infrastructure**: it
+> **calls no rendered-message-record / review / display-eligibility / delivery / event repository** and **owns no
+> repository**; it calls `liveProviderSmoke` exactly once, which itself persists nothing. It reads narrowly-scoped
+> operator flags outside `src/` (so no new in-`src` `process.env` token site), resolves the credential through the
+> approved adapter chain (`ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver`), and
+> prints **one redacted `OperatorSmokeOutput` JSON** (`rawRetained: false`, `wiringOnly`, `sideEffects: "none"`) before
+> exiting. **No raw credential / draft / prompt / payload / provider-response / secret / env value is persisted or
+> surfaced** through the operator output. **No event is recorded**, **no domain aggregate is mutated**, and **no delivery
+> path is triggered**. The production `process.env` seal (exactly one approved in-`src` file) is **untouched** — the
+> script's env reads live outside `src/` by design. Validation: **633/633 tests pass** · `tsc --noEmit` clean. *Smoke
+> proves wiring, not wisdom; operator success is not evidence; a redacted exit code is not domain truth.*
+> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production
+> live-call rollout (real endpoint + deliberate opt-in)**; a **production orchestration *entrypoint*** (a UI/API
+> use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025
+> — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an
+> eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence
+> *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel adapter**
+> (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM provider / prompt
+> templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**, a **projection repository**
+> (§6), **external (FIT/wearable) ingestion**, and any **production event store / serialization format / DB / ORM /
+> cache / persistence backend**. This paper is otherwise unchanged.
 
 ---
 
