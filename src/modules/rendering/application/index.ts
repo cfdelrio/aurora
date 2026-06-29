@@ -119,3 +119,18 @@ export type {
   ManagedSecretSourceConfig,
   ManagedSecretClientScenario,
 } from "./managed-secret-credential-source.ts";
+
+// Cloud-secret adapter contract (Impl 029) — a provider-neutral cloud-secret adapter BEHIND the Impl 028
+// managed-secret seam. CloudSecretStoreAdapter implements ManagedSecretStoreClient by mapping a richer,
+// injected CloudSecretValueClient outcome (and any thrown exception) into the existing 4-state
+// ManagedSecretResolution, fail-closed and redacted. No cloud provider selected, no cloud SDK, no
+// dependency, no process-env read, no network, no live-call enablement. cloud adapter ≠ provider trust.
+export { CloudSecretStoreAdapter, FakeCloudSecretValueClient } from "./cloud-secret-store-adapter.ts";
+export type {
+  CloudSecretRef,
+  CloudSecretLookupResult,
+  CloudSecretValueClient,
+  CloudSecretAdapterFailureCode,
+  CloudSecretStoreAdapterConfig,
+  CloudSecretClientScenario,
+} from "./cloud-secret-store-adapter.ts";
