@@ -32,3 +32,14 @@ export type {
   SafeReflectionProjection,
   DecisionCapturePrompt,
 } from "./offline-reflection-runtime.ts";
+
+// External renderable admission check (Impl 035-A) — the Tier 2 structural pre-screen for caller-supplied
+// renderables (Spec 035). Pure, synchronous; inspects only RenderingRequest/RenderableDomainOutput structure;
+// admits or fails closed with a safe reason code. Not wired into offlineReflectionRuntime yet (035-B).
+// admitted ≠ truth ≠ evidence-backed fact ≠ recommendation quality; admission check ≠ validateDraft.
+export { admitExternalRenderable, EXTERNAL_RENDERABLE_ADMISSION_STATUSES } from "./external-renderable-admission.ts";
+export type {
+  ExternalRenderableAdmission,
+  ExternalRenderableAdmissionStatus,
+  ExternalRenderableRejectionReason,
+} from "./external-renderable-admission.ts";
