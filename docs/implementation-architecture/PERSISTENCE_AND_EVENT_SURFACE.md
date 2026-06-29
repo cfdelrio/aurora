@@ -420,6 +420,28 @@
 > dump; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠
 > truth; validateDraft success ≠ recommendation quality; decision-capture invitation ≠ AthleteDecision; Aurora
 > advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 040-A — session envelope mapper + type; PRODUCTION pure projection; no persistence/event surface added.)**
+> Impl 040-A realized the session envelope / redaction contract in **production code** as a pure, synchronous
+> whitelist mapper (`toOperatorSessionEnvelope`) + type (`OperatorSessionEnvelope`) in
+> `application-orchestration/application/`. It adds **no persistence/event surface**: **no repository added**, **no
+> DB/schema**, **no migration**, **no auth/session/user system**, **no event recording integration added**, **no
+> provider-attempt audit persistence change**, **no orchestration-trace persistence change**, **no delivery
+> request/outcome persistence change**, **no rendered-message persistence change**, **no automatic athlete-decision
+> persistence**, **no session persistence**, and **no invocation persistence**. `OperatorSessionEnvelope` is **not
+> a persisted record**; `toOperatorSessionEnvelope(...)` **records nothing**, **emits no events**, **calls no event
+> recorder**, and exposes **no `eventRecordIds`**, **no delivery ids**, and **no delivery artifact**. The **runtime
+> dispositions are operational outcomes, not persistence events**: `reflection-ready` is not delivery;
+> `deliveryWithheld` is not delivery failure; `renderable-inadmissible` is not delivery failure; `not-rendered` is
+> fail-closed rendering/validation behavior; `input-rejected` stops before rendering; `recording-failed` is
+> represented safely but the mapper persists/retries nothing; `unexpected-failure` is represented safely without a
+> raw stack/secrets. The **decision-capture invitation/ref is not an `AthleteDecision`**; **no `Signal`/`Evidence`
+> is created directly** and **no reasoning/understanding update is triggered directly**. `offlineReflectionRuntime`
+> unchanged; no new module; no dependency change; no `process.env` read; imports only **types** from the runtime —
+> **additive only** (production pure projection). **AC20 intact.** Validation: **832/832 tests pass** · `tsc
+> --noEmit` clean. `safe envelope ≠ raw runtime dump; envelope mapper ≠ invocation helper ≠ CLI ≠ deployment ≠
+> delivery mechanism ≠ whole-core composer; reflectionRef ≠ reflection text; decisionCapture invitation/ref ≠
+> AthleteDecision; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; Aurora
+> advises, the athlete decides; Aurora never presents inference as fact.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source

@@ -4,14 +4,15 @@
 > "Mapa conceptual del sistema" diagram, kept in a version-controllable form and tied to the
 > modules actually implemented in `src/modules/`.
 >
-> **Status (post Implementation 039-A — latest):** the reasoning core is **implemented end-to-end**, Aurora has
+> **Status (post Implementation 040-A — latest):** the reasoning core is **implemented end-to-end**, Aurora has
 > its **first PRODUCT-RUNTIME code slice (Impl 032R-A)**, that runtime is **admission-gated** by an **ENFORCED
 > three-tier external renderable contract (Impl 035-A/B)**, the **first operator-mediated reflection session is
 > PROVEN as a TEST-ONLY harness (Impl 036-A)**, the **post-reflection athlete decision capture loop is PROVEN
 > as a TEST-ONLY documented-usage harness (Impl 037-A)**, the **operator session runbook is PROVEN as a
 > TEST-ONLY proof + documented as a docs-only checklist (Impl 038-A, `docs/runbooks/operator-session-runbook.md`)**,
-> and the **thin operator invocation surface seam is now PROVEN as a TEST-ONLY proof with a reference-only
-> envelope (Impl 039-A)**.
+> the **thin operator invocation surface seam is PROVEN as a TEST-ONLY proof with a reference-only
+> envelope (Impl 039-A)**, and the **session envelope / redaction contract is now REALIZED in production code as a
+> pure whitelist mapper + type (Impl 040-A, `OperatorSessionEnvelope` + `toOperatorSessionEnvelope`)**.
 > Implementation 036-A added the first operator-mediated reflection session as a
 > **TEST-ONLY harness** (`src/modules/__tests__/first-operator-mediated-reflection-session.test.ts`, **+5 tests**) —
 > **no production code**. It proves the first whole session loop end-to-end **in test only**: **athlete manual input →
@@ -112,6 +113,38 @@
 > AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠ truth; validateDraft success ≠
 > recommendation quality; decision-capture invitation ≠ AthleteDecision; Aurora advises, the athlete decides;
 > Aurora never presents inference as fact.`
+>
+> **Session envelope / redaction contract (Impl 040-A):** Implementation 040-A realized Spec 040 in **production
+> code** as a **pure, synchronous, whitelist-only mapper** — `OperatorSessionEnvelope` +
+> `toOperatorSessionEnvelope(outcome)` in `application-orchestration/application/operator-session-envelope.ts`
+> (additively exported from its `application/index.ts`; +22 tests). It is a **safety addition, not a product
+> surface** — NOT an invocation helper/wrapper, CLI, runtime shell, delivery, live-provider enablement,
+> persistence, or `AthleteDecision` capture. The projection path:
+> ```text
+> offlineReflectionRuntime outcome
+>   → toOperatorSessionEnvelope(...)
+>   → OperatorSessionEnvelope
+>   → exact status preserved → deliveryWithheld preserved → rawRetained: false
+>   → trace summarized as refs/codes → reflection narrowed to reflectionRef + reflectionFlags
+>   → decisionCapture invitation/ref only
+>   → no raw provider output → no hidden reasoning → no secrets → no delivery artifact → no eventRecordIds → no AthleteDecision
+> ```
+> Disposition mapping (each proven): `reflection-ready → reflectionRef + reflectionFlags → decisionCapture
+> invitation/ref → delivery withheld → no delivered artifact → no AthleteDecision`; `renderable-inadmissible →
+> admissionReason/safeReason → no provider/render/validate/deliver/decision artifact`; `not-rendered → safe failure
+> disposition → no raw provider output → no invalid draft artifact → no delivery → no AthleteDecision`;
+> `input-rejected → safe intake status/code → stops before admission/rendering → no AthleteDecision`;
+> `recording-failed → safe failure code only → no persistence record emitted by mapper → no raw stack`;
+> `unexpected-failure → safe failure code only → no raw exception/stack → no secrets`. The mapper **constructs the
+> envelope field-by-field (never spreads the raw outcome)**, calls no runtime/provider/delivery/event/secret path,
+> reads no `process.env`, and imports only **types** from the runtime (no upstream core). **+22 tests; 832/832 pass;
+> `tsc --noEmit` clean; offlineReflectionRuntime unchanged; operator script unchanged; `package.json`/lockfile
+> unchanged; AC20 unchanged.** `envelope mapper ≠ invocation helper ≠ CLI ≠ script ≠ package command ≠ deployment ≠
+> API/UI ≠ live-provider enablement ≠ delivery mechanism ≠ whole-core composer ≠ AthleteDecision creator; safe
+> envelope ≠ raw runtime dump; reflectionRef ≠ reflection text; decisionCapture invitation/ref ≠ AthleteDecision;
+> reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠ truth;
+> validateDraft success ≠ recommendation quality; Aurora advises, the athlete decides; Aurora never presents
+> inference as fact.`
 >
 > **Status (post Implementation 035-A/035-B):** the reasoning core is **implemented end-to-end**, Aurora
 > has its **first PRODUCT-RUNTIME code slice (Impl 032R-A)**, and that runtime is now **admission-gated** by an
@@ -1046,6 +1079,7 @@ Observation  >  Signal  >  Hypothesis  >  Understanding  >  Voice
 | 🧪🤝 | **Post-reflection athlete decision capture** *(test-only PROOF of the reflection-to-decision loop by documented usage of existing decision machinery, NOT a production service, NOT a production decision-capture wrapper, NOT runtime integration, NOT a stage, NOT a module)* | `src/modules/__tests__` (`post-reflection-athlete-decision-capture.test.ts`) | **TEST-ONLY harness** (**no production code**) proving the post-reflection capture loop by **documented usage of the existing Impl 009 machinery**: **reflection-ready session context → decision-capture invitation/ref → explicit `athlete-declared`/`athlete-reported` input → `athleteDecision(...)` → `decisionContext({ decisionSupportCaseRef: sourceCaseRef })` → `recordAthleteDecision(...)` → `SubjectiveObservation` feedback output only.** Captured decisions link back to reflection/session context via the **existing** `decisionContext({ decisionSupportCaseRef })` (the reflection's `sourceCaseRef` is a decision-support case ref). **No-auto-creation proven**: `reflection-ready` / `validateDraft` success / admission success / delivery withheld / future delivery success / silence / observed behavior **create no `AthleteDecision`** (the runtime only invites one). **Source honesty (structural)**: only `athlete-declared` / `athlete-reported`; **operator/scribe valid only as `athlete-reported`; operator is not the decision source**; non-athlete sources are a compile error and fail closed at runtime. Feedback **re-enters only as `SubjectiveObservation`**; **no `Signal`/`Evidence` created directly**; no reasoning/understanding update triggered directly. `offlineReflectionRuntime` is **exercised unchanged**; **no new production module / wrapper / persistence / event surface** (existing in-memory `AthleteDecisionRecordRepository` only). **AC20 intact**; mutates no domain. **+11 tests; 795/795; `tsc --noEmit` clean; no production change** | ✅ Impl 037-A |
 | 🧪📋 | **Operator session runbook** *(test-only PROOF of the operator runbook + docs-only checklist, NOT a production service, NOT a wrapper, NOT a CLI/runtime shell, NOT deployment, NOT a stage, NOT a module)* | `src/modules/__tests__` (`operator-session-runbook.test.ts`) + `docs/runbooks/operator-session-runbook.md` | **TEST-ONLY proof** (**no production code**) binding the 036-A session paths and the 037-A capture half into one runbook: **athlete manual input → caller-assembled `RenderingRequest` (PREFERRED: real `TerminalOutput` → `renderableFromTerminalOutput`) → `offlineReflectionRuntime` → `runManualIntake` → `admitExternalRenderable` (before rendering) → render-only orchestration → `validateDraft` → reflection-ready → delivery withheld → no `AthleteDecision` → later explicit `athlete-declared`/`athlete-reported` capture → `recordAthleteDecision(...)` → `SubjectiveObservation` feedback only.** **Per-outcome operator obligations proven**: `renderable-inadmissible` → stop (no provider/render/validate/deliver/decision; do not strip safety to force admission); `not-rendered` → stop/revise (provider output not safe; no delivery/decision); `input-rejected` → correct input (no admission/rendering/decision); silence → no `AthleteDecision`; cross-path → never delivers, never auto-creates a decision. The **checklist** (`docs/runbooks/`) is the **docs-only** human companion. Deterministic fakes only (no live provider / real secret / `process.env` / delivery sink). `offlineReflectionRuntime` **exercised unchanged**; **no production module / wrapper / CLI / shell / script / package command**. **AC20 intact**; mutates no domain. **+8 tests; 803/803; `tsc --noEmit` clean; no production change** | ✅ Impl 038-A |
 | 🧪🎚️ | **Thin operator invocation surface** *(test-only PROOF of the invocation seam with a reference-only envelope, NOT a production helper/wrapper, NOT a CLI/runtime shell, NOT a script/package command, NOT API/UI/deployment, NOT a stage, NOT a module)* | `src/modules/__tests__` (`thin-operator-invocation-surface.test.ts`) | **TEST-ONLY proof** (**no production code**) of the seam "invoke the runbook once": a **local** `invokeThinOperatorSurface(command, deps)` accepts a **caller-assembled `OfflineReflectionRuntimeCommand` + injected deterministic deps**, calls the existing `offlineReflectionRuntime(...)` (after `admitExternalRenderable`, **unchanged**), and **narrows** the already-safe outcome to a **local reference-only `OperatorInvocationResult`**: `status` (exact `OfflineReflectionStatus`, no rename), `deliveryWithheld`, `rawRetained: false`, `reflectionRef?` (ref/summary, **never `reflection.text`**), `decisionCapture` **invitation/ref only**, `admissionReason?`, `safeReason?`, ref-only `traceSummary`. The envelope **excludes** raw provider output / hidden reasoning / secret material / delivery artifact / `AthleteDecision` (field checks + JSON banned-substring scan). **Dispositions exercised**: `reflection-ready` (safe ref + invitation only); `renderable-inadmissible` (safe `admissionReason`); `not-rendered` (no raw output, no delivery); `input-rejected` (stops before admission/rendering); cross-path delivery-withheld/reference-only/no-`AthleteDecision`; no live provider / real secret / `process.env` / delivery sink (throwing client proves stopped paths never render). The **helper is local to the test** (no production helper/wrapper). `offlineReflectionRuntime` **invoked unchanged**. **AC20 intact**; mutates no domain. **+7 tests; 810/810; `tsc --noEmit` clean; no production change** | ✅ Impl 039-A |
+| 🧩🛡️ | **Session envelope / redaction mapper** *(PRODUCTION pure whitelist projection — a safety addition, NOT an invocation helper/wrapper, NOT a CLI/runtime shell, NOT delivery, NOT live-provider enablement, NOT persistence, NOT AthleteDecision capture, NOT a stage)* | `application-orchestration` (`application/operator-session-envelope.ts`) | **PRODUCTION** pure, synchronous, **whitelist-only** mapper `toOperatorSessionEnvelope(outcome: OfflineReflectionRuntimeOutcome): OperatorSessionEnvelope` (+ the `OperatorSessionEnvelope` type), exported from `application/index.ts`. It **constructs the envelope field-by-field — never spreads the raw outcome** — projecting the already-safe runtime outcome into a narrower, **reference-only** envelope: exact `status` (no rename), `deliveryWithheld` preserved, `rawRetained: false`, `reflectionRef?` + safe `reflectionFlags` (reflection-ready only; **never `reflection.text`**), `decisionCapture` **invitation/ref only**, safe `admissionReason?`/`safeReason?` codes, `intakeStatus`, `mediation` marker, ref-only `traceSummary`. **Always excludes** raw provider output / hidden reasoning / secrets / delivery artifact / delivery ids / `eventRecordIds` / `AthleteDecision` / raw exception-stack. Maps all six statuses (`reflection-ready`/`renderable-inadmissible`/`not-rendered`/`input-rejected`/`recording-failed`/`unexpected-failure`). It **calls no** runtime/provider/delivery/repository/event-recorder/secret-resolver, **creates no** `AthleteDecision`, **records no** events, **reads no** `process.env`, and imports **only types** from the runtime (no upstream core — Impl 025 holds). `offlineReflectionRuntime` **unchanged**. **AC20 intact**; mutates no domain. **+22 tests (9 functional + 13 negative-capability); 832/832; `tsc --noEmit` clean** | ✅ Impl 040-A |
 
 ---
 
@@ -1747,6 +1781,26 @@ above. See the Core Completion Review for the full ledger.
   raw runtime dump; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission
   success ≠ truth; validateDraft success ≠ recommendation quality; decision-capture invitation ≠ AthleteDecision;
   Aurora advises, the athlete decides; Aurora never presents inference as fact.*
+- **Session envelope / redaction mapper (Impl 040-A)** is the **first production code** in several missions, and a
+  **safety addition, not a product surface**: `application-orchestration/application/operator-session-envelope.ts`
+  (+ additive `application/index.ts` export) ships `OperatorSessionEnvelope` + the pure, synchronous
+  `toOperatorSessionEnvelope(outcome)`, with `operator-session-envelope.test.ts` (+9) and
+  `operator-session-envelope-negative-capability.test.ts` (+13). The mapper **constructs the envelope
+  field-by-field — never spreads the raw outcome** — projecting the already-safe `OfflineReflectionRuntimeOutcome`
+  into a narrower, reference-only envelope across all six dispositions: exact `status`, `deliveryWithheld`,
+  `rawRetained: false`, `reflectionRef?` + safe flags (never `reflection.text`), `decisionCapture` invitation/ref
+  only, safe `admissionReason?`/`safeReason?` codes, `intakeStatus`, `mediation` marker, ref-only `traceSummary`. It
+  **always excludes** raw provider output / hidden reasoning / secrets / delivery artifact / delivery ids /
+  `eventRecordIds` / `AthleteDecision` / raw stack. It is **not** an invocation helper/wrapper, CLI, runtime shell,
+  delivery, live-provider enablement, persistence, or `AthleteDecision` capture; it **calls** no
+  runtime/provider/delivery/event/secret path, **reads** no `process.env`, and imports only **types** from the
+  runtime (no upstream core). `offlineReflectionRuntime` unchanged. **+22 tests; 832/832; `tsc --noEmit` clean**;
+  operator script unchanged; **`package.json`/lockfile unchanged**. *envelope mapper ≠ invocation helper ≠ CLI ≠
+  deployment ≠ live-provider enablement ≠ delivery mechanism ≠ whole-core composer ≠ AthleteDecision creator; safe
+  envelope ≠ raw runtime dump; reflectionRef ≠ reflection text; decisionCapture invitation/ref ≠ AthleteDecision;
+  reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠ truth;
+  validateDraft success ≠ recommendation quality; Aurora advises, the athlete decides; Aurora never presents
+  inference as fact.*
 
 ---
 

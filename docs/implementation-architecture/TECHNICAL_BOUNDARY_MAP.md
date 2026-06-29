@@ -4,7 +4,32 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
-> **Implementation status (post Impl 039-A — latest).** Impl 039-A (commit `cba9ec4`) added a **TEST-ONLY
+> **Implementation status (post Impl 040-A — latest).** Impl 040-A (commit `0fd644b`) added the **first
+> production-code realization of the session envelope / redaction contract** —
+> `src/modules/application-orchestration/application/operator-session-envelope.ts` (+ additive
+> `application/index.ts` export) — with `operator-session-envelope.test.ts` (**+9**) and
+> `operator-session-envelope-negative-capability.test.ts` (**+13**). It is a **pure mapper/type only**: it exports
+> `OperatorSessionEnvelope` and the pure, synchronous `toOperatorSessionEnvelope(outcome:
+> OfflineReflectionRuntimeOutcome): OperatorSessionEnvelope`. It belongs in **application-orchestration** because it
+> maps an **application runtime outcome** (it does **not** belong in `rendering`, and it does **not** create
+> `src/modules/session`). It **does not** modify `offlineReflectionRuntime`, **does not** add an invocation
+> helper/wrapper, **does not** add a CLI/script/package command, an API/UI/operator tool, deployment/CI/SDK, or
+> DB/auth/session. It **imports no upstream whole-core surfaces** (only **types** from its own runtime-outcome +
+> admission-reason files), **calls no** runtime/provider/delivery/secret/event/decision path, and **reads no**
+> `process.env`. It uses **whitelist projection** — it **never spreads the raw runtime outcome** — and **excludes**
+> raw provider output / hidden reasoning / secrets / delivery artifact / delivery ids / `eventRecordIds` /
+> `AthleteDecision` / raw stack. Its tests cover the **six** runtime statuses (`reflection-ready` /
+> `renderable-inadmissible` / `not-rendered` / `input-rejected` / `recording-failed` / `unexpected-failure`); the
+> negative-capability tests enforce no live provider, no delivery, no event persistence, no CLI, no package change,
+> and AC20 unchanged. **AC20 remains unchanged** — all AC20 guards stay green. Validation: **832/832 tests pass** ·
+> `tsc --noEmit` clean. `envelope mapper ≠ invocation helper ≠ CLI ≠ script ≠ package command ≠ deployment ≠ API/UI
+> ≠ live-provider enablement ≠ delivery mechanism ≠ whole-core composer ≠ AthleteDecision creator; safe envelope ≠
+> raw runtime dump; reflectionRef ≠ reflection text; decisionCapture invitation/ref ≠ AthleteDecision;
+> reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠ truth;
+> validateDraft success ≠ recommendation quality; Aurora advises, the athlete decides.` No architecture decision
+> below is superseded. The note below is the prior (Impl 039-A) status.
+>
+> **Implementation status (post Impl 039-A).** Impl 039-A (commit `cba9ec4`) added a **TEST-ONLY
 > invocation-seam proof** — `src/modules/__tests__/thin-operator-invocation-surface.test.ts` (**+7 tests**). It
 > defines a **local** helper `invokeThinOperatorSurface(command, deps)` and a **local** envelope
 > `OperatorInvocationResult` **inside the test file** (no production type). The proof lives under
