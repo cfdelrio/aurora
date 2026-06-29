@@ -135,13 +135,19 @@ test("the admission file constructs no AthleteDecision and records no events", (
   }
 });
 
-// --- offlineReflectionRuntime is unchanged by 035-A (no admission wiring yet) ----------------------
+// --- offlineReflectionRuntime is wired to the admission check (035-B) ------------------------------
 
-test("offlineReflectionRuntime is not wired to the admission check in 035-A", () => {
+test("offlineReflectionRuntime is wired to the admission check via the in-module import (035-B)", () => {
   const src = readFileSync(runtimePath, "utf8");
-  assert.equal(src.includes("admitExternalRenderable"), false, "offlineReflectionRuntime must not reference the admission check in 035-A (wiring is 035-B)");
-  // its closed outcome union is unchanged: no renderable-inadmissible status yet
-  assert.equal(src.includes("renderable-inadmissible"), false, "the runtime outcome union must be unchanged in 035-A");
+  // 035-B wires it: the runtime calls the admission check and carries the additive renderable-inadmissible status.
+  assert.equal(src.includes("admitExternalRenderable"), true, "offlineReflectionRuntime must call the admission check (035-B)");
+  assert.equal(src.includes("renderable-inadmissible"), true, "the runtime outcome union must carry the additive renderable-inadmissible status (035-B)");
+  // it imports the check from the same module (not a new top-level module / not via a whole-core composer)
+  for (const spec of importSpecs(src)) {
+    if (spec.includes("external-renderable-admission")) {
+      assert.ok(/^\.\/external-renderable-admission\.ts$/.test(spec), `must import the admission check from the same module: ${spec}`);
+    }
+  }
 });
 
 // --- no forbidden module/dir/script; operator + package unchanged ---------------------------------

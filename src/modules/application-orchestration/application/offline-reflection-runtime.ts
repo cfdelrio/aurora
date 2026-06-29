@@ -43,6 +43,8 @@ import type {
 } from "./orchestration-command.ts";
 import type { ExplicitOrchestrationDependencies } from "./orchestration-dependencies.ts";
 import type { OrchestrationTrace } from "./orchestration-trace.ts";
+import { admitExternalRenderable } from "./external-renderable-admission.ts";
+import type { ExternalRenderableRejectionReason } from "./external-renderable-admission.ts";
 
 /**
  * Operational marker that an operator invoked the runtime on the athlete's behalf. It is NOT a decision and
@@ -69,6 +71,7 @@ export type ManualIntakeStep<TSubmission> = (submission: TSubmission) => ManualR
 export type OfflineReflectionStatus =
   | "reflection-ready" // intake ok + render-only "rendered" → validated reflection; delivery withheld
   | "input-rejected" // injected intake returned "rejected" → fail-closed, no render
+  | "renderable-inadmissible" // Tier 2 admission check rejected the renderable → fail-closed, no render (035-B)
   | "not-rendered" // orchestration "provider-not-rendered" (incl. validateDraft failure) → no record
   | "recording-failed" // orchestration "recording-failed" → safe stop
   | "unexpected-failure"; // any unexpected error → safe result, no raw content
@@ -76,6 +79,7 @@ export type OfflineReflectionStatus =
 export const OFFLINE_REFLECTION_STATUSES: readonly OfflineReflectionStatus[] = [
   "reflection-ready",
   "input-rejected",
+  "renderable-inadmissible",
   "not-rendered",
   "recording-failed",
   "unexpected-failure",
@@ -138,6 +142,7 @@ export interface OfflineReflectionRuntimeOutcome {
   readonly mediation: { readonly operatorRef: string }; // operational; never decision ownership
   readonly decisionCapture: DecisionCapturePrompt; // invites a future athlete-declared/reported decision
   readonly intake: { readonly status: ManualReflectionIntakeOutcome["status"] }; // safe summary only
+  readonly admissionReason?: ExternalRenderableRejectionReason; // safe closed code; present only on renderable-inadmissible
   readonly trace: OrchestrationTrace; // ref-only, from orchestration (empty-ish when intake rejects)
   readonly rawRetained: false;
 }
@@ -178,7 +183,22 @@ export async function offlineReflectionRuntime<TSubmission>(
       });
     }
 
-    // 2. Render-only orchestration over deterministic injected collaborators. NO delivery input + NO sink,
+    // 2. Tier 2 admission check (Spec 035 / Impl 035-A) — structurally pre-screen the caller-supplied
+    //    renderable BEFORE any rendering. Rejection → fail-closed: no orchestration, no provider, no
+    //    validateDraft, no delivery; delivery stays withheld. admitted ≠ truth (downstream validateDraft and
+    //    the caller's Tier 1 guarantee remain the other tiers).
+    const admission = admitExternalRenderable(command.request);
+    if (!admission.admitted) {
+      return Object.freeze({
+        ...base,
+        status: "renderable-inadmissible",
+        intake: { status: intake.status },
+        ...(admission.reason !== undefined ? { admissionReason: admission.reason } : {}),
+        trace: emptyTrace,
+      });
+    }
+
+    // 3. Render-only orchestration over deterministic injected collaborators. NO delivery input + NO sink,
     //    NO review, NO audit repo, NO event repo, NO recordEvents → partial composition stops at "rendered".
     const recordId: RenderedMessageRecordId = command.ids?.renderedMessageRecordId ?? newRenderedMessageRecordId();
     const orchestrationCommand: ExplicitOrchestrationCommand = {

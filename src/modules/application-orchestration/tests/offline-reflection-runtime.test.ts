@@ -19,8 +19,8 @@ import {
   FakeProviderClient,
   InMemoryRenderedMessageRecordRepository,
 } from "../../rendering/index.ts";
-import type { ProviderSecretRef } from "../../rendering/index.ts";
-import { req, supportRenderable } from "../../rendering/tests/fixtures.ts";
+import type { ProviderSecretRef, ProviderClientBoundary } from "../../rendering/index.ts";
+import { req, supportRenderable, noVoiceSupportRenderable } from "../../rendering/tests/fixtures.ts";
 import { ingestManualInput, InMemoryObservationSetRepository } from "../../observation/index.ts";
 import type { ManualInputSubmission, ObservationSetRepository } from "../../observation/index.ts";
 import { timestamp } from "../../../shared-kernel/time.ts";
@@ -263,4 +263,104 @@ test("the runtime always resolves to a closed status and never rejects", async (
   }
   assert.equal(threw, false);
   assert.ok(out && OFFLINE_REFLECTION_STATUSES.includes(out.status));
+});
+
+// ===== Implementation 035-B — Tier 2 admission check wired before render-only orchestration =====
+
+/** A provider client that must never be called — proves the render path is not invoked on a rejected renderable. */
+const throwingClient: ProviderClientBoundary = {
+  kind: "live",
+  requestDraft(): never {
+    throw new Error("provider must not be called when the renderable is inadmissible");
+  },
+};
+
+// Test 17 — an admissible renderable still produces the existing reflection-ready path (validateDraft downstream).
+test("035-B: an admissible renderable still produces reflection-ready (downstream validateDraft intact)", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command(), h.deps);
+  assert.equal(out.status, "reflection-ready");
+  assert.ok(out.reflection);
+  assert.equal(out.reflection?.validationPassed, true); // downstream validateDraft still ran
+  assert.equal(out.deliveryWithheld, true);
+});
+
+// Test 18 — missing provenance → renderable-inadmissible; render path not invoked; provider never called.
+test("035-B: a renderable with no provenance is inadmissible and never reaches the provider", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(supportRenderable({ sourceCaseRef: "  " })) }), {
+    ...h.deps,
+    client: throwingClient, // would throw if orchestration/provider ran
+  });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.admissionReason, "rejected-missing-provenance");
+  assert.equal(out.reflection, undefined);
+  assert.equal(out.deliveryWithheld, true);
+  assert.equal(out.trace.stoppedAt, "stopped"); // orchestration never started
+  assert.equal(out.trace.renderedMessageRecordId, undefined);
+});
+
+// Test 19 — unsafe support voice Recommendation → renderable-inadmissible (prescription ceiling).
+test("035-B: support voice Recommendation is inadmissible", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(supportRenderable({ voice: "Recommendation" })) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.admissionReason, "rejected-unsafe-voice");
+});
+
+// Test 20 — unsafe support voice Silence → renderable-inadmissible.
+test("035-B: support voice Silence is inadmissible", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(supportRenderable({ voice: "Silence" })) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.admissionReason, "rejected-unsafe-voice");
+});
+
+// Test 21 — uncertainty hidden → renderable-inadmissible.
+test("035-B: a renderable hiding uncertainty is inadmissible", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(supportRenderable({ uncertaintyVisibleRequired: false })) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.admissionReason, "rejected-uncertainty-hidden");
+});
+
+// Test 22 — agency missing → renderable-inadmissible.
+test("035-B: a renderable not preserving agency is inadmissible", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(supportRenderable({ agencyRequired: false })) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.admissionReason, "rejected-agency-missing");
+});
+
+// Test 23 — no-voice support renderable → renderable-inadmissible (voice ceiling requires an advisory voice).
+test("035-B: a support renderable with no voice is inadmissible", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(noVoiceSupportRenderable()) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.admissionReason, "rejected-unsafe-voice");
+});
+
+// Test 24 — admission runs AFTER intake: a rejected intake still short-circuits to input-rejected first.
+test("035-B: a rejected manual intake short-circuits before the admission check", async () => {
+  const h = harness();
+  // Even with an inadmissible renderable, an invalid submission yields input-rejected (intake is step 1).
+  const out = await offlineReflectionRuntime(command({ submission: submission({ athleteRef: "" }), request: req(supportRenderable({ sourceCaseRef: "" })) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "input-rejected");
+});
+
+// Test 25 — a rejected renderable creates no AthleteDecision and exposes only a safe reason code.
+test("035-B: a rejected renderable creates no AthleteDecision and exposes only safe codes", async () => {
+  const h = harness();
+  const out = await offlineReflectionRuntime(command({ request: req(supportRenderable({ sourceCaseRef: "" })) }), { ...h.deps, client: throwingClient });
+  assert.equal(out.status, "renderable-inadmissible");
+  assert.equal(out.decisionCapture.kind, "athlete-decision-invitation"); // invitation only; no decision created
+  const json = JSON.stringify(out).toLowerCase();
+  for (const banned of ["athletedecision", "\"choice\"", "\"rationale\"", "bearer", "process.env", "chain-of-thought"]) {
+    assert.equal(json.includes(banned), false, `inadmissible outcome must not contain '${banned}'`);
+  }
+});
+
+// Test 26 — renderable-inadmissible is a member of the closed status union (additive).
+test("035-B: renderable-inadmissible is in the closed status catalog", () => {
+  assert.ok(OFFLINE_REFLECTION_STATUSES.includes("renderable-inadmissible"));
 });
