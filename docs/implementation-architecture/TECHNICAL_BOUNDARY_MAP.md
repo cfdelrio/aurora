@@ -4,6 +4,39 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
+> **Implementation status (post Impl 029).** Impl 029 added a **cloud-secret adapter contract with an injected fake
+> cloud client** inside `rendering/application` — **`CloudSecretStoreAdapter`** (in
+> `src/modules/rendering/application/cloud-secret-store-adapter.ts`) that **implements the unchanged Impl 028
+> `ManagedSecretStoreClient`** seam over an **injected `CloudSecretValueClient`** — the cloud-like transport boundary
+> (distinct from the Aurora `ManagedSecretStoreClient` seam; it **MAY throw** — the adapter catches). The adapter
+> **maps richer cloud-like outcomes + thrown exceptions down into the existing 4-state `ManagedSecretResolution`**
+> (`available`/`missing`/`invalid`/`unavailable`), **fails closed** (any unmapped/unexpected outcome or thrown
+> exception → a safe non-`available` resolution), and **redacts the raw secret + the raw cloud response** (neither the
+> secret value nor the raw provider response is retained in the resolution/state/failure/tests; only a safe cloud
+> failure code crosses the boundary). `retrieve()` **always resolves, never rejects** (it honors the
+> `ManagedSecretStoreClient` contract even though the injected cloud client may reject). The adapter lives in the
+> **rendering application surface (`rendering/application`), NOT domain** — it is **NOT an infrastructure module and
+> NOT a cloud-provider module**; it carries **no AWS/GCP/Azure package**, **no SDK/dependency**, **no network**, **no
+> `process.env` read**, and **no production env token**; it requires **no operator script change** and **no package
+> script**; it introduces **no source precedence** (it is a sibling contract, not a chosen provider); and it imports
+> **no delivery/event/orchestration/domain module**. It adds **no retry/scheduler/queue/event bus**, **no
+> telemetry/model evaluation**, and **no DB/schema**. **No module outside `rendering` imports it**, and the
+> **`process.env` one-file seal remains intact** (the adapter is not a new token site — only
+> `defaultProcessEnvironmentAccessor`, Impl 023, reads the real environment). Two test files were added —
+> `src/modules/rendering/tests/cloud-secret-store-adapter.test.ts` and
+> `src/modules/rendering/tests/cloud-secret-store-adapter-negative-capability.test.ts` (the latter asserting no
+> network/SDK/vendor/env token and no raw secret/response retention). No cloud SDK, no `process.env` read, no
+> dependency change, no new module, no live-call enablement — **additive only** (only `rendering/application/index.ts`
+> exports were changed). package.json/lockfile unchanged; operator script unchanged; AC20 untouched. Validation:
+> **710/710 tests pass** · `tsc --noEmit` clean. `CloudSecretValueClient ≠ ManagedSecretStoreClient;
+> CloudSecretStoreAdapter ≠ AWS/GCP/Azure adapter; cloud-like adapter contract ≠ selected provider ≠ SDK integration ≠
+> production rollout ≠ live-call enablement; credential available ≠ LiveCallPolicy approval ≠ operator opt-in ≠ CI
+> live lane ≠ provider trust; safe cloud failure code ≠ raw cloud response; secret ref ≠ secret value.` **Still
+> future:** a real provider-specific SDK adapter, production secret wiring, and source precedence remain future
+> (recommended next mission: **Spec 030 — Secret Provider Selection Boundary**). No architecture decision below is
+> superseded. The note below is the prior (Impl 028) status.
+>
+
 > **Implementation status (post Impl 028).** Impl 028 added a **provider-neutral managed-secret credential-source
 > boundary** inside `rendering/application` — **`ManagedSecretStoreClient`** (pure TypeScript async interface;
 > `retrieve(secretName): Promise<ManagedSecretResolution>`; always resolves; never rejects; implementations must catch

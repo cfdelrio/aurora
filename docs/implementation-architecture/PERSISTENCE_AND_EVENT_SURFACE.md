@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 026).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
+> **Implementation status (post Impl 029).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -263,8 +263,40 @@
 > script unchanged; package.json/lockfile unchanged; AC20 untouched. +39 tests. Validation: **672/672 tests pass** ·
 > `tsc --noEmit` clean. `secret manager = credential source; managed-secret seam ≠ live-call enablement ≠ cloud
 > adapter ≠ production rollout ≠ raw secret persisted.`
-> **Still future work:** a **cloud adapter implementing `ManagedSecretStoreClient`** (Impl 028 seam exists; a real
-> AWS Secrets Manager / GCP / Azure / Vault adapter behind it is the next slice); **a production secret manager (with
+> **(Impl 029 — cloud-secret adapter contract with injected fake cloud client; no persistence infrastructure added,
+> returns a `ManagedSecretResolution` only.)** Impl 029 added a **provider-neutral cloud-secret adapter contract**
+> inside `rendering/application` — a **`CloudSecretValueClient`** (interface; an injected, cloud-*like* fetch boundary
+> that always resolves and whose implementations catch all exceptions) consumed by a **cloud-backed
+> `ManagedSecretStoreClient`** that maps a cloud-like fetch into the **unchanged** Impl 028 4-state
+> `ManagedSecretResolution` (`available`/`missing`/`invalid`/`unavailable`), plus a deterministic
+> **`FakeCloudSecretValueClient`** (deterministic scenarios; sentinel-only; **no real secret, no real cloud, no
+> network, no SDK**). This slice **adds no persistence**: it **adds no repository**, **adds no DB/schema**, **adds no
+> migration**, **records no events** (no event recording), makes **no provider-attempt audit persistence change**, makes
+> **no orchestration trace change**, makes **no delivery request/outcome change**, makes **no rendered-message record
+> change**, **creates no athlete decision**, **creates no evidence**, and **performs no domain mutation**. **No raw
+> secret is persisted** and **no raw cloud response is persisted**: the fetched value is mapped transiently into the
+> existing `ManagedSecretResolution`/pre-fetched `EnvironmentCredentialSource` path and never enters a failure, outcome,
+> audit record, domain state, trace, or test assertion. The conceptual distinctions the contract must keep legible: a
+> **safe failure code is not a raw cloud response**; **secret availability is not a domain fact**; a **cloud-like
+> adapter failure is not an athlete failure**; **redaction is proven by negative tests** (markers
+> `sk-test-cloud-secret-do-not-leak`, `raw-cloud-response-do-not-leak`, `cloud-access-token-do-not-leak` never surface
+> in any code/error/trace/result). And the non-identities: **`CloudSecretValueClient` ≠ `ManagedSecretStoreClient`**;
+> **cloud-like adapter contract ≠ selected provider ≠ SDK ≠ production rollout**; **credential available ≠ live-call
+> enabled**; **secret ref ≠ secret value**; **redacted output ≠ secret payload**. The cloud-backed
+> `ManagedSecretStoreClient` feeds the **unchanged** Impl 028 pre-fetch path (non-`available` → empty source →
+> resolver's `missing` path → the existing gate blocks the transport), so the contract **triggers no review /
+> display-eligibility / delivery / event / retry / reprojection / reasoning / provider call / domain mutation**. No real
+> cloud SDK, no `process.env` read, no dependency change, no new module — **additive only** (only
+> `rendering/application/index.ts` exports were changed). The process-env one-file seal remains intact; operator script
+> unchanged; package.json/lockfile unchanged; AC20 untouched. Validation: **710/710 tests pass** · `tsc --noEmit`
+> clean. `cloud-like adapter contract = injected fake cloud client; CloudSecretValueClient ≠ ManagedSecretStoreClient;
+> cloud adapter contract ≠ selected provider ≠ SDK ≠ production rollout ≠ raw secret persisted ≠ raw cloud response
+> persisted.`
+> **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
+> injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
+> SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
+> precedence**, **rotation / cache / TTL**, and any **CI-live lane** all remain future (**recommended next: Spec 030 —
+> Secret Provider Selection Boundary**); **a production secret manager (with
 > rotation)** wired via that cloud adapter; **a production live-call rollout (real endpoint + deliberate opt-in)**; a
 > **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that
 > *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records
