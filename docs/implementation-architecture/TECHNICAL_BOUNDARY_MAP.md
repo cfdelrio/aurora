@@ -4,7 +4,30 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
-> **Implementation status (post Impl 038-A — latest).** Impl 038-A (commit `aebb11c`) added a **TEST-ONLY
+> **Implementation status (post Impl 039-A — latest).** Impl 039-A (commit `cba9ec4`) added a **TEST-ONLY
+> invocation-seam proof** — `src/modules/__tests__/thin-operator-invocation-surface.test.ts` (**+7 tests**). It
+> defines a **local** helper `invokeThinOperatorSurface(command, deps)` and a **local** envelope
+> `OperatorInvocationResult` **inside the test file** (no production type). The proof lives under
+> `src/modules/__tests__/` and **may reuse the whole-core / runbook setup only because it is test-only** (AC20
+> excludes test files from the production import scan). The helper accepts a **caller-assembled
+> `OfflineReflectionRuntimeCommand` + injected deterministic deps**, calls the existing `offlineReflectionRuntime(...)`
+> (after `admitExternalRenderable`, **unchanged**), and **narrows** the already-safe outcome to a **reference-only**
+> envelope: `status` (exact `OfflineReflectionStatus`, no rename), `deliveryWithheld`, `rawRetained: false`,
+> `reflectionRef?` (a ref/summary, never `reflection.text`), `decisionCapture` invitation/ref only,
+> `admissionReason?`, `safeReason?`, ref-only `traceSummary` — **excluding** raw provider output / hidden reasoning
+> / secret material / delivery artifact / `AthleteDecision`. It adds **no production helper, no production wrapper,
+> no `src/modules/session`, no runtime shell, no CLI/script/package command, no API/UI/operator tool, no
+> `reflection-composition`, and no production whole-core composer**; `offlineReflectionRuntime` is **unchanged**; the
+> operator smoke script and package files are **unchanged**; the proof uses **deterministic fakes** (no live
+> provider / real secret / `process.env`, no delivery sink, no automatic `AthleteDecision`). **AC20 remains
+> unchanged** — all AC20 guards stay green. Validation: **810/810 tests pass** · `tsc --noEmit` clean.
+> `invocation surface ≠ CLI ≠ script ≠ package command ≠ deployment ≠ API/UI ≠ live-provider enablement ≠ delivery
+> mechanism ≠ whole-core composer ≠ AthleteDecision creator; safe envelope ≠ raw runtime dump; reflection-ready ≠
+> delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠ truth; validateDraft success
+> ≠ recommendation quality; decision-capture invitation ≠ AthleteDecision; Aurora advises, the athlete decides.` No
+> architecture decision below is superseded. The note below is the prior (Impl 038-A) status.
+>
+> **Implementation status (post Impl 038-A).** Impl 038-A (commit `aebb11c`) added a **TEST-ONLY
 > runbook proof** — `src/modules/__tests__/operator-session-runbook.test.ts` (**+8 tests**) — and a **docs-only
 > operator checklist** — `docs/runbooks/operator-session-runbook.md`. The test-only runbook proof lives under
 > `src/modules/__tests__/` and **may compose whole-core artifacts** there (AC20 excludes test files from the

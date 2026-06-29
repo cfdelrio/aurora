@@ -399,6 +399,27 @@
 > recommendation quality; reflection-ready ≠ delivered ≠ AthleteDecision; delivery withheld ≠ delivery failure;
 > operator mediation ≠ athlete decision; operator scribe ≠ decision source; silence ≠ decision; decision feedback ≠
 > Signal/Evidence; Aurora advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 039-A — thin operator invocation surface proof; TEST-ONLY; no persistence/event surface added.)**
+> Impl 039-A added the **thin operator invocation surface** seam as a **TEST-ONLY proof**
+> (`src/modules/__tests__/thin-operator-invocation-surface.test.ts`), with a **local** helper
+> (`invokeThinOperatorSurface`) and a **local** reference-only envelope (`OperatorInvocationResult`). It adds **no
+> new persistence/event surface**: **no repository added**, **no DB/schema**, **no migration**, **no
+> auth/session/user system**, **no event recording integration added**, **no provider-attempt audit persistence
+> change**, **no orchestration-trace persistence change**, **no delivery request/outcome persistence change**, **no
+> rendered-message persistence change**, **no automatic athlete-decision persistence**, **no session persistence**,
+> and **no invocation persistence**. The **local envelope is test-only** and is **not a persisted record**; the
+> **runtime dispositions are operational outcomes, not persistence events**: `reflection-ready` is not delivery;
+> `deliveryWithheld` is not delivery failure; `renderable-inadmissible` is not delivery failure; `not-rendered` is
+> fail-closed rendering/validation behavior; `input-rejected` stops before rendering. The **decision-capture
+> invitation/ref is not an `AthleteDecision`**; **no `Signal`/`Evidence` is created directly** and **no
+> reasoning/understanding update is triggered directly**. `offlineReflectionRuntime` invoked **unchanged**; no new
+> module; no dependency change; no `process.env` read; deterministic fakes only (no live provider / real secret /
+> delivery sink) — **additive only** (test-only). **AC20 intact.** Validation: **810/810 tests pass** · `tsc
+> --noEmit` clean. `invocation surface ≠ CLI ≠ script ≠ package command ≠ deployment ≠ API/UI ≠ live-provider
+> enablement ≠ delivery mechanism ≠ whole-core composer ≠ AthleteDecision creator; safe envelope ≠ raw runtime
+> dump; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠
+> truth; validateDraft success ≠ recommendation quality; decision-capture invitation ≠ AthleteDecision; Aurora
+> advises, the athlete decides; Aurora never presents inference as fact.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
