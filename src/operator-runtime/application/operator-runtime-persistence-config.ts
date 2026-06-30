@@ -21,6 +21,19 @@ import type { BlobStoreClient } from "./operator-runtime-blob-store.ts";
 import { PostgresRowStoreClient, type PostgresQueryable } from "./postgres-row-store-client.ts";
 import { S3BlobStoreClient, type S3SendClient } from "./s3-blob-store-client.ts";
 
+// storage-backed bridge adapters (043-D4A) — local, SDK-free; they wire RowStoreClient/BlobStoreClient
+// to the operator-runtime ports via the whitelist mappers.
+import { RowStoreTrainingSessionRepository } from "./row-store-training-session-repository.ts";
+import { RowStoreOperatorSessionRunRepository } from "./row-store-operator-session-run-repository.ts";
+import { RowStoreOperatorSessionEnvelopeRepository } from "./row-store-operator-session-envelope-repository.ts";
+import { RowStoreDecisionCaptureLinkRepository } from "./row-store-decision-capture-link-repository.ts";
+import { BlobStoreTrainingArtifactObjectStore } from "./blob-store-training-artifact-object-store.ts";
+import type { TrainingSessionRepository } from "./training-session-repository.ts";
+import type { OperatorSessionRunRepository } from "./operator-session-run-repository.ts";
+import type { OperatorSessionEnvelopeRepository } from "./operator-session-envelope-repository.ts";
+import type { DecisionCaptureLinkRepository } from "./decision-capture-link-repository.ts";
+import type { TrainingArtifactObjectStore } from "./training-artifact-object-store.ts";
+
 /** Explicit, fully-injected config — every collaborator is supplied by the caller; nothing is env-derived. */
 export interface OperatorRuntimePersistenceConfig {
   /** an injected relational-row-store queryable (a pg-compatible Pool/Client) — the caller owns credentials */
@@ -61,5 +74,41 @@ export function createOperatorRuntimePersistenceClients(
   return Object.freeze({
     rowStore: new PostgresRowStoreClient(queryable),
     blobStore: new S3BlobStoreClient({ client, bucket }),
+  });
+}
+
+/** The operator-runtime PORTS the run service consumes, plus the underlying storage clients. */
+export interface OperatorRuntimePersistenceRepositories {
+  readonly rowStore: RowStoreClient;
+  readonly blobStore: BlobStoreClient;
+  readonly repositories: {
+    readonly trainingSessions: TrainingSessionRepository;
+    readonly runs: OperatorSessionRunRepository;
+    readonly envelopes: OperatorSessionEnvelopeRepository;
+    readonly decisionLinks: DecisionCaptureLinkRepository;
+  };
+  readonly artifactStore: TrainingArtifactObjectStore;
+}
+
+/**
+ * Assemble the storage-backed repository ports + artifact store the run service consumes, over the same
+ * explicit injected config. Pure wiring: it builds the storage clients (above), then wraps each port's
+ * storage-backed adapter around them. It opens no connection itself, reads no env, runs no session, and
+ * calls neither invokeOperatorSession nor the underlying runtime — it returns ports, not a session runner.
+ */
+export function createOperatorRuntimePersistenceRepositories(
+  config: OperatorRuntimePersistenceConfig,
+): OperatorRuntimePersistenceRepositories {
+  const { rowStore, blobStore } = createOperatorRuntimePersistenceClients(config);
+  return Object.freeze({
+    rowStore,
+    blobStore,
+    repositories: Object.freeze({
+      trainingSessions: new RowStoreTrainingSessionRepository(rowStore),
+      runs: new RowStoreOperatorSessionRunRepository(rowStore),
+      envelopes: new RowStoreOperatorSessionEnvelopeRepository(rowStore),
+      decisionLinks: new RowStoreDecisionCaptureLinkRepository(rowStore),
+    }),
+    artifactStore: new BlobStoreTrainingArtifactObjectStore(blobStore),
   });
 }
