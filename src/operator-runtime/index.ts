@@ -119,3 +119,20 @@ export {
   blobToStoredArtifact,
 } from "./application/operator-runtime-artifact-mappers.ts";
 export { whitelistOperatorSessionEnvelope } from "./application/operator-session-envelope-repository.ts";
+
+// F1 — the safe operator session INPUT CONTRACT: serializable request envelope + caller-factory type + pure
+// validators. Types-only on the core side (no SDK pulled). Module loading + execution are later slices.
+export {
+  validateOperatorSessionRequestEnvelope,
+  validateOperatorSessionCallerFactory,
+  validateOperatorSessionCallerFactoryResult,
+} from "./application/operator-session-request.ts";
+export type {
+  OperatorSessionRequestEnvelope,
+  OperatorSessionRenderingRequest,
+  OperatorSessionCallerFactory,
+  OperatorSessionCallerFactoryBundle,
+  OperatorSessionCallerFactoryResult,
+  OperatorSessionRequestValidation,
+  OperatorSessionShapeValidation,
+} from "./application/operator-session-request.ts";
