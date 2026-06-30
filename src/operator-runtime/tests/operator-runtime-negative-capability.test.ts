@@ -183,12 +183,24 @@ test("9-16 operator-runtime imports no DB / fs / object-storage SDK / cloud SDK 
 
 // --- no infra / no app surface created -------------------------------------------------------------
 
-test("16/17/18/19 no Dockerfile / IaC / migrations / API / UI / CLI / worker / deployment was created", () => {
-  // nothing infra-shaped inside the layer
+// 043-D5A: a deployment CONFIG loader may live under deployment/, but NO deployment executable / IaC.
+const APPROVED_DEPLOYMENT_CONFIG = "operator-runtime-env-config.ts";
+
+test("16/17/18/19 no Dockerfile / IaC / migrations / API / UI / CLI / worker / deployment EXECUTABLE was created", () => {
+  // nothing executable/infra-shaped inside the layer (deployment/ may hold the approved config loader only)
   for (const entry of collectTsFiles(layerDir)) {
-    assert.equal(/\/(api|ui|frontend|server|worker|cli|deployment|migrations|infrastructure)\//.test(entry), false, `layer must contain no api/ui/server/worker/cli/deployment file: ${entry}`);
+    assert.equal(/\/(api|ui|frontend|server|worker|cli|migrations|infrastructure)\//.test(entry), false, `layer must contain no api/ui/server/worker/cli file: ${entry}`);
   }
-  // no infra files / dirs in the layer
+  // the deployment/ dir, if present, holds ONLY the approved config-loader .ts — no executable, no .mjs, no Dockerfile/IaC
+  const deploymentDir = join(layerDir, "deployment");
+  if (existsSync(deploymentDir)) {
+    const entries = collectTsFiles(deploymentDir).filter((f) => !f.endsWith(".test.ts") && !f.includes("/tests/"));
+    assert.deepEqual(entries.map((f) => f.split("/").pop()), [APPROVED_DEPLOYMENT_CONFIG], "deployment/ may contain only the approved env-config loader");
+    for (const f of readdirSync(deploymentDir)) {
+      assert.equal(/\.(mjs|cjs|js)$/.test(f) || /^(Dockerfile|.*\.tf|.*\.tfvars|serverless\.yml|cdk\.json|pulumi\.yaml)$/.test(f), false, `deployment/ must contain no executable/IaC: ${f}`);
+    }
+  }
+  // no infra files / dirs at the layer root
   for (const f of readdirSync(layerDir)) {
     assert.equal(/^(Dockerfile|.*\.tf|.*\.tfvars|serverless\.yml|cdk\.json|pulumi\.yaml)$/.test(f), false, `layer must contain no Dockerfile/IaC: ${f}`);
   }
@@ -197,6 +209,21 @@ test("16/17/18/19 no Dockerfile / IaC / migrations / API / UI / CLI / worker / d
     assert.equal(existsSync(join(srcDir, forbidden)), false, `must not create src/${forbidden}`);
   }
   assert.equal(existsSync(join(repoRoot, "Dockerfile")), false, "must not create a Dockerfile");
+});
+
+test("D5A application layer stays env-free; only the deployment config loader handles env input (and via injection, not process.env)", () => {
+  // every application/* production file reads no process environment and imports no deployment file
+  for (const f of collectTsFiles(join(layerDir, "application")).filter((f) => !f.endsWith(".test.ts"))) {
+    const src = readFileSync(f, "utf8");
+    assert.equal(ENV_TOKEN.test(src), false, `application file must read no process environment: ${f}`);
+    for (const spec of importSpecs(src)) {
+      assert.equal(/\/deployment\//.test(spec) || spec.includes("../deployment/"), false, `application must not import a deployment file: ${spec} in ${f}`);
+    }
+  }
+  // the deployment config loader itself reads NO process.env (injected-env only; wrapper deferred to the executable)
+  const loader = join(layerDir, "deployment", APPROVED_DEPLOYMENT_CONFIG);
+  assert.equal(existsSync(loader), true, "the deployment config loader must exist");
+  assert.equal(ENV_TOKEN.test(readFileSync(loader, "utf8")), false, "the config loader reads an injected env map, never process.env");
 });
 
 // --- package / scripts untouched ------------------------------------------------------------------
