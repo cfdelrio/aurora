@@ -5,7 +5,7 @@
 import type { TrainingSessionId, TrainingSessionRecord } from "./training-session-record.ts";
 
 export interface TrainingSessionRepository {
-  save(record: TrainingSessionRecord): void;
-  findById(id: TrainingSessionId): TrainingSessionRecord | undefined;
-  listByAthlete(athleteRef: string): readonly TrainingSessionRecord[];
+  save(record: TrainingSessionRecord): Promise<void>;
+  findById(id: TrainingSessionId): Promise<TrainingSessionRecord | undefined>;
+  listByAthlete(athleteRef: string): Promise<readonly TrainingSessionRecord[]>;
 }

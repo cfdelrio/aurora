@@ -14,16 +14,16 @@ export class InMemoryOperatorSessionEnvelopeRepository
 {
   private readonly store = new Map<string, OperatorSessionEnvelopeRecord>();
 
-  save(record: OperatorSessionEnvelopeRecord): void {
+  async save(record: OperatorSessionEnvelopeRecord): Promise<void> {
     this.store.set(String(record.id), structuredClone(record));
   }
 
-  findById(id: OperatorSessionEnvelopeRecordId): OperatorSessionEnvelopeRecord | undefined {
+  async findById(id: OperatorSessionEnvelopeRecordId): Promise<OperatorSessionEnvelopeRecord | undefined> {
     const found = this.store.get(String(id));
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  findByRun(runId: OperatorSessionRunId): readonly OperatorSessionEnvelopeRecord[] {
+  async findByRun(runId: OperatorSessionRunId): Promise<readonly OperatorSessionEnvelopeRecord[]> {
     const target = String(runId);
     return Object.freeze(
       [...this.store.values()]
@@ -32,7 +32,7 @@ export class InMemoryOperatorSessionEnvelopeRepository
     );
   }
 
-  listByAthlete(athleteRef: string): readonly OperatorSessionEnvelopeRecord[] {
+  async listByAthlete(athleteRef: string): Promise<readonly OperatorSessionEnvelopeRecord[]> {
     return Object.freeze(
       [...this.store.values()]
         .filter((r) => r.athleteRef === athleteRef)

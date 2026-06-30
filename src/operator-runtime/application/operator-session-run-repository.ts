@@ -70,8 +70,8 @@ export function operatorSessionRunRecord(
 }
 
 export interface OperatorSessionRunRepository {
-  save(record: OperatorSessionRunRecord): void;
-  findById(id: OperatorSessionRunId): OperatorSessionRunRecord | undefined;
-  listByAthlete(athleteRef: string): readonly OperatorSessionRunRecord[];
-  listByTrainingSession(trainingSessionId: TrainingSessionId): readonly OperatorSessionRunRecord[];
+  save(record: OperatorSessionRunRecord): Promise<void>;
+  findById(id: OperatorSessionRunId): Promise<OperatorSessionRunRecord | undefined>;
+  listByAthlete(athleteRef: string): Promise<readonly OperatorSessionRunRecord[]>;
+  listByTrainingSession(trainingSessionId: TrainingSessionId): Promise<readonly OperatorSessionRunRecord[]>;
 }

@@ -104,7 +104,7 @@ export async function runOperatorSession<TSubmission>(
   command: OperatorRunCommand<TSubmission>,
   deps: OperatorRunServiceDependencies,
 ): Promise<OperatorRunResult> {
-  const trainingSession = deps.trainingSessions.findById(command.trainingSessionId);
+  const trainingSession = await deps.trainingSessions.findById(command.trainingSessionId);
   if (trainingSession === undefined) {
     // safe rejected status — nothing is invoked or persisted
     return Object.freeze({ status: "training-session-not-found", trainingSessionRef: command.trainingSessionId });
@@ -113,7 +113,7 @@ export async function runOperatorSession<TSubmission>(
   const athleteRef = trainingSession.athleteRef;
 
   // 2. record the started run (status reflects an in-flight run until the envelope returns)
-  deps.runs.save(
+  await deps.runs.save(
     operatorSessionRunRecord({
       id: command.runId,
       athleteRef,
@@ -135,10 +135,10 @@ export async function runOperatorSession<TSubmission>(
     envelope,
     recordedAt: command.recordedAt,
   });
-  deps.envelopes.save(envelopeRecord);
+  await deps.envelopes.save(envelopeRecord);
 
   // 5. update the run with the envelope status + completion + a ref to the stored envelope
-  deps.runs.save(
+  await deps.runs.save(
     operatorSessionRunRecord({
       id: command.runId,
       athleteRef,
@@ -153,7 +153,7 @@ export async function runOperatorSession<TSubmission>(
   // 6. a DecisionCaptureLink is created ONLY for a genuine decision-capture invitation/ref
   let decisionCaptureLinkRef: DecisionCaptureLinkId | undefined;
   if (envelopeRecord.envelope.decisionCapture?.kind === "athlete-decision-invitation") {
-    deps.decisionLinks.save(
+    await deps.decisionLinks.save(
       decisionCaptureLink({
         id: command.decisionCaptureLinkId,
         runId: command.runId,

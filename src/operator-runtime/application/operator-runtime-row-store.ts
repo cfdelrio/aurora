@@ -21,10 +21,10 @@ export interface StorageRow {
  * behind a scoped one-file guard token-pin; the layer's records never depend on the driver, only on this.
  */
 export interface RowStoreClient {
-  insert(table: string, row: StorageRow): void;
-  get(table: string, id: string): StorageRow | undefined;
-  list(table: string): readonly StorageRow[];
-  findBy(table: string, column: string, value: StorageScalar): readonly StorageRow[];
+  insert(table: string, row: StorageRow): Promise<void>;
+  get(table: string, id: string): Promise<StorageRow | undefined>;
+  list(table: string): Promise<readonly StorageRow[]>;
+  findBy(table: string, column: string, value: StorageScalar): Promise<readonly StorageRow[]>;
 }
 
 /** The conceptual table names (Tech Spec 043D §4 Decision 4 — conceptual schema; no SQL here). */

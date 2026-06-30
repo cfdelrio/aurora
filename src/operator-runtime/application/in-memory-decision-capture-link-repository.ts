@@ -12,16 +12,16 @@ import type { OperatorSessionRunId } from "./operator-session-run-repository.ts"
 export class InMemoryDecisionCaptureLinkRepository implements DecisionCaptureLinkRepository {
   private readonly store = new Map<string, DecisionCaptureLink>();
 
-  save(record: DecisionCaptureLink): void {
+  async save(record: DecisionCaptureLink): Promise<void> {
     this.store.set(String(record.id), structuredClone(record));
   }
 
-  findById(id: DecisionCaptureLinkId): DecisionCaptureLink | undefined {
+  async findById(id: DecisionCaptureLinkId): Promise<DecisionCaptureLink | undefined> {
     const found = this.store.get(String(id));
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  findByRun(runId: OperatorSessionRunId): readonly DecisionCaptureLink[] {
+  async findByRun(runId: OperatorSessionRunId): Promise<readonly DecisionCaptureLink[]> {
     const target = String(runId);
     return Object.freeze(
       [...this.store.values()]
@@ -30,7 +30,7 @@ export class InMemoryDecisionCaptureLinkRepository implements DecisionCaptureLin
     );
   }
 
-  listByAthlete(athleteRef: string): readonly DecisionCaptureLink[] {
+  async listByAthlete(athleteRef: string): Promise<readonly DecisionCaptureLink[]> {
     return Object.freeze(
       [...this.store.values()]
         .filter((r) => r.athleteRef === athleteRef)

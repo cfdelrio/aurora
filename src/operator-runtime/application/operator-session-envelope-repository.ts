@@ -110,8 +110,8 @@ export function operatorSessionEnvelopeRecord(
 }
 
 export interface OperatorSessionEnvelopeRepository {
-  save(record: OperatorSessionEnvelopeRecord): void;
-  findById(id: OperatorSessionEnvelopeRecordId): OperatorSessionEnvelopeRecord | undefined;
-  findByRun(runId: OperatorSessionRunId): readonly OperatorSessionEnvelopeRecord[];
-  listByAthlete(athleteRef: string): readonly OperatorSessionEnvelopeRecord[];
+  save(record: OperatorSessionEnvelopeRecord): Promise<void>;
+  findById(id: OperatorSessionEnvelopeRecordId): Promise<OperatorSessionEnvelopeRecord | undefined>;
+  findByRun(runId: OperatorSessionRunId): Promise<readonly OperatorSessionEnvelopeRecord[]>;
+  listByAthlete(athleteRef: string): Promise<readonly OperatorSessionEnvelopeRecord[]>;
 }

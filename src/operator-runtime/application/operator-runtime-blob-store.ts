@@ -26,7 +26,7 @@ export interface BlobObject {
  * object-storage SDK behind a scoped one-file guard token-pin; the layer never depends on the SDK.
  */
 export interface BlobStoreClient {
-  put(object: BlobObject): void;
-  get(key: string): BlobObject | undefined;
-  head(key: string): BlobMetadata | undefined;
+  put(object: BlobObject): Promise<void>;
+  get(key: string): Promise<BlobObject | undefined>;
+  head(key: string): Promise<BlobMetadata | undefined>;
 }

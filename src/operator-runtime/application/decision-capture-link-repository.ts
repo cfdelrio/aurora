@@ -71,8 +71,8 @@ export function decisionCaptureLink(input: DecisionCaptureLinkInput): DecisionCa
 }
 
 export interface DecisionCaptureLinkRepository {
-  save(record: DecisionCaptureLink): void;
-  findById(id: DecisionCaptureLinkId): DecisionCaptureLink | undefined;
-  findByRun(runId: OperatorSessionRunId): readonly DecisionCaptureLink[];
-  listByAthlete(athleteRef: string): readonly DecisionCaptureLink[];
+  save(record: DecisionCaptureLink): Promise<void>;
+  findById(id: DecisionCaptureLinkId): Promise<DecisionCaptureLink | undefined>;
+  findByRun(runId: OperatorSessionRunId): Promise<readonly DecisionCaptureLink[]>;
+  listByAthlete(athleteRef: string): Promise<readonly DecisionCaptureLink[]>;
 }

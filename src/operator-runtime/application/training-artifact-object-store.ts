@@ -52,9 +52,9 @@ export interface PutTrainingArtifactInput {
  * No parse, no infer, no deliver, no session.
  */
 export interface TrainingArtifactObjectStore {
-  put(input: PutTrainingArtifactInput): StoredTrainingArtifact;
-  get(reference: string): StoredTrainingArtifact | undefined;
-  head(reference: string): TrainingArtifactMetadata | undefined;
+  put(input: PutTrainingArtifactInput): Promise<StoredTrainingArtifact>;
+  get(reference: string): Promise<StoredTrainingArtifact | undefined>;
+  head(reference: string): Promise<TrainingArtifactMetadata | undefined>;
 }
 
 /** Build the immutable stored-artifact value. Opaque: it validates shape only, never the content. */

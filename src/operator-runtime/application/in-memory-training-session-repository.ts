@@ -9,16 +9,16 @@ import type { TrainingSessionRepository } from "./training-session-repository.ts
 export class InMemoryTrainingSessionRepository implements TrainingSessionRepository {
   private readonly store = new Map<string, TrainingSessionRecord>();
 
-  save(record: TrainingSessionRecord): void {
+  async save(record: TrainingSessionRecord): Promise<void> {
     this.store.set(String(record.id), structuredClone(record));
   }
 
-  findById(id: TrainingSessionId): TrainingSessionRecord | undefined {
+  async findById(id: TrainingSessionId): Promise<TrainingSessionRecord | undefined> {
     const found = this.store.get(String(id));
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  listByAthlete(athleteRef: string): readonly TrainingSessionRecord[] {
+  async listByAthlete(athleteRef: string): Promise<readonly TrainingSessionRecord[]> {
     return Object.freeze(
       [...this.store.values()]
         .filter((r) => r.athleteRef === athleteRef)

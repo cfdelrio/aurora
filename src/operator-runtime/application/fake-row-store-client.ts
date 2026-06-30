@@ -16,7 +16,7 @@ export class FakeRowStoreClient implements RowStoreClient {
   // table -> (id -> row); insertion order preserved per table
   private readonly tables = new Map<string, Map<string, StorageRow>>();
 
-  insert(table: string, row: StorageRow): void {
+  async insert(table: string, row: StorageRow): Promise<void> {
     const id = row["id"];
     if (typeof id !== "string" || id.length === 0) {
       throw new Error("RowStoreClient.insert requires a non-empty string 'id' column");
@@ -29,18 +29,18 @@ export class FakeRowStoreClient implements RowStoreClient {
     rows.set(id, structuredClone(row));
   }
 
-  get(table: string, id: string): StorageRow | undefined {
+  async get(table: string, id: string): Promise<StorageRow | undefined> {
     const found = this.tables.get(table)?.get(id);
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  list(table: string): readonly StorageRow[] {
+  async list(table: string): Promise<readonly StorageRow[]> {
     const rows = this.tables.get(table);
     return rows === undefined ? Object.freeze([]) : Object.freeze([...rows.values()].map((r) => structuredClone(r)));
   }
 
-  findBy(table: string, column: string, value: StorageScalar): readonly StorageRow[] {
-    return Object.freeze(this.list(table).filter((r) => r[column] === value));
+  async findBy(table: string, column: string, value: StorageScalar): Promise<readonly StorageRow[]> {
+    return Object.freeze((await this.list(table)).filter((r) => r[column] === value));
   }
 
   clear(): void {

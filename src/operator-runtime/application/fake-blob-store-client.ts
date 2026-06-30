@@ -16,7 +16,7 @@ import type {
 export class FakeBlobStoreClient implements BlobStoreClient {
   private readonly store = new Map<string, BlobObject>();
 
-  put(object: BlobObject): void {
+  async put(object: BlobObject): Promise<void> {
     if (typeof object.key !== "string" || object.key.length === 0) {
       throw new Error("BlobStoreClient.put requires a non-empty key");
     }
@@ -26,12 +26,12 @@ export class FakeBlobStoreClient implements BlobStoreClient {
     this.store.set(object.key, structuredClone(object));
   }
 
-  get(key: string): BlobObject | undefined {
+  async get(key: string): Promise<BlobObject | undefined> {
     const found = this.store.get(key);
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  head(key: string): BlobMetadata | undefined {
+  async head(key: string): Promise<BlobMetadata | undefined> {
     const found = this.store.get(key);
     return found === undefined ? undefined : structuredClone(found.metadata);
   }

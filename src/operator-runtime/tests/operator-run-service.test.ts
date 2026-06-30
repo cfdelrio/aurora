@@ -61,8 +61,8 @@ function freshDeps(invoke?: OperatorSessionInvoker): OperatorRunServiceDependenc
   };
 }
 
-function seedTrainingSession(deps: { trainingSessions: InMemoryTrainingSessionRepository }): void {
-  deps.trainingSessions.save(
+async function seedTrainingSession(deps: { trainingSessions: InMemoryTrainingSessionRepository }): Promise<void> {
+  await deps.trainingSessions.save(
     trainingSessionRecord({
       id: tsid("training:1"),
       athleteRef: "athlete:1",
@@ -113,7 +113,7 @@ test("1/2/3/4/5/7 service loads a training session, runs via the seam, persists 
     return reflectionReadyEnvelope();
   };
   const deps = freshDeps(invoke);
-  seedTrainingSession(deps);
+  await seedTrainingSession(deps);
 
   const result = await runOperatorSession(command(), deps);
 
@@ -131,12 +131,12 @@ test("1/2/3/4/5/7 service loads a training session, runs via the seam, persists 
   assert.equal(result.envelope.deliveryWithheld, true);
 
   // 1. a run was recorded; 3. exactly one envelope record persisted; 5. a link persisted
-  const run = deps.runs.findById(rid("run:1"));
+  const run = await deps.runs.findById(rid("run:1"));
   assert.ok(run);
   assert.equal(run.status, "reflection-ready", "run status reflects the envelope status");
   assert.equal(String(run.envelopeRecordId), "envelope:1");
-  assert.deepEqual(deps.envelopes.findByRun(rid("run:1")).map((r) => String(r.id)), ["envelope:1"]);
-  assert.deepEqual(deps.decisionLinks.findByRun(rid("run:1")).map((r) => String(r.id)), ["link:1"]);
+  assert.deepEqual((await deps.envelopes.findByRun(rid("run:1"))).map((r) => String(r.id)), ["envelope:1"]);
+  assert.deepEqual((await deps.decisionLinks.findByRun(rid("run:1"))).map((r) => String(r.id)), ["link:1"]);
 });
 
 test("6 service creates NO DecisionCaptureLink when the envelope has no decision-capture invitation/ref", async () => {
@@ -147,14 +147,14 @@ test("6 service creates NO DecisionCaptureLink when the envelope has no decision
   } as unknown as OperatorSessionEnvelope;
   const invoke: OperatorSessionInvoker = async () => noInvitation;
   const deps = freshDeps(invoke);
-  seedTrainingSession(deps);
+  await seedTrainingSession(deps);
 
   const result = await runOperatorSession(command(), deps);
   assert.equal(result.status, "completed");
   assert.equal(result.decisionCaptureLinkRef, undefined, "no link ref when there is no invitation");
-  assert.deepEqual(deps.decisionLinks.findByRun(rid("run:1")), []);
+  assert.deepEqual(await deps.decisionLinks.findByRun(rid("run:1")), []);
   // the envelope record is still persisted
-  assert.deepEqual(deps.envelopes.findByRun(rid("run:1")).map((r) => String(r.id)), ["envelope:1"]);
+  assert.deepEqual((await deps.envelopes.findByRun(rid("run:1"))).map((r) => String(r.id)), ["envelope:1"]);
 });
 
 // --- safety: nothing unsafe persisted, nothing delivered, nothing derived ----------------------------
@@ -175,19 +175,19 @@ test("8/9/14-20 service persists no raw outcome / reflection text / provider out
   } as unknown as OperatorSessionEnvelope;
   const invoke: OperatorSessionInvoker = async () => polluted;
   const deps = freshDeps(invoke);
-  seedTrainingSession(deps);
+  await seedTrainingSession(deps);
 
   const result = await runOperatorSession(command(), deps);
 
   // 8. nothing delivered — deliveryWithheld stays true; no delivery record repo even exists in the layer
   assert.equal(result.envelope?.deliveryWithheld, true);
   // 9./19./20. no AthleteDecision, delivery, or eventRecordIds anywhere
-  const stored = deps.envelopes.findById(eid("envelope:1"));
+  const stored = await deps.envelopes.findById(eid("envelope:1"));
   assert.ok(stored);
   for (const key of Object.keys(stored.envelope)) {
     assert.ok(ALLOWED_ENVELOPE_KEYS.has(key), `stored envelope leaked key '${key}'`);
   }
-  const json = (JSON.stringify(result) + JSON.stringify(stored) + JSON.stringify(deps.runs.findById(rid("run:1")))).toLowerCase();
+  const json = (JSON.stringify(result) + JSON.stringify(stored) + JSON.stringify(await deps.runs.findById(rid("run:1")))).toLowerCase();
   for (const banned of [
     "rawoutcome", "energy felt low", "provideroutput", "raw provider completion", "hiddenreasoning",
     "chain-of-thought", "bearer", "sk-secret", "deliveryid", "delivery:zzz", "deliveredartifact",
@@ -201,7 +201,7 @@ test("10/11/12/13 service parses no Garmin/FIT/TCX/CSV artifact and creates no E
   const invoke: OperatorSessionInvoker = async () => reflectionReadyEnvelope();
   const deps = freshDeps(invoke);
   // a training session carrying an opaque garmin artifact ref
-  deps.trainingSessions.save(
+  await deps.trainingSessions.save(
     trainingSessionRecord({
       id: tsid("training:1"),
       athleteRef: "athlete:1",
@@ -210,7 +210,7 @@ test("10/11/12/13 service parses no Garmin/FIT/TCX/CSV artifact and creates no E
     }),
   );
   const result = await runOperatorSession(command(), deps);
-  const json = (JSON.stringify(result) + JSON.stringify(deps.envelopes.findById(eid("envelope:1"))) + JSON.stringify(deps.runs.findById(rid("run:1")))).toLowerCase();
+  const json = (JSON.stringify(result) + JSON.stringify(await deps.envelopes.findById(eid("envelope:1"))) + JSON.stringify(await deps.runs.findById(rid("run:1")))).toLowerCase();
   for (const derived of ["evidence", "observationset", "observation", "signal", "metric", "measurement", "fit-record", "tcx", "lap", "trackpoint"]) {
     assert.equal(json.includes(derived), false, `service must derive no '${derived}' from artifacts`);
   }
@@ -222,7 +222,7 @@ test("21 service is deterministic with injected refs/timestamps/fake invocation"
   const invoke: OperatorSessionInvoker = async () => reflectionReadyEnvelope();
   const run = async () => {
     const deps = freshDeps(invoke);
-    seedTrainingSession(deps);
+    await seedTrainingSession(deps);
     return runOperatorSession(command(), deps);
   };
   const a = await run();
@@ -243,7 +243,7 @@ test("22 service fails safely when the training session is missing — nothing i
   assert.equal(result.runRef, undefined);
   assert.equal(result.envelope, undefined);
   assert.equal(calls, 0, "the seam must not be invoked when the training session is missing");
-  assert.equal(deps.runs.findById(rid("run:1")), undefined);
-  assert.deepEqual(deps.envelopes.findByRun(rid("run:1")), []);
-  assert.deepEqual(deps.decisionLinks.findByRun(rid("run:1")), []);
+  assert.equal(await deps.runs.findById(rid("run:1")), undefined);
+  assert.deepEqual(await deps.envelopes.findByRun(rid("run:1")), []);
+  assert.deepEqual(await deps.decisionLinks.findByRun(rid("run:1")), []);
 });

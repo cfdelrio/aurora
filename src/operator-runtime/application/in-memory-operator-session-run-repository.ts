@@ -12,16 +12,16 @@ import type {
 export class InMemoryOperatorSessionRunRepository implements OperatorSessionRunRepository {
   private readonly store = new Map<string, OperatorSessionRunRecord>();
 
-  save(record: OperatorSessionRunRecord): void {
+  async save(record: OperatorSessionRunRecord): Promise<void> {
     this.store.set(String(record.id), structuredClone(record));
   }
 
-  findById(id: OperatorSessionRunId): OperatorSessionRunRecord | undefined {
+  async findById(id: OperatorSessionRunId): Promise<OperatorSessionRunRecord | undefined> {
     const found = this.store.get(String(id));
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  listByAthlete(athleteRef: string): readonly OperatorSessionRunRecord[] {
+  async listByAthlete(athleteRef: string): Promise<readonly OperatorSessionRunRecord[]> {
     return Object.freeze(
       [...this.store.values()]
         .filter((r) => r.athleteRef === athleteRef)
@@ -29,7 +29,7 @@ export class InMemoryOperatorSessionRunRepository implements OperatorSessionRunR
     );
   }
 
-  listByTrainingSession(trainingSessionId: TrainingSessionId): readonly OperatorSessionRunRecord[] {
+  async listByTrainingSession(trainingSessionId: TrainingSessionId): Promise<readonly OperatorSessionRunRecord[]> {
     const target = String(trainingSessionId);
     return Object.freeze(
       [...this.store.values()]

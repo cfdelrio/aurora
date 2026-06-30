@@ -17,18 +17,18 @@ import {
 export class FakeTrainingArtifactObjectStore implements TrainingArtifactObjectStore {
   private readonly store = new Map<string, StoredTrainingArtifact>();
 
-  put(input: PutTrainingArtifactInput): StoredTrainingArtifact {
+  async put(input: PutTrainingArtifactInput): Promise<StoredTrainingArtifact> {
     const artifact = storedTrainingArtifact(input);
     this.store.set(artifact.reference, structuredClone(artifact));
     return structuredClone(artifact);
   }
 
-  get(reference: string): StoredTrainingArtifact | undefined {
+  async get(reference: string): Promise<StoredTrainingArtifact | undefined> {
     const found = this.store.get(reference);
     return found === undefined ? undefined : structuredClone(found);
   }
 
-  head(reference: string): TrainingArtifactMetadata | undefined {
+  async head(reference: string): Promise<TrainingArtifactMetadata | undefined> {
     const found = this.store.get(reference);
     if (found === undefined) return undefined;
     // metadata only — never the payload

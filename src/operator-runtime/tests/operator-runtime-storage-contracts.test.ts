@@ -73,7 +73,7 @@ function cleanEnvelope(): OperatorSessionEnvelope {
 
 // --- row contracts ---------------------------------------------------------------------------------
 
-test("1/2 row-store fake writes/reads row-shaped training session metadata; round-trip creates no Evidence/ObservationSet", () => {
+test("1/2 row-store fake writes/reads row-shaped training session metadata; round-trip creates no Evidence/ObservationSet", async () => {
   const client = new FakeRowStoreClient();
   const record = trainingSessionRecord({
     id: tsid("training:1"),
@@ -90,8 +90,8 @@ test("1/2 row-store fake writes/reads row-shaped training session metadata; roun
   for (const v of Object.values(row)) {
     assert.ok(v === null || ["string", "number", "boolean"].includes(typeof v), "rows must be flat scalars");
   }
-  client.insert(OPERATOR_RUNTIME_TABLES.trainingSession, row);
-  const back = client.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1");
+  await client.insert(OPERATOR_RUNTIME_TABLES.trainingSession, row);
+  const back = await client.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1");
   assert.ok(back);
   const restored = rowToTrainingSession(back);
   assert.deepEqual(restored, record, "training session record round-trips through the row store");
@@ -102,7 +102,7 @@ test("1/2 row-store fake writes/reads row-shaped training session metadata; roun
   }
 });
 
-test("3 row mapping round-trips OperatorSessionRunRecord without delivery or AthleteDecision", () => {
+test("3 row mapping round-trips OperatorSessionRunRecord without delivery or AthleteDecision", async () => {
   const client = new FakeRowStoreClient();
   const record = operatorSessionRunRecord({
     id: rid("run:1"),
@@ -113,8 +113,8 @@ test("3 row mapping round-trips OperatorSessionRunRecord without delivery or Ath
     completedAt: T("2026-06-30T08:01:05.000Z"),
     envelopeRecordId: eid("envelope:1"),
   });
-  client.insert(OPERATOR_RUNTIME_TABLES.operatorSessionRun, operatorSessionRunToRow(record));
-  const back = client.get(OPERATOR_RUNTIME_TABLES.operatorSessionRun, "run:1");
+  await client.insert(OPERATOR_RUNTIME_TABLES.operatorSessionRun, operatorSessionRunToRow(record));
+  const back = await client.get(OPERATOR_RUNTIME_TABLES.operatorSessionRun, "run:1");
   assert.ok(back);
   assert.deepEqual(rowToOperatorSessionRun(back), record);
 
@@ -124,7 +124,7 @@ test("3 row mapping round-trips OperatorSessionRunRecord without delivery or Ath
   }
 });
 
-test("4 row mapping round-trips OperatorSessionEnvelopeRecord with the OperatorSessionEnvelope only", () => {
+test("4 row mapping round-trips OperatorSessionEnvelopeRecord with the OperatorSessionEnvelope only", async () => {
   const client = new FakeRowStoreClient();
   const record = operatorSessionEnvelopeRecord({
     id: eid("envelope:1"),
@@ -133,8 +133,8 @@ test("4 row mapping round-trips OperatorSessionEnvelopeRecord with the OperatorS
     envelope: cleanEnvelope(),
     recordedAt: T("2026-06-30T08:01:06.000Z"),
   });
-  client.insert(OPERATOR_RUNTIME_TABLES.operatorSessionEnvelope, operatorSessionEnvelopeToRow(record));
-  const back = client.get(OPERATOR_RUNTIME_TABLES.operatorSessionEnvelope, "envelope:1");
+  await client.insert(OPERATOR_RUNTIME_TABLES.operatorSessionEnvelope, operatorSessionEnvelopeToRow(record));
+  const back = await client.get(OPERATOR_RUNTIME_TABLES.operatorSessionEnvelope, "envelope:1");
   assert.ok(back);
   const restored = rowToOperatorSessionEnvelope(back);
   assert.deepEqual(restored, record);
@@ -180,7 +180,7 @@ test("5 a polluted envelope-like input cannot smuggle unsafe fields into row sto
   }
 });
 
-test("6 DecisionCaptureLink row mapping remains invitation/link only, not an AthleteDecision", () => {
+test("6 DecisionCaptureLink row mapping remains invitation/link only, not an AthleteDecision", async () => {
   const client = new FakeRowStoreClient();
   const record = decisionCaptureLink({
     id: lid("link:1"),
@@ -191,8 +191,8 @@ test("6 DecisionCaptureLink row mapping remains invitation/link only, not an Ath
   });
   const row = decisionCaptureLinkToRow(record);
   assert.equal(row.capture_kind, "athlete-decision-invitation");
-  client.insert(OPERATOR_RUNTIME_TABLES.decisionCaptureLink, row);
-  const back = client.get(OPERATOR_RUNTIME_TABLES.decisionCaptureLink, "link:1");
+  await client.insert(OPERATOR_RUNTIME_TABLES.decisionCaptureLink, row);
+  const back = await client.get(OPERATOR_RUNTIME_TABLES.decisionCaptureLink, "link:1");
   assert.ok(back);
   assert.deepEqual(rowToDecisionCaptureLink(back), record);
 
@@ -207,7 +207,7 @@ test("6 DecisionCaptureLink row mapping remains invitation/link only, not an Ath
 
 // --- blob contracts --------------------------------------------------------------------------------
 
-test("7/8/9/10 blob-store fake writes/reads an opaque blob; payload + provenance preserved; FIT/TCX/CSV opaque", () => {
+test("7/8/9/10 blob-store fake writes/reads an opaque blob; payload + provenance preserved; FIT/TCX/CSV opaque", async () => {
   const client = new FakeBlobStoreClient();
   for (const [ref, payload, source] of [
     ["object-store://raw/fit", FIT_BLOB, "garmin"],
@@ -216,8 +216,8 @@ test("7/8/9/10 blob-store fake writes/reads an opaque blob; payload + provenance
   ] as const) {
     const artifact = storedTrainingArtifact({ reference: ref, source, payload, mediaType: "application/octet-stream", filename: "x", createdAt: T("2026-06-29T07:00:00.000Z") });
     const blob = storedArtifactToBlob(artifact);
-    client.put(blob);
-    const back = client.get(ref);
+    await client.put(blob);
+    const back = await client.get(ref);
     assert.ok(back);
     // 8. payload unchanged
     assert.equal(back.payload, payload, `payload for ${ref} must be returned unchanged`);
@@ -225,7 +225,7 @@ test("7/8/9/10 blob-store fake writes/reads an opaque blob; payload + provenance
     const restored = blobToStoredArtifact(back);
     assert.deepEqual(restored, artifact, "artifact round-trips through the blob store");
     // 10. nothing parsed — metadata carries only provenance strings
-    const meta = client.head(ref);
+    const meta = await client.head(ref);
     assert.ok(meta);
     assert.equal("payload" in meta, false, "blob metadata must not include the payload");
   }
@@ -242,30 +242,30 @@ test("11 blob mapping creates no Evidence / ObservationSet / Signal / AthleteDec
 
 // --- determinism / isolation / no external service -------------------------------------------------
 
-test("12 fake clients are deterministic and isolated per instance", () => {
+test("12 fake clients are deterministic and isolated per instance", async () => {
   const a = new FakeRowStoreClient();
   const b = new FakeRowStoreClient();
-  a.insert(OPERATOR_RUNTIME_TABLES.trainingSession, trainingSessionToRow(trainingSessionRecord({ id: tsid("training:1"), athleteRef: "athlete:1", source: "garmin", recordedAt: T("2026-06-30T08:00:00.000Z") })));
-  assert.equal(b.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1"), undefined, "row-store instances share nothing");
+  await a.insert(OPERATOR_RUNTIME_TABLES.trainingSession, trainingSessionToRow(trainingSessionRecord({ id: tsid("training:1"), athleteRef: "athlete:1", source: "garmin", recordedAt: T("2026-06-30T08:00:00.000Z") })));
+  assert.equal(await b.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1"), undefined, "row-store instances share nothing");
 
   // mutating a returned row must not affect the store
-  const got = a.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1");
+  const got = await a.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1");
   assert.ok(got);
   (got as { athlete_ref: string }).athlete_ref = "tampered";
-  assert.equal(a.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1")?.["athlete_ref"], "athlete:1");
+  assert.equal((await a.get(OPERATOR_RUNTIME_TABLES.trainingSession, "training:1"))?.["athlete_ref"], "athlete:1");
 
   const blobA = new FakeBlobStoreClient();
   const blobB = new FakeBlobStoreClient();
-  blobA.put({ key: "k", payload: "p", metadata: { reference: "k", source: "manual", created_at_iso: "2026-06-29T07:00:00.000Z" } });
-  assert.equal(blobB.get("k"), undefined, "blob-store instances share nothing");
+  await blobA.put({ key: "k", payload: "p", metadata: { reference: "k", source: "manual", created_at_iso: "2026-06-29T07:00:00.000Z" } });
+  assert.equal(await blobB.get("k"), undefined, "blob-store instances share nothing");
 });
 
-test("13/14 contracts need no real external service and no integration test (synchronous in-memory)", () => {
-  // every operation above is synchronous and in-memory — no connection, no network, no live DB/object store.
+test("13/14 contracts need no real external service and no integration test (async in-memory)", async () => {
+  // every operation above is async-but-in-memory — no connection, no network, no live DB/object store.
   const row = new FakeRowStoreClient();
-  row.insert(OPERATOR_RUNTIME_TABLES.trainingSession, trainingSessionToRow(trainingSessionRecord({ id: tsid("training:9"), athleteRef: "athlete:9", source: "manual", recordedAt: T("2026-06-30T08:00:00.000Z") })));
-  assert.deepEqual(row.findBy(OPERATOR_RUNTIME_TABLES.trainingSession, "athlete_ref", "athlete:9").map((r) => r["id"]), ["training:9"]);
+  await row.insert(OPERATOR_RUNTIME_TABLES.trainingSession, trainingSessionToRow(trainingSessionRecord({ id: tsid("training:9"), athleteRef: "athlete:9", source: "manual", recordedAt: T("2026-06-30T08:00:00.000Z") })));
+  assert.deepEqual((await row.findBy(OPERATOR_RUNTIME_TABLES.trainingSession, "athlete_ref", "athlete:9")).map((r) => r["id"]), ["training:9"]);
   const blob = new FakeBlobStoreClient();
-  blob.put({ key: "k2", payload: "opaque", metadata: { reference: "k2", source: "manual", created_at_iso: "2026-06-29T07:00:00.000Z" } });
-  assert.equal(blob.get("k2")?.payload, "opaque");
+  await blob.put({ key: "k2", payload: "opaque", metadata: { reference: "k2", source: "manual", created_at_iso: "2026-06-29T07:00:00.000Z" } });
+  assert.equal((await blob.get("k2"))?.payload, "opaque");
 });
