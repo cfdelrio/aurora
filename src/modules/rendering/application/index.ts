@@ -106,3 +106,31 @@ export {
   OPERATOR_SMOKE_ENDPOINT_KEY,
 } from "./operator-live-smoke-entrypoint.ts";
 export type { OperatorSmokeIndicators, OperatorSmokeOutput } from "./operator-live-smoke-entrypoint.ts";
+
+// Managed secret credential source (Impl 028) — provider-neutral async managed-secret credential-source
+// boundary behind the existing EnvironmentProviderCredentialResolver / ProviderCredentialResolver seam.
+// Pre-fetch pattern: await toEnvironmentCredentialSource() before constructing the synchronous resolver.
+// No cloud SDK, no process environment read, no dependency change.
+// secret manager = credential source; secret manager ≠ live-call enablement.
+export { ManagedSecretCredentialSource, FakeManagedSecretStoreClient } from "./managed-secret-credential-source.ts";
+export type {
+  ManagedSecretResolution,
+  ManagedSecretStoreClient,
+  ManagedSecretSourceConfig,
+  ManagedSecretClientScenario,
+} from "./managed-secret-credential-source.ts";
+
+// Cloud-secret adapter contract (Impl 029) — a provider-neutral cloud-secret adapter BEHIND the Impl 028
+// managed-secret seam. CloudSecretStoreAdapter implements ManagedSecretStoreClient by mapping a richer,
+// injected CloudSecretValueClient outcome (and any thrown exception) into the existing 4-state
+// ManagedSecretResolution, fail-closed and redacted. No cloud provider selected, no cloud SDK, no
+// dependency, no process-env read, no network, no live-call enablement. cloud adapter ≠ provider trust.
+export { CloudSecretStoreAdapter, FakeCloudSecretValueClient } from "./cloud-secret-store-adapter.ts";
+export type {
+  CloudSecretRef,
+  CloudSecretLookupResult,
+  CloudSecretValueClient,
+  CloudSecretAdapterFailureCode,
+  CloudSecretStoreAdapterConfig,
+  CloudSecretClientScenario,
+} from "./cloud-secret-store-adapter.ts";

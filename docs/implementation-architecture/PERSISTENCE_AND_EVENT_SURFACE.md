@@ -16,7 +16,7 @@
 
 [FACT] The risk has shifted. Through Implementation 009 the danger was *how Aurora reasons*; the boundaries that keep reasoning honest are now in code. From here the danger is **how Aurora stores the reasoning without corrupting it** — the moment a projection, snapshot, or event is persisted as if it were a fact, every guarantee the core earned can quietly leak away through the storage layer.
 
-> **Implementation status (post Impl 026).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
+> **Implementation status (post Impl 036-A).** **Eight parts of this paper are now realized** (Impl 020–023 add no persistence; **Impl 024 additively extends the realized event surface — §1.5/§4 — and adds no persistence**: the event factories *return* records and persist nothing; **Impl 025 adds no persistence infrastructure either** — the new `application-orchestration` module owns **no repository** and **composes the existing persistence steps explicitly** where selected; **Impl 026 adds no persistence either** — the new `rendering/application` `liveProviderSmoke` helper owns **no repository**, calls **no** rendered-message-record / review / display / delivery / event repository, and **returns a redacted result only**).
 > **(1) Impl 010** realized §1.1/§1.7 — aggregate persistence via module-owned **repository ports +
 > in-memory adapters** + validated `toState()`/`reconstitute()` for the six persisted boundaries
 > (round-trip / mutation-isolation / invalid-state-rejection tests; **no technology chosen**).
@@ -226,12 +226,281 @@
 > failure.** The slice was **additive** (the only existing-file change is the `rendering/application/index.ts` exports)
 > and **adds no dependency** (`package.json`/lockfile unchanged); the default suite + CI make **no live call** and need
 > **no credential**.
-> **Still future work:** **a production secret manager (with rotation) behind the injected-source seam**; **a production live-call rollout (real endpoint + deliberate opt-in)**; an **operator live-smoke *entrypoint*** (a deliberate runbook *outside* `src/` that reads the real opt-in/CI flags and wires the real transport/credential adapter into the now-built `liveProviderSmoke` — Impl 026 — never in the default suite/CI); a **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus, and event persistence do not); a **real provider/channel
-> adapter** (email/SMS/push/WhatsApp/web) behind the `DeliverySink` interface; **UI / API / a real LLM
-> provider / prompt templates**; a **production scheduler / retry layer**, **event bus**, **event sourcing**,
-> a **projection repository** (§6), **external (FIT/wearable)
-> ingestion**, and any **production event store / serialization format / DB / ORM / cache / persistence
-> backend**. This paper is otherwise unchanged.
+> **(Impl 027 — manual operator live-smoke entrypoint; no persistence infrastructure added, returns a redacted
+> result only.)** Impl 027 added a **manual, executable operator live-smoke entrypoint** —
+> `scripts/operator-live-smoke.mjs` (plain ESM, **outside `src`/`tsconfig.include`/the default test glob/both guard
+> scan roots**; verified runnable via Node 22 native type-stripping with no build and no dependency) and a **pure, env-free
+> `src` support helper** (`rendering/application/operator-live-smoke-entrypoint.ts`) — without adding any module,
+> repository, package dependency, npm script, or production DB. The script **adds no persistence infrastructure**: it
+> **calls no rendered-message-record / review / display-eligibility / delivery / event repository** and **owns no
+> repository**; it calls `liveProviderSmoke` exactly once, which itself persists nothing. It reads narrowly-scoped
+> operator flags outside `src/` (so no new in-`src` `process.env` token site), resolves the credential through the
+> approved adapter chain (`ProcessEnvironmentCredentialSourceAdapter → EnvironmentProviderCredentialResolver`), and
+> prints **one redacted `OperatorSmokeOutput` JSON** (`rawRetained: false`, `wiringOnly`, `sideEffects: "none"`) before
+> exiting. **No raw credential / draft / prompt / payload / provider-response / secret / env value is persisted or
+> surfaced** through the operator output. **No event is recorded**, **no domain aggregate is mutated**, and **no delivery
+> path is triggered**. The production `process.env` seal (exactly one approved in-`src` file) is **untouched** — the
+> script's env reads live outside `src/` by design. Validation: **633/633 tests pass** · `tsc --noEmit` clean. *Smoke
+> proves wiring, not wisdom; operator success is not evidence; a redacted exit code is not domain truth.*
+> **(Impl 028 — provider-neutral managed-secret credential-source boundary; no persistence infrastructure added,
+> returns a pre-fetched EnvironmentCredentialSource map only.)** Impl 028 added a **pure TypeScript async
+> managed-secret seam** inside `rendering/application` — **`ManagedSecretStoreClient`** (interface; `retrieve(secretName):
+> Promise<ManagedSecretResolution>`; always resolves; implementations catch all exceptions; injected in all usage),
+> **`ManagedSecretResolution`** (4-state: `available`/`missing`/`invalid`/`unavailable`),
+> **`ManagedSecretCredentialSource`** (`async toEnvironmentCredentialSource(): Promise<EnvironmentCredentialSource>`;
+> pre-fetch pattern: `available` → `{ [secretName]: value }`; non-`available` → `{}` → resolver classifies as
+> `missing` → no provider call), and **`FakeManagedSecretStoreClient`** (4 deterministic scenarios; sentinel
+> `"opaque:test-managed-secret"`; no real secret, no network, no SDK). This slice **adds no persistence
+> infrastructure**: **no raw secret is persisted** (the `available` value is placed in the `EnvironmentCredentialSource`
+> map transiently; it never enters a failure, outcome, audit record, domain state, or test assertion); **no credential
+> is logged or traced**; **no event is recorded** and **no domain aggregate is mutated**; the managed-secret seam
+> **triggers no review / display-eligibility / delivery / event / retry / reprojection / reasoning / provider call /
+> domain mutation** (non-`available` → empty source → resolver's `missing` path → the existing gate blocks the
+> transport). The downstream **synchronous `EnvironmentProviderCredentialResolver` is entirely unchanged** (pre-fetch
+> pattern: caller `await`s `toEnvironmentCredentialSource()` before constructing the synchronous resolver). No cloud
+> SDK, no `process.env` read, no dependency change, no new module, no live-call enablement — **additive only**
+> (only `rendering/application/index.ts` exports were changed). The process-env one-file seal remains intact; operator
+> script unchanged; package.json/lockfile unchanged; AC20 untouched. +39 tests. Validation: **672/672 tests pass** ·
+> `tsc --noEmit` clean. `secret manager = credential source; managed-secret seam ≠ live-call enablement ≠ cloud
+> adapter ≠ production rollout ≠ raw secret persisted.`
+> **(Impl 029 — cloud-secret adapter contract with injected fake cloud client; no persistence infrastructure added,
+> returns a `ManagedSecretResolution` only.)** Impl 029 added a **provider-neutral cloud-secret adapter contract**
+> inside `rendering/application` — a **`CloudSecretValueClient`** (interface; an injected, cloud-*like* fetch boundary
+> that always resolves and whose implementations catch all exceptions) consumed by a **cloud-backed
+> `ManagedSecretStoreClient`** that maps a cloud-like fetch into the **unchanged** Impl 028 4-state
+> `ManagedSecretResolution` (`available`/`missing`/`invalid`/`unavailable`), plus a deterministic
+> **`FakeCloudSecretValueClient`** (deterministic scenarios; sentinel-only; **no real secret, no real cloud, no
+> network, no SDK**). This slice **adds no persistence**: it **adds no repository**, **adds no DB/schema**, **adds no
+> migration**, **records no events** (no event recording), makes **no provider-attempt audit persistence change**, makes
+> **no orchestration trace change**, makes **no delivery request/outcome change**, makes **no rendered-message record
+> change**, **creates no athlete decision**, **creates no evidence**, and **performs no domain mutation**. **No raw
+> secret is persisted** and **no raw cloud response is persisted**: the fetched value is mapped transiently into the
+> existing `ManagedSecretResolution`/pre-fetched `EnvironmentCredentialSource` path and never enters a failure, outcome,
+> audit record, domain state, trace, or test assertion. The conceptual distinctions the contract must keep legible: a
+> **safe failure code is not a raw cloud response**; **secret availability is not a domain fact**; a **cloud-like
+> adapter failure is not an athlete failure**; **redaction is proven by negative tests** (markers
+> `sk-test-cloud-secret-do-not-leak`, `raw-cloud-response-do-not-leak`, `cloud-access-token-do-not-leak` never surface
+> in any code/error/trace/result). And the non-identities: **`CloudSecretValueClient` ≠ `ManagedSecretStoreClient`**;
+> **cloud-like adapter contract ≠ selected provider ≠ SDK ≠ production rollout**; **credential available ≠ live-call
+> enabled**; **secret ref ≠ secret value**; **redacted output ≠ secret payload**. The cloud-backed
+> `ManagedSecretStoreClient` feeds the **unchanged** Impl 028 pre-fetch path (non-`available` → empty source →
+> resolver's `missing` path → the existing gate blocks the transport), so the contract **triggers no review /
+> display-eligibility / delivery / event / retry / reprojection / reasoning / provider call / domain mutation**. No real
+> cloud SDK, no `process.env` read, no dependency change, no new module — **additive only** (only
+> `rendering/application/index.ts` exports were changed). The process-env one-file seal remains intact; operator script
+> unchanged; package.json/lockfile unchanged; AC20 untouched. Validation: **710/710 tests pass** · `tsc --noEmit`
+> clean. `cloud-like adapter contract = injected fake cloud client; CloudSecretValueClient ≠ ManagedSecretStoreClient;
+> cloud adapter contract ≠ selected provider ≠ SDK ≠ production rollout ≠ raw secret persisted ≠ raw cloud response
+> persisted.`
+> **(Impl 032R-A — pure offline-reflection runtime composition; no persistence infrastructure added, no event
+> surface added.)** Impl 032R-A added a **pure application-level function** `offlineReflectionRuntime(command, deps)`
+> in `application-orchestration/application/` that composes existing reflection steps over **injected** collaborators.
+> This slice **adds no persistence**: it **adds no repository**, **adds no DB/schema**, **adds no migration**,
+> **records no events** (no event recording — no implicit event emission), makes **no provider-attempt audit
+> persistence change**, makes **no orchestration-trace persistence change**, makes **no delivery request/outcome
+> persistence change**, and makes **no rendered-message persistence change beyond the existing render-only
+> orchestration behavior** (the rendered-message-record save is the **existing Impl 015/025 boundary**; in-memory
+> only). It **creates no athlete decision**, **creates no evidence**, and **performs no domain mutation outside
+> existing boundaries**; it **persists no raw provider output** and **persists no hidden reasoning**. The conceptual
+> distinctions the runtime must keep legible: **delivery is withheld** — and **delivery withheld is not delivery
+> failure**; **reflection-ready is not an athlete decision**; a **decision-capture prompt/ref is not an
+> `AthleteDecision`**; **operator mediation is not an athlete decision**; **manual input is not automatic evidence**
+> unless an existing boundary explicitly creates it; **provider output ≠ truth**, **a validated draft ≠ recommendation
+> quality**, and **reflection ≠ prescription**; an **`AthleteDecision` must be athlete-declared or athlete-reported**.
+> Note: the **manual-intake step is injected** (the production `application-orchestration` file imports no observation
+> module); the **only persistence effects are the existing in-memory observation-set save** (via the injected intake,
+> wired in tests) **and the existing in-memory rendered-message-record save** — **no new persistence surface**. No new
+> module, no dependency change, no `process.env` read — **additive only**. Validation: **737/737 tests pass** ·
+> `tsc --noEmit` clean. `offline-reflection runtime = pure composition over injected collaborators; delivery withheld ≠
+> delivery failure; reflection-ready ≠ athlete decision; provider output ≠ truth; reflection ≠ prescription.`
+> **(Impl 035-A/035-B — Tier 2 external-renderable admission check wired into the offline-reflection runtime; no
+> persistence added, no event surface added.)** Impl 035-A added a **Tier 2 external-renderable admission check**
+> and Impl 035-B **wired it into `offlineReflectionRuntime`** so an externally supplied renderable is admitted
+> (or rejected) **before** it can reach provider rendering. This slice **adds no persistence**: it **adds no
+> repository**, **adds no DB/schema**, **adds no migration**, **records no events** (no event recording — no
+> implicit event emission), makes **no provider-attempt audit persistence change**, makes **no orchestration-trace
+> persistence change**, makes **no delivery request/outcome persistence change**, and makes **no rendered-message
+> persistence change on rejected renderables** (a rejected renderable never reaches orchestration, so **no record is
+> written**). It **creates no athlete decision**, **creates no evidence**, and **performs no domain mutation outside
+> existing boundaries**; it **persists no raw provider output** and **persists no hidden reasoning**. The conceptual
+> distinctions / fail-closed facts the admission check must keep legible: a **rejected renderable STOPS before
+> provider rendering, before `validateDraft`, and before delivery**; **renderable-inadmissible is not a delivery
+> failure**; the **`admissionReason` is a safe closed reason code** (never raw content / hidden reasoning); an
+> **admitted renderable is not truth, not evidence-backed fact, and not recommendation quality**; **delivery
+> withheld remains delivery withheld, not delivery failure**; a **decision-capture prompt/ref remains not an
+> `AthleteDecision`**; and the non-identities: **operator mediation ≠ athlete decision**; **provider output ≠
+> truth**; **reflection ≠ prescription**. No new module, no dependency change, no `process.env` read — **additive
+> only**. Validation: **779/779 tests pass** · `tsc --noEmit` clean. `Tier 2 external-renderable admission =
+> fail-closed pre-render gate; rejected renderable stops before rendering/validateDraft/delivery; renderable-
+> inadmissible ≠ delivery failure; admissionReason = safe closed code ≠ raw content / hidden reasoning; admitted
+> renderable ≠ truth ≠ evidence ≠ recommendation quality; operator mediation ≠ athlete decision; provider output ≠
+> truth; reflection ≠ prescription.`
+> **(Impl 036-A — first operator-mediated reflection-session harness; TEST-ONLY; no persistence added, no event
+> surface added.)** Impl 036-A added the **first operator-mediated reflection-session harness** — a **TEST-ONLY**
+> proof that composes the existing offline-reflection runtime into a single operator-mediated session at the test
+> level. This slice **adds no persistence**: it **adds no repository**, **adds no DB/schema**, **adds no migration**,
+> **records no events** (no event recording — no implicit event emission), makes **no provider-attempt audit
+> persistence change**, makes **no orchestration-trace persistence change**, makes **no delivery request/outcome
+> persistence change**, and makes **no rendered-message persistence change beyond the existing runtime/orchestration
+> behavior**. It **creates no athlete decision**, **creates no evidence outside existing boundaries**, and **performs
+> no domain mutation outside existing boundaries**; it **persists no raw provider output** and **persists no hidden
+> reasoning**. The conceptual distinctions / fail-closed facts the harness must keep legible: **delivery is withheld
+> on every path** — and **reflection-ready is NOT delivery**; **renderable-inadmissible is NOT a delivery failure**;
+> **not-rendered is fail-closed rendering/validation behavior** (a draft that fails `validateDraft` is not rendered);
+> **input-rejected stops before rendering**; a **decision-capture prompt/ref is NOT an `AthleteDecision`**; a
+> **validated reflection is NOT an `AthleteDecision`**; **operator mediation ≠ athlete decision**; **provider output ≠
+> truth**; **reflection ≠ prescription**; **Aurora advises, the athlete decides**. No new module, no dependency change,
+> no `process.env` read — **additive only** (test-only). The **whole-core composition remains a test harness** (AC20
+> intact). Validation: **784/784 tests pass** · `tsc --noEmit` clean. `operator-mediated reflection-session harness =
+> test-only proof; delivery withheld on every path; reflection-ready ≠ delivery; renderable-inadmissible ≠ delivery
+> failure; not-rendered = fail-closed rendering/validation; input-rejected stops before rendering; decision-capture
+> prompt/ref ≠ AthleteDecision; validated reflection ≠ AthleteDecision; operator mediation ≠ athlete decision;
+> provider output ≠ truth; reflection ≠ prescription; Aurora advises, the athlete decides.`
+> **(Impl 037-A — post-reflection athlete decision capture harness; TEST-ONLY; no persistence/event surface added.)**
+> Impl 037-A added the **post-reflection athlete decision capture** proof as a **TEST-ONLY documented-usage harness**,
+> exercising the existing decision machinery (`athleteDecision(...)` → `decisionContext({ decisionSupportCaseRef })` →
+> `recordAthleteDecision(...)`). It adds **no new persistence/event surface beyond existing test usage**: **no
+> production repository added**, **no DB/schema**, **no migration**, **no auth/session/user system**, **no event
+> recording integration added**, **no provider-attempt audit persistence change**, **no orchestration-trace
+> persistence change**, **no delivery request/outcome persistence change**, and **no rendered-message persistence
+> change**. There is **no automatic athlete-decision persistence from reflection**, **none from delivery**, and
+> **none from silence or inferred behavior** — the test harness may use the **existing in-memory decision recording
+> only** (`InMemoryAthleteDecisionRecordRepository`). **Decision capture remains explicit `athlete-declared`/
+> `athlete-reported` input**; the **linked context uses the existing `decisionContext({ decisionSupportCaseRef })`**
+> (the reflection's `sourceCaseRef`); **feedback re-entry is `SubjectiveObservation` only**; **no `Signal`/`Evidence`
+> is created directly** and **no reasoning/understanding update is triggered directly**. **Following Aurora is not
+> persisted as obedience-success**; **delivery withheld remains delivery withheld, not delivery failure**; the
+> **`AthleteDecision` remains athlete-owned**. `offlineReflectionRuntime` unchanged; no new module; no dependency
+> change; no `process.env` read — **additive only** (test-only). **AC20 intact.** Validation: **795/795 tests pass** ·
+> `tsc --noEmit` clean. `reflection-ready ≠ AthleteDecision; validated reflection ≠ AthleteDecision; delivery success
+> ≠ AthleteDecision; delivery withheld ≠ delivery failure; admission success ≠ AthleteDecision; validateDraft success
+> ≠ AthleteDecision; operator mediation ≠ AthleteDecision; operator scribe ≠ decision source; athlete-reported ≠
+> system-inferred; observed behavior ≠ decision; silence ≠ decision; following Aurora ≠ obedience-success;
+> AthleteDecision re-entry as SubjectiveObservation ≠ Signal/Evidence; decision capture ≠ runtime rendering ≠ delivery
+> ≠ recommendation-quality proof; Aurora advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 038-A — operator session runbook proof + checklist; TEST-ONLY/docs-only; no persistence/event surface added.)**
+> Impl 038-A added the **operator session runbook** as a **TEST-ONLY proof**
+> (`src/modules/__tests__/operator-session-runbook.test.ts`) plus a **docs-only checklist**
+> (`docs/runbooks/operator-session-runbook.md`). It adds **no new persistence/event surface**: **no repository
+> added**, **no DB/schema**, **no migration**, **no auth/session/user system**, **no event recording integration
+> added**, **no provider-attempt audit persistence change**, **no orchestration-trace persistence change**, **no
+> delivery request/outcome persistence change**, and **no rendered-message persistence change**. There is **no
+> automatic athlete-decision persistence from the runtime** — the test harness may use the **existing in-memory
+> decision recording only** (`InMemoryAthleteDecisionRecordRepository`); the **runbook checklist is docs-only**.
+> **Delivery remains withheld** (`reflection-ready is not delivery`; `delivery withheld is not delivery failure`).
+> The **runbook outcome statuses are operational dispositions, not persistence events**: `renderable-inadmissible`
+> is not a delivery failure; `not-rendered` is fail-closed rendering/validation behavior; `input-rejected` stops
+> before rendering; **silence/no-response creates no `AthleteDecision`**. **Decision-feedback re-entry is a
+> `SubjectiveObservation` only**; **no `Signal`/`Evidence` is created directly** and **no reasoning/understanding
+> update is triggered directly**. **Following Aurora is not persisted as obedience-success.** `offlineReflectionRuntime`
+> unchanged; no new module; no dependency change; no `process.env` read — **additive only** (test-only + docs-only).
+> **AC20 intact.** Validation: **803/803 tests pass** · `tsc --noEmit` clean. `runbook ≠ CLI ≠ runtime shell ≠
+> deployment; caller assembly ≠ proof of truth; admission success ≠ evidence-backed fact; validateDraft success ≠
+> recommendation quality; reflection-ready ≠ delivered ≠ AthleteDecision; delivery withheld ≠ delivery failure;
+> operator mediation ≠ athlete decision; operator scribe ≠ decision source; silence ≠ decision; decision feedback ≠
+> Signal/Evidence; Aurora advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 039-A — thin operator invocation surface proof; TEST-ONLY; no persistence/event surface added.)**
+> Impl 039-A added the **thin operator invocation surface** seam as a **TEST-ONLY proof**
+> (`src/modules/__tests__/thin-operator-invocation-surface.test.ts`), with a **local** helper
+> (`invokeThinOperatorSurface`) and a **local** reference-only envelope (`OperatorInvocationResult`). It adds **no
+> new persistence/event surface**: **no repository added**, **no DB/schema**, **no migration**, **no
+> auth/session/user system**, **no event recording integration added**, **no provider-attempt audit persistence
+> change**, **no orchestration-trace persistence change**, **no delivery request/outcome persistence change**, **no
+> rendered-message persistence change**, **no automatic athlete-decision persistence**, **no session persistence**,
+> and **no invocation persistence**. The **local envelope is test-only** and is **not a persisted record**; the
+> **runtime dispositions are operational outcomes, not persistence events**: `reflection-ready` is not delivery;
+> `deliveryWithheld` is not delivery failure; `renderable-inadmissible` is not delivery failure; `not-rendered` is
+> fail-closed rendering/validation behavior; `input-rejected` stops before rendering. The **decision-capture
+> invitation/ref is not an `AthleteDecision`**; **no `Signal`/`Evidence` is created directly** and **no
+> reasoning/understanding update is triggered directly**. `offlineReflectionRuntime` invoked **unchanged**; no new
+> module; no dependency change; no `process.env` read; deterministic fakes only (no live provider / real secret /
+> delivery sink) — **additive only** (test-only). **AC20 intact.** Validation: **810/810 tests pass** · `tsc
+> --noEmit` clean. `invocation surface ≠ CLI ≠ script ≠ package command ≠ deployment ≠ API/UI ≠ live-provider
+> enablement ≠ delivery mechanism ≠ whole-core composer ≠ AthleteDecision creator; safe envelope ≠ raw runtime
+> dump; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; admission success ≠
+> truth; validateDraft success ≠ recommendation quality; decision-capture invitation ≠ AthleteDecision; Aurora
+> advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 040-A — session envelope mapper + type; PRODUCTION pure projection; no persistence/event surface added.)**
+> Impl 040-A realized the session envelope / redaction contract in **production code** as a pure, synchronous
+> whitelist mapper (`toOperatorSessionEnvelope`) + type (`OperatorSessionEnvelope`) in
+> `application-orchestration/application/`. It adds **no persistence/event surface**: **no repository added**, **no
+> DB/schema**, **no migration**, **no auth/session/user system**, **no event recording integration added**, **no
+> provider-attempt audit persistence change**, **no orchestration-trace persistence change**, **no delivery
+> request/outcome persistence change**, **no rendered-message persistence change**, **no automatic athlete-decision
+> persistence**, **no session persistence**, and **no invocation persistence**. `OperatorSessionEnvelope` is **not
+> a persisted record**; `toOperatorSessionEnvelope(...)` **records nothing**, **emits no events**, **calls no event
+> recorder**, and exposes **no `eventRecordIds`**, **no delivery ids**, and **no delivery artifact**. The **runtime
+> dispositions are operational outcomes, not persistence events**: `reflection-ready` is not delivery;
+> `deliveryWithheld` is not delivery failure; `renderable-inadmissible` is not delivery failure; `not-rendered` is
+> fail-closed rendering/validation behavior; `input-rejected` stops before rendering; `recording-failed` is
+> represented safely but the mapper persists/retries nothing; `unexpected-failure` is represented safely without a
+> raw stack/secrets. The **decision-capture invitation/ref is not an `AthleteDecision`**; **no `Signal`/`Evidence`
+> is created directly** and **no reasoning/understanding update is triggered directly**. `offlineReflectionRuntime`
+> unchanged; no new module; no dependency change; no `process.env` read; imports only **types** from the runtime —
+> **additive only** (production pure projection). **AC20 intact.** Validation: **832/832 tests pass** · `tsc
+> --noEmit` clean. `safe envelope ≠ raw runtime dump; envelope mapper ≠ invocation helper ≠ CLI ≠ deployment ≠
+> delivery mechanism ≠ whole-core composer; reflectionRef ≠ reflection text; decisionCapture invitation/ref ≠
+> AthleteDecision; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; Aurora
+> advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 041-A — production operator invocation helper; no persistence/event surface added.)** Impl 041-A added
+> `invokeOperatorSession(command, deps): Promise<OperatorSessionEnvelope>` in
+> `application-orchestration/application/` — a thin helper that calls `offlineReflectionRuntime` once and returns
+> only the safe envelope. It adds **no persistence/event surface**: **no repository added**, **no DB/schema**, **no
+> migration**, **no auth/session/user system**, **no event recording integration added**, **no provider-attempt
+> audit persistence change**, **no orchestration-trace persistence change**, **no delivery request/outcome
+> persistence change**, **no rendered-message persistence change**, **no automatic athlete-decision persistence**,
+> **no session persistence**, and **no invocation persistence**. `invokeOperatorSession(...)` **persists nothing**,
+> **emits no events**, **calls no event recorder**, and exposes **no `eventRecordIds`**, **no delivery ids**, and
+> **no delivery artifact**; it returns **only** `OperatorSessionEnvelope`, which is **not a persisted record**. The
+> **runtime dispositions are operational outcomes, not persistence events**: `reflection-ready` is not delivery;
+> `deliveryWithheld` is not delivery failure; `renderable-inadmissible` is not delivery failure; `not-rendered` is
+> fail-closed rendering/validation behavior; `input-rejected` stops before rendering; `recording-failed` is
+> represented safely but the helper persists/retries nothing; `unexpected-failure` is represented safely without a
+> raw stack/secrets. The **decisionCapture invitation/ref is not an `AthleteDecision`**; **no `Signal`/`Evidence`
+> is created directly** and **no reasoning/understanding update is triggered directly**. `offlineReflectionRuntime`
+> + the mapper unchanged; no new module; no dependency change; no `process.env` read; imports only the runtime +
+> mapper (+ types — no upstream core) — **additive only**. **AC20 intact.** Validation: **852/852 tests pass** ·
+> `tsc --noEmit` clean. `invocation helper ≠ CLI ≠ deployment ≠ delivery mechanism ≠ persistence/session record ≠
+> whole-core composer ≠ AthleteDecision creator; OperatorSessionEnvelope ≠ raw runtime outcome; reflection-ready ≠
+> delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; decisionCapture invitation/ref ≠ AthleteDecision;
+> Aurora advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Spec 042 — real caller / operator use protocol; docs-only governance gate; no persistence/event surface added.)**
+> Spec 042 defines the explicit per-lane evidence gate for any future caller surface; it adds **no
+> persistence/event surface**: **no repository added**, **no DB/schema**, **no migration**, **no auth/session/user
+> system**, **no event recording integration added**, **no provider-attempt audit persistence change**, **no
+> orchestration-trace persistence change**, **no delivery request/outcome persistence change**, **no
+> rendered-message persistence change**, **no automatic athlete-decision persistence**, **no session persistence**,
+> **no invocation persistence**, and **no envelope persistence**. It only **defines when persistence/event work
+> could be considered**: the **persistence/event lane requires retention / audit / multi-session / handoff
+> evidence** the existing in-memory + test harnesses cannot satisfy, and **the envelope existing is insufficient**.
+> Operator use remains manual/offline; `invokeOperatorSession(...)` **persists nothing**; `OperatorSessionEnvelope`
+> is **not a persisted record**; the **decisionCapture invitation/ref is not an `AthleteDecision`**; **no
+> `Signal`/`Evidence` is created directly** and **no reasoning/understanding update is triggered directly**. No code
+> change; no dependency change; no `process.env` read — **additive only** (docs-only governance). **AC20 intact.**
+> Validation remains **852/852** · `tsc --noEmit` clean. `operator use protocol ≠ persistence/session record;
+> OperatorSessionEnvelope ≠ raw runtime outcome; caller evidence for one lane ≠ evidence for another lane; Aurora
+> advises, the athlete decides; Aurora never presents inference as fact.`
+> **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
+> injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
+> SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
+> precedence**, **rotation / cache / TTL**, and any **CI-live lane** all remain future (**recommended next: Spec 030 —
+> Secret Provider Selection Boundary**); **a production secret manager (with
+> rotation)** wired via that cloud adapter; **a production live-call rollout (real endpoint + deliberate opt-in)**; a
+> **production orchestration *entrypoint*** (a UI/API use-case surface, or a scheduler/event-driven trigger, that
+> *invokes* the now-built explicit composition — Impl 025 — `orchestrateRenderDeliver`, which already records
+> occurrences explicitly via the Impl 024 factories), **plus an eventual event-bus / event persistence / runtime
+> delivery** (the explicit composition and the ref-only occurrence *surface* now exist; auto-emission, an event bus,
+> and event persistence do not); a **real provider/channel adapter** (email/SMS/push/WhatsApp/web) behind the
+> `DeliverySink` interface; **UI / API / a real LLM provider / prompt templates**; a **production scheduler / retry
+> layer**, **event bus**, **event sourcing**, a **projection repository** (§6), **external (FIT/wearable) ingestion**,
+> and any **production event store / serialization format / DB / ORM / cache / persistence backend**. The
+> **offline-reflection runtime composition now exists** (Impl 032R-A, pure, fully injected; **no persistence / no
+> event surface**), and the **external renderable contract is now enforced** (Impl 035-A/035-B, a Tier 2 admission
+> check wired into the offline-reflection runtime as a fail-closed pre-render gate; **no persistence / no event
+> surface**), and the **first operator-mediated reflection session is now a test-level proof** (Impl 036-A, a
+> TEST-ONLY harness; **no persistence / no event surface**), but the **whole-core composition remains a test harness**
+> (AC20 intact) and the **missing observation→renderable reasoning composition remains future** (**recommended next:
+> Spec 034 — Observation-to-Renderable Reasoning Composition Boundary**). This paper is otherwise unchanged.
 
 ---
 
