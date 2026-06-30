@@ -442,6 +442,28 @@
 > delivery mechanism ≠ whole-core composer; reflectionRef ≠ reflection text; decisionCapture invitation/ref ≠
 > AthleteDecision; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; Aurora
 > advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Impl 041-A — production operator invocation helper; no persistence/event surface added.)** Impl 041-A added
+> `invokeOperatorSession(command, deps): Promise<OperatorSessionEnvelope>` in
+> `application-orchestration/application/` — a thin helper that calls `offlineReflectionRuntime` once and returns
+> only the safe envelope. It adds **no persistence/event surface**: **no repository added**, **no DB/schema**, **no
+> migration**, **no auth/session/user system**, **no event recording integration added**, **no provider-attempt
+> audit persistence change**, **no orchestration-trace persistence change**, **no delivery request/outcome
+> persistence change**, **no rendered-message persistence change**, **no automatic athlete-decision persistence**,
+> **no session persistence**, and **no invocation persistence**. `invokeOperatorSession(...)` **persists nothing**,
+> **emits no events**, **calls no event recorder**, and exposes **no `eventRecordIds`**, **no delivery ids**, and
+> **no delivery artifact**; it returns **only** `OperatorSessionEnvelope`, which is **not a persisted record**. The
+> **runtime dispositions are operational outcomes, not persistence events**: `reflection-ready` is not delivery;
+> `deliveryWithheld` is not delivery failure; `renderable-inadmissible` is not delivery failure; `not-rendered` is
+> fail-closed rendering/validation behavior; `input-rejected` stops before rendering; `recording-failed` is
+> represented safely but the helper persists/retries nothing; `unexpected-failure` is represented safely without a
+> raw stack/secrets. The **decisionCapture invitation/ref is not an `AthleteDecision`**; **no `Signal`/`Evidence`
+> is created directly** and **no reasoning/understanding update is triggered directly**. `offlineReflectionRuntime`
+> + the mapper unchanged; no new module; no dependency change; no `process.env` read; imports only the runtime +
+> mapper (+ types — no upstream core) — **additive only**. **AC20 intact.** Validation: **852/852 tests pass** ·
+> `tsc --noEmit` clean. `invocation helper ≠ CLI ≠ deployment ≠ delivery mechanism ≠ persistence/session record ≠
+> whole-core composer ≠ AthleteDecision creator; OperatorSessionEnvelope ≠ raw runtime outcome; reflection-ready ≠
+> delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; decisionCapture invitation/ref ≠ AthleteDecision;
+> Aurora advises, the athlete decides; Aurora never presents inference as fact.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source

@@ -4,7 +4,33 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
-> **Implementation status (post Impl 040-A — latest).** Impl 040-A (commit `0fd644b`) added the **first
+> **Implementation status (post Impl 041-A — latest).** Impl 041-A (commit `5dea083`) added the **production
+> operator invocation helper** — `src/modules/application-orchestration/application/operator-session-invocation.ts`
+> (+ additive `application/index.ts` export) — with `operator-session-invocation.test.ts` (**+7**) and
+> `operator-session-invocation-negative-capability.test.ts` (**+13**). It is **production code**: a **thin
+> application-level helper** exporting `invokeOperatorSession<TSubmission>(command:
+> OfflineReflectionRuntimeCommand<TSubmission>, deps: OfflineReflectionRuntimeDependencies<TSubmission>):
+> Promise<OperatorSessionEnvelope>`. It belongs in **application-orchestration** because it **invokes the
+> application runtime and maps to the application envelope** (it does **not** belong in `rendering`, and it does
+> **not** create `src/modules/session`). It calls `offlineReflectionRuntime` and `toOperatorSessionEnvelope`
+> **only**, returns **only** `OperatorSessionEnvelope`, and **exposes no raw runtime outcome** (never the raw
+> outcome / tuple / `reflection.text` / raw provider output / hidden reasoning / secrets / delivery ids /
+> `eventRecordIds` / `AthleteDecision`). It **does not** modify `offlineReflectionRuntime` or
+> `toOperatorSessionEnvelope`, **does not** add a CLI/script/package command, an API/UI/operator tool,
+> deployment/CI/SDK, or DB/auth/session. It **imports no upstream whole-core surfaces**, **reads no** process
+> environment, **calls no** provider/live transport or delivery implementation directly, **imports no** secret
+> resolver/cloud adapter, **creates no** `AthleteDecision`, **records no** events, and **persists nothing**. Its
+> tests cover `reflection-ready` / `renderable-inadmissible` / `not-rendered` / `input-rejected` **end-to-end** with
+> deterministic fakes; `recording-failed` and `unexpected-failure` remain **pass-through to the mapper** and are
+> covered by the 040-A mapper tests. The negative-capability tests enforce no live provider, no delivery, no event
+> persistence, no CLI, no package changes, no raw-outcome exposure, and AC20 unchanged. **AC20 remains unchanged** —
+> all AC20 guards stay green. Validation: **852/852 tests pass** · `tsc --noEmit` clean. `invocation helper ≠ CLI ≠
+> deployment ≠ live-provider enablement ≠ delivery mechanism ≠ persistence ≠ whole-core composer ≠ AthleteDecision
+> creator; OperatorSessionEnvelope ≠ raw runtime outcome; reflection-ready ≠ delivered ≠ AthleteDecision;
+> deliveryWithheld ≠ delivery failure; Aurora advises, the athlete decides.` No architecture decision below is
+> superseded. The note below is the prior (Impl 040-A) status.
+>
+> **Implementation status (post Impl 040-A).** Impl 040-A (commit `0fd644b`) added the **first
 > production-code realization of the session envelope / redaction contract** —
 > `src/modules/application-orchestration/application/operator-session-envelope.ts` (+ additive
 > `application/index.ts` export) — with `operator-session-envelope.test.ts` (**+9**) and
