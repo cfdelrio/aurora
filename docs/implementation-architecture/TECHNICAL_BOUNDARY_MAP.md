@@ -4,7 +4,25 @@
 >
 > Implementation architecture, not production code. No frameworks, databases, ORMs, APIs, UI, types, schemas, or deployment.
 
-> **Implementation status (post Impl 041-A — latest).** Impl 041-A (commit `5dea083`) added the **production
+> **Implementation status (post Spec 042 — latest).** Spec 042 (commit `555946a`) added a **docs-only governance /
+> decision-gate boundary** — `docs/specs/042-real-caller-operator-use-protocol-boundary.md`. It adds **no
+> production file, no test file, no helper, no CLI/script/package command, no API/UI/operator tool, no
+> deployment/CI/SDK, no DB/auth/session, no persistence/event integration, and no provider/live/delivery
+> integration.** It modifies **no** code: `operator-session-invocation.ts`, `operator-session-envelope.ts`,
+> `offline-reflection-runtime.ts`, the package files, and `scripts/operator-live-smoke.mjs` are **unchanged**. It
+> does **not** create `src/modules/session`, a `reflection-composition` module, or a production whole-core composer.
+> It **defines lane-specific evidence thresholds**: any future CLI/API/persistence/provider/deployment/live/delivery/
+> AC20 work **must cite the relevant evidence threshold**, any future caller surface **must sit behind
+> `invokeOperatorSession`** and **receive only `OperatorSessionEnvelope`**, and each lane is unlocked **only** by
+> its own concrete, recurring, demonstrated evidence (one lane's evidence never unlocks another; the runbook/helper/
+> envelope existing is insufficient). Until a threshold is met, operator use stays manual/offline. **AC20 remains
+> unchanged** — all AC20 guards stay green. Validation remains **852/852** · `tsc --noEmit` clean. `real caller ≠
+> hypothetical future UI ≠ developer convenience ≠ deployment target ≠ provider choice ≠ persistence need ≠ athlete
+> decision; caller evidence for one lane ≠ evidence for another lane; invokeOperatorSession seam ≠ product surface;
+> OperatorSessionEnvelope ≠ raw runtime outcome; Aurora advises, the athlete decides.` No architecture decision
+> below is superseded. The note below is the prior (Impl 041-A) status.
+>
+> **Implementation status (post Impl 041-A).** Impl 041-A (commit `5dea083`) added the **production
 > operator invocation helper** — `src/modules/application-orchestration/application/operator-session-invocation.ts`
 > (+ additive `application/index.ts` export) — with `operator-session-invocation.test.ts` (**+7**) and
 > `operator-session-invocation-negative-capability.test.ts` (**+13**). It is **production code**: a **thin

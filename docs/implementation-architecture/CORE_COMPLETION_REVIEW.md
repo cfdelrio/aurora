@@ -971,6 +971,47 @@ helper and receive only the envelope.**
 
 ---
 
+## Update — Specification 042 (Real Caller / Operator Use Protocol Boundary, docs-only governance gate)
+
+[FACT] **Specification 042** is complete; validation remains **852/852** (docs-only). It adds a **governance /
+decision-gate boundary** (`docs/specs/042-real-caller-operator-use-protocol-boundary.md`) — **no production code,
+no tests, no runtime/API/UI/CLI/worker/deployment/CI/SDK files, no persistence/event integration, no
+provider/live/delivery integration, no DB/auth/session work.** It modifies **no** code: `invokeOperatorSession`,
+`OperatorSessionEnvelope`, `offlineReflectionRuntime`, `toOperatorSessionEnvelope`, the package files, and
+`scripts/operator-live-smoke.mjs` are all **unchanged**. **AC20 remains unchanged.** **Aurora advises; the athlete
+decides.**
+
+[FACT] **What this fixes (an explicit evidence gate, not a build):**
+- It **converts the repeated "no real caller yet" deferral into an explicit evidence gate.** Aurora will not build
+  a CLI/script/package command, API/UI, persistence/event integration, provider/deployment lane, live-provider,
+  delivery, DB/auth/session, or an AC20 amendment **until that lane's own concrete, recurring, demonstrated
+  evidence threshold is met.**
+- **Each lane is unlocked only by its own evidence; evidence for one lane does not unlock another.** The existence
+  of the runbook / helper / envelope is **insufficient evidence by itself.**
+
+[FACT] **What operator use is today (manual / offline):**
+- Operator use **remains manual and offline**, **sits behind `invokeOperatorSession`**, and the operator **receives
+  only `OperatorSessionEnvelope`**. **Delivery remains withheld; no default live provider; no automatic
+  `AthleteDecision`.** Later decision capture remains **separate** and **athlete-declared/reported** (Impl 037-A).
+
+[FACT] **Distinctions this update makes explicit** (do not collapse):
+- **real caller ≠ hypothetical future UI ≠ developer convenience ≠ package-script desire ≠ deployment target ≠
+  provider choice ≠ persistence need ≠ athlete decision ≠ operator curiosity** · **caller evidence for one lane ≠
+  evidence for another lane** · **`invokeOperatorSession` seam ≠ product surface**.
+- **operator use protocol ≠ CLI ≠ API/UI ≠ deployment ≠ delivery ≠ persistence ≠ athlete decision** ·
+  **`OperatorSessionEnvelope` ≠ raw runtime outcome** · **reflection-ready ≠ delivered ≠ `AthleteDecision`** ·
+  **deliveryWithheld ≠ delivery failure** · **decisionCapture invitation/ref ≠ `AthleteDecision`** · **AC20 seam ≠
+  whole-core composer**.
+- **Aurora advises, the athlete decides** · **Aurora never presents inference as fact.**
+
+[ASSUMPTION] The headline: **Aurora's safe invocation chain is complete, and Spec 042 now governs whether it may
+grow a surface — by evidence, not inertia. Aurora will not build CLI/API/persistence/provider/deployment/live/
+delivery/DB-auth or amend AC20 until each lane's explicit evidence threshold is met; until then operator use stays
+manual/offline behind `invokeOperatorSession`, returning only the envelope, delivery withheld, no automatic
+decision, with later capture kept separate. A docs-only gate; no code, no surface; AC20 preserved.**
+
+---
+
 ## How to Read This Document
 
 | Tag | Meaning |
@@ -1492,6 +1533,10 @@ ObservationSet → Observation → ContextualizedObservation → Signal/SignalRe
 0ff. **✅ Spec 041 / Tech Spec 041A — Production Operator Invocation Helper — DONE (Impl 041-A, thin production helper).**
    - *Delivered:* the **production operator invocation helper** `invokeOperatorSession<TSubmission>(command: OfflineReflectionRuntimeCommand<TSubmission>, deps: OfflineReflectionRuntimeDependencies<TSubmission>): Promise<OperatorSessionEnvelope>` in `src/modules/application-orchestration/application/operator-session-invocation.ts` (additively exported from `application/index.ts`). It accepts a **caller-assembled command + injected deps**, calls `offlineReflectionRuntime(command, deps)` **once**, immediately maps through `toOperatorSessionEnvelope(outcome)`, and returns **only** `OperatorSessionEnvelope` — making the raw `OfflineReflectionRuntimeOutcome` **structurally unreachable** through the helper (never the raw outcome / tuple / `reflection.text` / raw provider output / hidden reasoning / secrets / delivery ids / `eventRecordIds` / `AthleteDecision`). **No helper-level `try/catch`** (the runtime already normalizes `unexpected-failure` safely). It creates no deps, reads no process environment, resolves no secret, selects no provider, calls no live provider/delivery directly, persists nothing, creates no `AthleteDecision`, assembles no whole-core chain, and imports **only** the runtime + mapper (+ types — no upstream core, Impl 025 holds). **Cases proven (20 = 7 functional + 13 negative-capability):** `reflection-ready`/`renderable-inadmissible`/`not-rendered`/`input-rejected` driven end-to-end through the real runtime with deterministic fakes (envelope-only results), runtime-invoked-exactly-once, `recording-failed`/`unexpected-failure` documented pass-throughs to the mapper (proven in 040-A), and the guards (no live provider / delivery / event persistence / CLI / package change; no raw-outcome exposure; `offlineReflectionRuntime`, the mapper, the operator script, and package files unchanged; AC20 intact). It added **NO CLI/runtime shell/script/package command, and NO API/UI/worker/deployment/CI/SDK files.** +20 tests; **852/852 pass**; process-env seal intact; operator script unchanged; AC20 preserved. `invocation helper ≠ CLI ≠ deployment ≠ live-provider enablement ≠ delivery mechanism ≠ persistence ≠ whole-core composer ≠ AthleteDecision creator; OperatorSessionEnvelope ≠ raw runtime outcome; reflection-ready ≠ delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; Aurora advises, the athlete decides.`
    - *Deferred (carried forward):* a **future CLI/script/package command** or **API/UI/operator tool** (must sit **behind** `invokeOperatorSession` and receive only the envelope); a **real caller**; **envelope/session persistence**; a **deployment target**, **provider selection** (Spec 030/031), and **production rollout**.
+
+0gg. **✅ Spec 042 — Real Caller / Operator Use Protocol Boundary — DONE (docs-only governance gate).**
+   - *Delivered:* a **docs-only governance / decision-gate boundary** (`docs/specs/042-real-caller-operator-use-protocol-boundary.md`) that **converts the recurring "no real caller yet" deferral into an explicit, per-lane evidence gate.** Aurora will **not** build a **CLI/script/package command**, **API/UI/operator tool**, **persistence/event integration**, **provider/deployment lane** (reopen 030/031), **live-provider**, **delivery channel**, **DB/auth/session**, or an **AC20 amendment** until that lane's own **concrete, recurring, demonstrated evidence threshold** (§7) is met; **each lane is unlocked only by its own evidence — one lane's evidence never unlocks another**, and the **existence of the runbook/helper/envelope is insufficient by itself.** Until a threshold is met, operator use stays **manual/offline** behind `invokeOperatorSession` (caller-assembled command/deps, deterministic fakes, delivery withheld, **only** `OperatorSessionEnvelope`, **no** automatic `AthleteDecision`; later decision capture stays separate + athlete-declared/reported). It added **NO production code, tests, runtime/API/UI/CLI/worker/deployment/CI/SDK files, persistence/event integration, provider/live/delivery integration, or DB/auth/session work**; it modified **no** code (`invokeOperatorSession`, `OperatorSessionEnvelope`, `offlineReflectionRuntime`, `toOperatorSessionEnvelope`, package files, operator script all unchanged). Validation remains **852/852**; AC20 preserved. `real caller ≠ hypothetical UI ≠ developer convenience ≠ deployment target ≠ provider choice ≠ persistence need ≠ athlete decision; caller evidence for one lane ≠ evidence for another; invokeOperatorSession seam ≠ product surface; OperatorSessionEnvelope ≠ raw runtime outcome; Aurora advises, the athlete decides.`
+   - *Deferred (carried forward):* every surface/integration lane (CLI/script/package · API/UI/operator tool · persistence/event · provider/deployment 030/031 · live-provider · delivery · DB/auth/session · AC20 amendment) — each **gated** on its §7 evidence threshold; **a real caller**; a docs-only **surface-readiness matrix** or **runbook note referencing `invokeOperatorSession`** (only if ever warranted).
 
 1. **Spec 034 — Observation-to-Renderable Reasoning Composition Boundary** *(recommended next)*
    - *Why:* with the first product-runtime slice now in place (Impl 032R-A — `offlineReflectionRuntime` composes the injected manual-intake collaborator + render-only `orchestrateRenderDeliver` behind the mandatory validator, withholding delivery and returning a decision-capture prompt without creating an `AthleteDecision`), the deferred bridge is the **`ObservationSet → reasoning → understanding → decision-support → RenderableDomainOutput` composition** — the boundary that would let the runtime **derive** the reflection from manual input **end-to-end** rather than receiving the renderable in the command. It composes existing modules across the ladder, in order, without collapsing any boundary.

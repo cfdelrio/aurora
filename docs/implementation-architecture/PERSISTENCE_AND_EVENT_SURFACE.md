@@ -464,6 +464,22 @@
 > whole-core composer ≠ AthleteDecision creator; OperatorSessionEnvelope ≠ raw runtime outcome; reflection-ready ≠
 > delivered ≠ AthleteDecision; deliveryWithheld ≠ delivery failure; decisionCapture invitation/ref ≠ AthleteDecision;
 > Aurora advises, the athlete decides; Aurora never presents inference as fact.`
+> **(Spec 042 — real caller / operator use protocol; docs-only governance gate; no persistence/event surface added.)**
+> Spec 042 defines the explicit per-lane evidence gate for any future caller surface; it adds **no
+> persistence/event surface**: **no repository added**, **no DB/schema**, **no migration**, **no auth/session/user
+> system**, **no event recording integration added**, **no provider-attempt audit persistence change**, **no
+> orchestration-trace persistence change**, **no delivery request/outcome persistence change**, **no
+> rendered-message persistence change**, **no automatic athlete-decision persistence**, **no session persistence**,
+> **no invocation persistence**, and **no envelope persistence**. It only **defines when persistence/event work
+> could be considered**: the **persistence/event lane requires retention / audit / multi-session / handoff
+> evidence** the existing in-memory + test harnesses cannot satisfy, and **the envelope existing is insufficient**.
+> Operator use remains manual/offline; `invokeOperatorSession(...)` **persists nothing**; `OperatorSessionEnvelope`
+> is **not a persisted record**; the **decisionCapture invitation/ref is not an `AthleteDecision`**; **no
+> `Signal`/`Evidence` is created directly** and **no reasoning/understanding update is triggered directly**. No code
+> change; no dependency change; no `process.env` read — **additive only** (docs-only governance). **AC20 intact.**
+> Validation remains **852/852** · `tsc --noEmit` clean. `operator use protocol ≠ persistence/session record;
+> OperatorSessionEnvelope ≠ raw runtime outcome; caller evidence for one lane ≠ evidence for another lane; Aurora
+> advises, the athlete decides; Aurora never presents inference as fact.`
 > **Still future work:** the **cloud-secret adapter *contract* now exists** (Impl 029, provider-neutral, behind an
 > injected fake cloud client; **no persistence / no event surface**), but **real provider selection**, a **real cloud
 > SDK adapter** (AWS Secrets Manager / GCP / Azure / Vault) behind that contract, **production secret wiring**, **source
