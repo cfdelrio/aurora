@@ -51,3 +51,5 @@ export type {
   OperatorSessionDecisionCapture,
   OperatorSessionTraceSummary,
 } from "./operator-session-envelope.ts";
+
+export { invokeOperatorSession } from "./operator-session-invocation.ts";
