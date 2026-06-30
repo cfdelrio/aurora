@@ -154,7 +154,7 @@ test("no invocation script exists; scripts/ holds only the approved operator scr
   const scriptsDir = join(repoRoot, "scripts");
   assert.equal(existsSync(join(scriptsDir, "operator-session-invocation.mjs")), false, "no invocation script may exist");
   if (existsSync(scriptsDir)) {
-    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs"], "scripts/ may contain only the approved operator script");
+    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"], "scripts/ may contain only the approved operator script");
   }
 });
 

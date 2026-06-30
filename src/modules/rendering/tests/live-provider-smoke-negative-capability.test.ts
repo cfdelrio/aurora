@@ -135,7 +135,7 @@ test("post-Impl-027: scripts/ exists only for the approved operator entrypoint, 
   if (existsSync(scriptsDir)) {
     assert.deepEqual(
       readdirSync(scriptsDir).sort(),
-      ["operator-live-smoke.mjs"],
+      ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"],
       "scripts/ may contain only the approved operator-live-smoke.mjs",
     );
   }

@@ -132,7 +132,7 @@ test("no offline-reflection-runtime script exists; scripts/ holds only the appro
   const scriptsDir = join(repoRoot, "scripts");
   assert.equal(existsSync(join(scriptsDir, "offline-reflection-runtime.mjs")), false, "no offline-reflection-runtime.mjs script may exist");
   if (existsSync(scriptsDir)) {
-    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs"], "scripts/ may contain only the approved operator script");
+    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"], "scripts/ may contain only the approved operator script");
   }
   assert.equal(existsSync(join(srcDir, "scripts")), false, "no scripts/ directory may exist inside src/");
 });

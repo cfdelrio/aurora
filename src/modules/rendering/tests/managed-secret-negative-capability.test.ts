@@ -182,7 +182,7 @@ test("scripts/ at repo root contains only the approved operator-live-smoke.mjs",
   if (existsSync(scriptsDir)) {
     assert.deepEqual(
       readdirSync(scriptsDir).sort(),
-      ["operator-live-smoke.mjs"],
+      ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"],
       "scripts/ may contain only the approved operator-live-smoke.mjs",
     );
   }

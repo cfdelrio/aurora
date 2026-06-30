@@ -164,7 +164,7 @@ test("no forbidden module/directory or script was created", () => {
   const scriptsDir = join(repoRoot, "scripts");
   assert.equal(existsSync(join(scriptsDir, "external-renderable-admission.mjs")), false, "no external-renderable-admission.mjs script may exist");
   if (existsSync(scriptsDir)) {
-    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs"], "scripts/ may contain only the approved operator script");
+    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"], "scripts/ may contain only the approved operator script");
   }
 });
 
