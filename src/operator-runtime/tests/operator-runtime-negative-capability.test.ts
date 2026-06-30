@@ -199,6 +199,25 @@ test("23 scripts/operator-live-smoke.mjs still present and unreferenced by the l
   }
 });
 
+test("25 the operator run service imports invokeOperatorSession and never the underlying reflection runtime", () => {
+  const serviceFiles = productionFiles().filter((f) => /operator-run-service\.ts$/.test(f));
+  assert.equal(serviceFiles.length, 1, "expected exactly one operator-run-service production file");
+  const runtimeSymbol = "offline" + "ReflectionRuntime";
+  const runtimeFile = "offline-reflection" + "-runtime";
+  for (const f of serviceFiles) {
+    const src = readFileSync(f, "utf8");
+    assert.ok(src.includes("invokeOperatorSession"), `service must import/call the seam invokeOperatorSession: ${f}`);
+    assert.equal(src.includes(runtimeSymbol), false, `service must not reference ${runtimeSymbol}: ${f}`);
+    for (const spec of importSpecs(src)) {
+      assert.equal(spec.includes(runtimeFile), false, `service must not import the runtime file: ${spec} in ${f}`);
+      // the only cross-module import allowed is the app-orchestration public index
+      if (/\/modules\//.test(spec)) {
+        assert.ok(/application-orchestration\/index\.ts$/.test(spec), `service may import the core only via the app-orchestration index: ${spec} in ${f}`);
+      }
+    }
+  }
+});
+
 // --- the layer is not consumed by the core --------------------------------------------------------
 
 test("the core (src/modules) does not import the operator-runtime layer", () => {

@@ -9,8 +9,11 @@
 // envelope. It must never be imported by the core.
 //
 // C1: the four operational record types + repository ports + in-memory adapters.
-// C2 (this slice): a provenance-safe raw-artifact object-storage PORT + a fake in-memory adapter —
-// opaque payloads only, never parsed. Still no real cloud store, no DB, no worker, no executable, no infra.
+// C2: a provenance-safe raw-artifact object-storage PORT + a fake in-memory adapter (opaque payloads,
+// never parsed).
+// C3 (this slice): an internal operator run SERVICE that coordinates the C1 repositories and runs one
+// session ONLY through invokeOperatorSession, persisting only safe records. Still no worker, no
+// executable, no CLI/API, no real cloud store, no DB, no infra; it composes none of the core.
 
 export {
   trainingSessionRecord,
@@ -65,3 +68,12 @@ export type {
   DecisionCaptureLinkRepository,
 } from "./application/decision-capture-link-repository.ts";
 export { InMemoryDecisionCaptureLinkRepository } from "./application/in-memory-decision-capture-link-repository.ts";
+
+export { runOperatorSession } from "./application/operator-run-service.ts";
+export type {
+  OperatorSessionInvoker,
+  OperatorRunServiceDependencies,
+  OperatorRunCommand,
+  OperatorRunResult,
+  OperatorRunResultStatus,
+} from "./application/operator-run-service.ts";
