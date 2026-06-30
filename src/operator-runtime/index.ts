@@ -8,8 +8,9 @@
 // invokeOperatorSession (never the underlying reflection runtime directly) and persists only the safe
 // envelope. It must never be imported by the core.
 //
-// C1 (this slice): the four operational record types + repository ports + in-memory adapters. No DB,
-// no object storage, no worker, no executable, no infra.
+// C1: the four operational record types + repository ports + in-memory adapters.
+// C2 (this slice): a provenance-safe raw-artifact object-storage PORT + a fake in-memory adapter —
+// opaque payloads only, never parsed. Still no real cloud store, no DB, no worker, no executable, no infra.
 
 export {
   trainingSessionRecord,
@@ -43,6 +44,18 @@ export type {
   OperatorSessionEnvelopeRepository,
 } from "./application/operator-session-envelope-repository.ts";
 export { InMemoryOperatorSessionEnvelopeRepository } from "./application/in-memory-operator-session-envelope-repository.ts";
+
+export {
+  storedTrainingArtifact,
+  toRawArtifactRef,
+} from "./application/training-artifact-object-store.ts";
+export type {
+  TrainingArtifactObjectStore,
+  TrainingArtifactMetadata,
+  StoredTrainingArtifact,
+  PutTrainingArtifactInput,
+} from "./application/training-artifact-object-store.ts";
+export { FakeTrainingArtifactObjectStore } from "./application/fake-training-artifact-object-store.ts";
 
 export { decisionCaptureLink } from "./application/decision-capture-link-repository.ts";
 export type {

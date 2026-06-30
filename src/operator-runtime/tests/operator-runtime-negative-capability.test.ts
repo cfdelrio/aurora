@@ -128,10 +128,11 @@ test("8 operator-runtime imports no upstream core / module internals", () => {
   }
 });
 
-test("9-15 operator-runtime imports no DB / fs / object-storage / provider-live / delivery / secret-cloud and reads no process environment", () => {
+test("9-16 operator-runtime imports no DB / fs / object-storage SDK / cloud SDK / provider-live / delivery / secret-cloud and reads no process environment", () => {
   const dbToken = /\b(sqlite|postgres|postgresql|mysql|mongodb|mongoose|typeorm|prisma|knex|sequelize|drizzle|redis|migration)\b/i;
   const fsToken = /["'](node:fs|fs|node:fs\/promises|node:path|node:os)["']/;
   const objectStorageToken = /@aws-sdk|aws-sdk|@google-cloud\/storage|@azure\/storage|minio|["']s3["']|\bS3Client\b/i;
+  const cloudSdkToken = /@google-cloud|@azure|googleapis|firebase-admin|@vercel\/blob|@cloudflare|wrangler/i;
   const providerLiveToken = /(live-provider|provider-http-transport|concrete-provider|live-call-policy|live-provider-client)/i;
   const deliveryToken = /\/(delivery)\//i;
   const secretCloudToken = /(credential-resolver|process-environment-credential|cloud-secret|secret-store|secret-source)/i;
@@ -139,6 +140,7 @@ test("9-15 operator-runtime imports no DB / fs / object-storage / provider-live 
     const src = readFileSync(f, "utf8");
     assert.equal(dbToken.test(src), false, `operator-runtime must reference no DB/ORM/migration token: ${f}`);
     assert.equal(objectStorageToken.test(src), false, `operator-runtime must reference no object-storage SDK: ${f}`);
+    assert.equal(cloudSdkToken.test(src), false, `operator-runtime must reference no cloud SDK: ${f}`);
     assert.equal(providerLiveToken.test(src), false, `operator-runtime must reference no provider/live transport: ${f}`);
     assert.equal(secretCloudToken.test(src), false, `operator-runtime must reference no secret/cloud adapter: ${f}`);
     assert.equal(ENV_TOKEN.test(src), false, `operator-runtime must read no process environment: ${f}`);
@@ -183,7 +185,14 @@ test("20 package.json / package-lock.json unchanged (no dependency, no script ad
   }
 });
 
-test("21 scripts/operator-live-smoke.mjs still present and unreferenced by the layer", () => {
+test("22 tsconfig.json unchanged (still include:[\"src\"], covering the layer with no config churn)", () => {
+  const tsconfig = JSON.parse(readFileSync(join(repoRoot, "tsconfig.json"), "utf8")) as {
+    include?: unknown;
+  };
+  assert.deepEqual(tsconfig.include, ["src"], "tsconfig include must remain exactly [\"src\"]");
+});
+
+test("23 scripts/operator-live-smoke.mjs still present and unreferenced by the layer", () => {
   assert.equal(existsSync(join(repoRoot, "scripts", "operator-live-smoke.mjs")), true, "the approved smoke entrypoint must remain");
   for (const f of productionFiles()) {
     assert.equal(/operator-live-smoke/.test(readFileSync(f, "utf8")), false, `layer must not reference the smoke entrypoint: ${f}`);
