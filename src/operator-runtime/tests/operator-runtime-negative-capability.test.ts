@@ -24,6 +24,10 @@ const ENV_TOKEN = new RegExp("process" + "\\s*\\.\\s*env", "i");
 const APPROVED_PG_ADAPTER = "postgres-row-store-client.ts";
 const PG_IMPORT = /from\s+["']pg["']/;
 
+// 043-D3 scoped one-file token-pin: `@aws-sdk/client-s3` may appear ONLY in this adapter file.
+const APPROVED_S3_ADAPTER = "s3-blob-store-client.ts";
+const AWS_IMPORT = /from\s+["']@aws-sdk\//;
+
 const ALLOWED_MODULES = new Set([
   "observation",
   "reasoning",
@@ -83,13 +87,15 @@ test("3/4/5 no src/modules/session, no src/modules/cloud, no reflection-composit
 
 // --- import boundary -------------------------------------------------------------------------------
 
-test("6 operator-runtime imports only allowed public surfaces (app-orchestration index + shared-kernel + within-layer; pg only in the approved adapter)", () => {
+test("6 operator-runtime imports only allowed public surfaces (app-orchestration index + shared-kernel + within-layer; pg / @aws-sdk/client-s3 only in their approved adapters)", () => {
   for (const f of productionFiles()) {
-    const isApprovedAdapter = f.endsWith(APPROVED_PG_ADAPTER);
+    const isPgAdapter = f.endsWith(APPROVED_PG_ADAPTER);
+    const isS3Adapter = f.endsWith(APPROVED_S3_ADAPTER);
     for (const spec of importSpecs(readFileSync(f, "utf8"))) {
       if (!spec.startsWith(".")) {
-        // the ONLY approved external import is `pg`, and ONLY in the approved adapter file (043-D2-R token-pin)
-        assert.ok(isApprovedAdapter && spec === "pg", `operator-runtime must import no external/node module except pg in the approved adapter: '${spec}' in ${f}`);
+        // the ONLY approved external imports are pg (in the pg adapter) + @aws-sdk/client-s3 (in the s3 adapter)
+        const approvedExternal = (isPgAdapter && spec === "pg") || (isS3Adapter && spec === "@aws-sdk/client-s3");
+        assert.ok(approvedExternal, `operator-runtime must import no external/node module except the token-pinned client in its approved adapter: '${spec}' in ${f}`);
         continue;
       }
       const withinLayer = !spec.includes("../modules/") && !spec.includes("../../modules/");
@@ -150,7 +156,11 @@ test("9-16 operator-runtime imports no DB / fs / object-storage SDK / cloud SDK 
       assert.equal(dbToken.test(src), false, `operator-runtime must reference no DB/ORM/migration token: ${f}`);
       assert.equal(PG_IMPORT.test(src), false, `only the approved adapter may import pg: ${f}`);
     }
-    assert.equal(objectStorageToken.test(src), false, `operator-runtime must reference no object-storage SDK: ${f}`);
+    // the approved S3 adapter is the ONE file allowed to mention the object-storage SDK (token-pin)
+    if (!f.endsWith(APPROVED_S3_ADAPTER)) {
+      assert.equal(objectStorageToken.test(src), false, `operator-runtime must reference no object-storage SDK: ${f}`);
+      assert.equal(AWS_IMPORT.test(src), false, `only the approved adapter may import @aws-sdk/client-s3: ${f}`);
+    }
     assert.equal(cloudSdkToken.test(src), false, `operator-runtime must reference no cloud SDK: ${f}`);
     assert.equal(providerLiveToken.test(src), false, `operator-runtime must reference no provider/live transport: ${f}`);
     assert.equal(secretCloudToken.test(src), false, `operator-runtime must reference no secret/cloud adapter: ${f}`);
@@ -188,7 +198,7 @@ test("20 package.json / package-lock.json unchanged (no dependency, no script ad
     devDependencies?: Record<string, string>;
     scripts?: Record<string, string>;
   };
-  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["pg"], "the only approved runtime dependency is pg (043-D2-R)");
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["@aws-sdk/client-s3", "pg"], "the only approved runtime dependency is pg (043-D2-R)");
   assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "@types/pg", "typescript"], "devDependencies must remain only typescript + @types/node");
   // no operator-runtime package script was added in C1
   for (const cmd of Object.values(pkg.scripts ?? {})) {
@@ -196,29 +206,35 @@ test("20 package.json / package-lock.json unchanged (no dependency, no script ad
   }
 });
 
-test("D2-R token-pin: pg is the only approved DB dependency and its import appears only in the approved adapter", () => {
-  // exactly one production file imports pg — the approved adapter — and it does import it
+test("D2-R/D3 token-pins: pg + @aws-sdk/client-s3 are the only approved deps, each imported only in its approved adapter", () => {
+  // each token-pinned client appears in exactly its one approved adapter file
   const pgImporters = productionFiles().filter((f) => PG_IMPORT.test(readFileSync(f, "utf8")));
-  assert.deepEqual(pgImporters.map((f) => f.split("/").pop()), [APPROVED_PG_ADAPTER], "pg import must appear only in the approved adapter");
+  assert.deepEqual(pgImporters.map((f) => f.split("/").pop()), [APPROVED_PG_ADAPTER], "pg import must appear only in the approved pg adapter");
+  const awsImporters = productionFiles().filter((f) => AWS_IMPORT.test(readFileSync(f, "utf8")));
+  assert.deepEqual(awsImporters.map((f) => f.split("/").pop()), [APPROVED_S3_ADAPTER], "@aws-sdk import must appear only in the approved s3 adapter");
 
-  // the approved adapter imports pg and no OTHER DB/ORM/object-storage/cloud client
-  const adapterSrc = readFileSync(join(layerDir, "application", APPROVED_PG_ADAPTER), "utf8");
-  assert.ok(PG_IMPORT.test(adapterSrc), "the approved adapter must import pg");
-  const otherDbOrSdk = /(["'](postgres|sqlite|mysql|mongodb|mongoose|typeorm|prisma|knex|sequelize|drizzle|redis)["'])|@aws-sdk|aws-sdk|@google-cloud|@azure|minio|testcontainers/i;
-  for (const spec of importSpecs(adapterSrc)) {
-    assert.equal(otherDbOrSdk.test(`"${spec}"`), false, `approved adapter must import no other DB/ORM/object-storage/cloud client: ${spec}`);
-  }
+  // the pg adapter imports pg and no object-storage/cloud client; the s3 adapter imports @aws-sdk/client-s3 and no DB client
+  const pgSrc = readFileSync(join(layerDir, "application", APPROVED_PG_ADAPTER), "utf8");
+  assert.ok(PG_IMPORT.test(pgSrc), "the pg adapter must import pg");
+  assert.equal(AWS_IMPORT.test(pgSrc), false, "the pg adapter must not import @aws-sdk");
+  const s3Src = readFileSync(join(layerDir, "application", APPROVED_S3_ADAPTER), "utf8");
+  assert.ok(/from\s+["']@aws-sdk\/client-s3["']/.test(s3Src), "the s3 adapter must import @aws-sdk/client-s3");
+  assert.equal(PG_IMPORT.test(s3Src), false, "the s3 adapter must not import pg");
 
-  // package.json: exactly the approved dependency set — pg (runtime) + @types/pg (type-only); nothing else
+  // package.json: exactly the approved set — pg + @aws-sdk/client-s3 (runtime), @types/pg (type-only)
   const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
   };
-  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["pg"], "pg is the only approved runtime dependency");
+  const deps = Object.keys(pkg.dependencies ?? {});
+  assert.deepEqual(deps.sort(), ["@aws-sdk/client-s3", "pg"], "only pg + @aws-sdk/client-s3 are approved runtime deps");
   assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "@types/pg", "typescript"], "@types/pg is the only approved type-only DB dependency");
-  const forbiddenPkg = /^(postgres|prisma|drizzle|typeorm|sequelize|knex|mongoose|mongodb|mysql|sqlite|@aws-sdk\/.*|aws-sdk|@google-cloud\/.*|@azure\/.*|minio|testcontainers|@testcontainers\/.*)$/i;
+  // exactly ONE @aws-sdk package, and it is client-s3 (no lib-storage / extra AWS packages)
+  assert.deepEqual(deps.filter((n) => n.startsWith("@aws-sdk/")).sort(), ["@aws-sdk/client-s3"], "the only approved AWS SDK package is @aws-sdk/client-s3");
+  // no porsager / ORM / migration tool / other object-storage / cloud / testcontainers package anywhere
+  const forbiddenPkg = /^(@aws-sdk\/lib-storage|@aws-sdk\/(?!client-s3$).*|aws-sdk|minio|postgres|prisma|drizzle|typeorm|sequelize|knex|mongoose|mongodb|mysql|sqlite|@google-cloud\/.*|@azure\/.*|googleapis|testcontainers|@testcontainers\/.*)$/i;
   for (const name of [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]) {
-    assert.equal(forbiddenPkg.test(name), false, `forbidden package present: ${name} (no ORM/porsager/migration-tool/object-storage/cloud/testcontainers)`);
+    assert.equal(forbiddenPkg.test(name), false, `forbidden package present: ${name} (no extra AWS SDK / porsager / ORM / migration-tool / object-storage / cloud / testcontainers)`);
   }
 });
 
