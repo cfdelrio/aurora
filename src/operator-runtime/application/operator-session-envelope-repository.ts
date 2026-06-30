@@ -40,8 +40,9 @@ export interface OperatorSessionEnvelopeRecordInput {
  * Re-project an OperatorSessionEnvelope onto a fresh whitelist. Mirrors toOperatorSessionEnvelope:
  * every field is chosen by name; the input is never spread. This is the persistence-side guarantee
  * that an unsafe field can never ride along into storage even if the caller passes a polluted object.
+ * Exported so every storage path (this record factory + the row mapper) shares ONE redaction source.
  */
-function safeEnvelope(envelope: OperatorSessionEnvelope): OperatorSessionEnvelope {
+export function whitelistOperatorSessionEnvelope(envelope: OperatorSessionEnvelope): OperatorSessionEnvelope {
   return Object.freeze({
     status: envelope.status,
     deliveryWithheld: true,
@@ -103,7 +104,7 @@ export function operatorSessionEnvelopeRecord(
     id: input.id,
     runId: input.runId,
     athleteRef: input.athleteRef,
-    envelope: safeEnvelope(input.envelope),
+    envelope: whitelistOperatorSessionEnvelope(input.envelope),
     recordedAt: input.recordedAt,
   });
 }

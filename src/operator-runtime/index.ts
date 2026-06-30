@@ -11,9 +11,11 @@
 // C1: the four operational record types + repository ports + in-memory adapters.
 // C2: a provenance-safe raw-artifact object-storage PORT + a fake in-memory adapter (opaque payloads,
 // never parsed).
-// C3 (this slice): an internal operator run SERVICE that coordinates the C1 repositories and runs one
-// session ONLY through invokeOperatorSession, persisting only safe records. Still no worker, no
-// executable, no CLI/API, no real cloud store, no DB, no infra; it composes none of the core.
+// C3: an internal operator run SERVICE that coordinates the C1 repositories and runs one session ONLY
+// through invokeOperatorSession, persisting only safe records.
+// D1 (this slice): zero-dependency concrete-adapter CONTRACTS — vendor-neutral row/blob client ports,
+// in-memory fakes, and record/artifact mappers (whitelist-only). Still no real DB/object-storage client,
+// no cloud SDK, no filesystem, no migrations, no worker/executable/CLI/API, no infra.
 
 export {
   trainingSessionRecord,
@@ -77,3 +79,43 @@ export type {
   OperatorRunResult,
   OperatorRunResultStatus,
 } from "./application/operator-run-service.ts";
+
+// D1 — zero-dependency concrete-adapter CONTRACTS: vendor-neutral row/blob client ports, fakes, and
+// record/artifact mappers. No real DB/object-storage client; these are the seams D2/D3 implement.
+export { OPERATOR_RUNTIME_TABLES } from "./application/operator-runtime-row-store.ts";
+export type {
+  StorageScalar,
+  StorageRow,
+  RowStoreClient,
+  OperatorRuntimeTable,
+} from "./application/operator-runtime-row-store.ts";
+export { FakeRowStoreClient } from "./application/fake-row-store-client.ts";
+export type {
+  BlobMetadata,
+  BlobObject,
+  BlobStoreClient,
+} from "./application/operator-runtime-blob-store.ts";
+export { FakeBlobStoreClient } from "./application/fake-blob-store-client.ts";
+export {
+  trainingSessionToRow,
+  rowToTrainingSession,
+  operatorSessionRunToRow,
+  rowToOperatorSessionRun,
+  operatorSessionEnvelopeToRow,
+  rowToOperatorSessionEnvelope,
+  decisionCaptureLinkToRow,
+  rowToDecisionCaptureLink,
+} from "./application/operator-runtime-record-mappers.ts";
+export type {
+  TrainingSessionRow,
+  OperatorSessionRunRow,
+  OperatorSessionEnvelopeRow,
+  DecisionCaptureLinkRow,
+} from "./application/operator-runtime-record-mappers.ts";
+export {
+  artifactMetadataToBlobMetadata,
+  blobMetadataToArtifactMetadata,
+  storedArtifactToBlob,
+  blobToStoredArtifact,
+} from "./application/operator-runtime-artifact-mappers.ts";
+export { whitelistOperatorSessionEnvelope } from "./application/operator-session-envelope-repository.ts";
