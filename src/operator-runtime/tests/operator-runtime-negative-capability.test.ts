@@ -20,6 +20,10 @@ const repoRoot = join(srcDir, ".."); // repo root
 // tokens assembled indirectly so this test file is itself never a token site under any repo-wide scan
 const ENV_TOKEN = new RegExp("process" + "\\s*\\.\\s*env", "i");
 
+// 043-D2-R scoped one-file token-pin: the approved `pg` client may appear ONLY in this adapter file.
+const APPROVED_PG_ADAPTER = "postgres-row-store-client.ts";
+const PG_IMPORT = /from\s+["']pg["']/;
+
 const ALLOWED_MODULES = new Set([
   "observation",
   "reasoning",
@@ -79,12 +83,14 @@ test("3/4/5 no src/modules/session, no src/modules/cloud, no reflection-composit
 
 // --- import boundary -------------------------------------------------------------------------------
 
-test("6 operator-runtime imports only allowed public surfaces (app-orchestration index + shared-kernel + within-layer)", () => {
+test("6 operator-runtime imports only allowed public surfaces (app-orchestration index + shared-kernel + within-layer; pg only in the approved adapter)", () => {
   for (const f of productionFiles()) {
+    const isApprovedAdapter = f.endsWith(APPROVED_PG_ADAPTER);
     for (const spec of importSpecs(readFileSync(f, "utf8"))) {
       if (!spec.startsWith(".")) {
-        // no third-party / node built-in imports in C1 (no DB/object-storage/fs)
-        assert.fail(`operator-runtime must import no external/node module in C1: '${spec}' in ${f}`);
+        // the ONLY approved external import is `pg`, and ONLY in the approved adapter file (043-D2-R token-pin)
+        assert.ok(isApprovedAdapter && spec === "pg", `operator-runtime must import no external/node module except pg in the approved adapter: '${spec}' in ${f}`);
+        continue;
       }
       const withinLayer = !spec.includes("../modules/") && !spec.includes("../../modules/");
       const sharedKernel = /(^|\/)shared-kernel\//.test(spec);
@@ -138,7 +144,12 @@ test("9-16 operator-runtime imports no DB / fs / object-storage SDK / cloud SDK 
   const secretCloudToken = /(credential-resolver|process-environment-credential|cloud-secret|secret-store|secret-source)/i;
   for (const f of productionFiles()) {
     const src = readFileSync(f, "utf8");
-    assert.equal(dbToken.test(src), false, `operator-runtime must reference no DB/ORM/migration token: ${f}`);
+    // the approved Postgres adapter is the ONE file allowed to mention pg/postgres (token-pin); all other
+    // DB tokens stay banned everywhere, including in that file.
+    if (!f.endsWith(APPROVED_PG_ADAPTER)) {
+      assert.equal(dbToken.test(src), false, `operator-runtime must reference no DB/ORM/migration token: ${f}`);
+      assert.equal(PG_IMPORT.test(src), false, `only the approved adapter may import pg: ${f}`);
+    }
     assert.equal(objectStorageToken.test(src), false, `operator-runtime must reference no object-storage SDK: ${f}`);
     assert.equal(cloudSdkToken.test(src), false, `operator-runtime must reference no cloud SDK: ${f}`);
     assert.equal(providerLiveToken.test(src), false, `operator-runtime must reference no provider/live transport: ${f}`);
@@ -177,11 +188,37 @@ test("20 package.json / package-lock.json unchanged (no dependency, no script ad
     devDependencies?: Record<string, string>;
     scripts?: Record<string, string>;
   };
-  assert.equal(pkg.dependencies === undefined || Object.keys(pkg.dependencies).length === 0, true, "no runtime dependency may be added");
-  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "typescript"], "devDependencies must remain only typescript + @types/node");
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["pg"], "the only approved runtime dependency is pg (043-D2-R)");
+  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "@types/pg", "typescript"], "devDependencies must remain only typescript + @types/node");
   // no operator-runtime package script was added in C1
   for (const cmd of Object.values(pkg.scripts ?? {})) {
     assert.equal(/operator-runtime/.test(cmd), false, `no operator-runtime package script may be added in C1: ${cmd}`);
+  }
+});
+
+test("D2-R token-pin: pg is the only approved DB dependency and its import appears only in the approved adapter", () => {
+  // exactly one production file imports pg — the approved adapter — and it does import it
+  const pgImporters = productionFiles().filter((f) => PG_IMPORT.test(readFileSync(f, "utf8")));
+  assert.deepEqual(pgImporters.map((f) => f.split("/").pop()), [APPROVED_PG_ADAPTER], "pg import must appear only in the approved adapter");
+
+  // the approved adapter imports pg and no OTHER DB/ORM/object-storage/cloud client
+  const adapterSrc = readFileSync(join(layerDir, "application", APPROVED_PG_ADAPTER), "utf8");
+  assert.ok(PG_IMPORT.test(adapterSrc), "the approved adapter must import pg");
+  const otherDbOrSdk = /(["'](postgres|sqlite|mysql|mongodb|mongoose|typeorm|prisma|knex|sequelize|drizzle|redis)["'])|@aws-sdk|aws-sdk|@google-cloud|@azure|minio|testcontainers/i;
+  for (const spec of importSpecs(adapterSrc)) {
+    assert.equal(otherDbOrSdk.test(`"${spec}"`), false, `approved adapter must import no other DB/ORM/object-storage/cloud client: ${spec}`);
+  }
+
+  // package.json: exactly the approved dependency set — pg (runtime) + @types/pg (type-only); nothing else
+  const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["pg"], "pg is the only approved runtime dependency");
+  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "@types/pg", "typescript"], "@types/pg is the only approved type-only DB dependency");
+  const forbiddenPkg = /^(postgres|prisma|drizzle|typeorm|sequelize|knex|mongoose|mongodb|mysql|sqlite|@aws-sdk\/.*|aws-sdk|@google-cloud\/.*|@azure\/.*|minio|testcontainers|@testcontainers\/.*)$/i;
+  for (const name of [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]) {
+    assert.equal(forbiddenPkg.test(name), false, `forbidden package present: ${name} (no ORM/porsager/migration-tool/object-storage/cloud/testcontainers)`);
   }
 });
 
