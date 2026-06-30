@@ -148,13 +148,22 @@ test("9-16 operator-runtime imports no DB / fs / object-storage SDK / cloud SDK 
   const providerLiveToken = /(live-provider|provider-http-transport|concrete-provider|live-call-policy|live-provider-client)/i;
   const deliveryToken = /\/(delivery)\//i;
   const secretCloudToken = /(credential-resolver|process-environment-credential|cloud-secret|secret-store|secret-source)/i;
+  // a DB *package* import (caught separately) so a porsager/`postgres` package can't slip past the
+  // import-path stripping below; local relative imports of the adapter file are legitimately exempt.
+  const dbPackage = /^(pg|postgres|postgresql|sqlite|sqlite3|better-sqlite3|mysql|mysql2|mongodb|mongoose|typeorm|prisma|@prisma\/.*|knex|sequelize|drizzle-orm|drizzle-kit|redis|ioredis)$/i;
   for (const f of productionFiles()) {
     const src = readFileSync(f, "utf8");
+    // DB-token scan ignores relative import PATHS (a local adapter filename may legitimately contain a
+    // DB word, e.g. ./postgres-row-store-client.ts); stray DB words in real code/comments are still caught.
+    const codeWithoutImportPaths = src.replace(/from\s+["'][^"']+["']/g, "from <import>");
     // the approved Postgres adapter is the ONE file allowed to mention pg/postgres (token-pin); all other
     // DB tokens stay banned everywhere, including in that file.
     if (!f.endsWith(APPROVED_PG_ADAPTER)) {
-      assert.equal(dbToken.test(src), false, `operator-runtime must reference no DB/ORM/migration token: ${f}`);
+      assert.equal(dbToken.test(codeWithoutImportPaths), false, `operator-runtime must reference no DB/ORM/migration token: ${f}`);
       assert.equal(PG_IMPORT.test(src), false, `only the approved adapter may import pg: ${f}`);
+      for (const spec of importSpecs(src)) {
+        if (!spec.startsWith(".")) assert.equal(dbPackage.test(spec), false, `only the approved adapter may import a DB package: ${spec} in ${f}`);
+      }
     }
     // the approved S3 adapter is the ONE file allowed to mention the object-storage SDK (token-pin)
     if (!f.endsWith(APPROVED_S3_ADAPTER)) {
@@ -235,6 +244,19 @@ test("D2-R/D3 token-pins: pg + @aws-sdk/client-s3 are the only approved deps, ea
   const forbiddenPkg = /^(@aws-sdk\/lib-storage|@aws-sdk\/(?!client-s3$).*|aws-sdk|minio|postgres|prisma|drizzle|typeorm|sequelize|knex|mongoose|mongodb|mysql|sqlite|@google-cloud\/.*|@azure\/.*|googleapis|testcontainers|@testcontainers\/.*)$/i;
   for (const name of [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]) {
     assert.equal(forbiddenPkg.test(name), false, `forbidden package present: ${name} (no extra AWS SDK / porsager / ORM / migration-tool / object-storage / cloud / testcontainers)`);
+  }
+});
+
+test("D4 config boundary imports neither pg nor @aws-sdk directly and reads no process environment", () => {
+  const configFile = "operator-runtime-persistence-config.ts";
+  const matches = productionFiles().filter((f) => f.endsWith(configFile));
+  assert.equal(matches.length, 1, "the D4 config boundary file must exist");
+  const src = readFileSync(matches[0]!, "utf8");
+  assert.equal(PG_IMPORT.test(src), false, "config boundary must not import pg directly (token-pin stays scoped)");
+  assert.equal(AWS_IMPORT.test(src), false, "config boundary must not import @aws-sdk directly (token-pin stays scoped)");
+  assert.equal(ENV_TOKEN.test(src), false, "config boundary must read no process environment");
+  for (const spec of importSpecs(src)) {
+    assert.ok(spec.startsWith("."), `config boundary may import only local adapter modules: ${spec}`);
   }
 });
 
