@@ -185,7 +185,11 @@ test("9-16 operator-runtime imports no DB / fs / object-storage SDK / cloud SDK 
 
 // 043-D5A/D5B: deployment CONFIG files (loader + env-config assembly) may live under deployment/, but NO
 // deployment executable / IaC there (the executable is out-of-`src`).
-const APPROVED_DEPLOYMENT_CONFIG = ["operator-runtime-assembly.ts", "operator-runtime-env-config.ts"];
+const APPROVED_DEPLOYMENT_CONFIG = [
+  "operator-runtime-assembly.ts",
+  "operator-runtime-env-config.ts",
+  "operator-session-module-runner.ts",
+];
 
 test("16/17/18/19 no Dockerfile / IaC / migrations / API / UI / CLI / worker / deployment EXECUTABLE was created", () => {
   // nothing executable/infra-shaped inside the layer (deployment/ may hold the approved config .ts files only)

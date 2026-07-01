@@ -86,11 +86,18 @@ test("8 the out-of-`src` executable reads the environment via the loader and ass
     [
       "../src/operator-runtime/deployment/operator-runtime-assembly.ts",
       "../src/operator-runtime/deployment/operator-runtime-env-config.ts",
+      "../src/operator-runtime/deployment/operator-session-module-runner.ts",
+      "node:url",
     ],
-    "executable imports only the two deployment modules (no session/runtime/delivery surface)",
+    "executable imports only the deployment modules (+ node:url for the local module path); no session/runtime/delivery surface",
   );
-  for (const reachable of ["operator-run-service", "application-orchestration", "offline-reflection-runtime", "/delivery/"]) {
+  // it never imports the session runner / seam / runtime / delivery directly — those live behind the in-src module runner
+  for (const reachable of ["operator-run-service", "application-orchestration", "operator-session-invocation", "offline-reflection-runtime", "/delivery/"]) {
     assert.equal(importSpecs.some((s) => s.includes(reachable)), false, `executable must not import '${reachable}'`);
+  }
+  // the session run happens only via the in-src module runner — the executable calls neither seam directly
+  for (const forbidden of ["invokeOperatorSession(", "offlineReflectionRuntime(", "runOperatorSession("]) {
+    assert.equal(src.includes(forbidden), false, `executable must not call '${forbidden}' directly`);
   }
   // it reports that session execution is deferred to caller-supplied command/deps
   assert.ok(src.includes("session execution requires caller-supplied command/deps"), "executable reports deferred session execution");
