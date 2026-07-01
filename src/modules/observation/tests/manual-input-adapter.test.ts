@@ -80,16 +80,16 @@ test("UC2 — records missing data explicitly rather than inventing a value", ()
 });
 
 // UC3 — partial acceptance ------------------------------------------------------------------------
-test("UC3 — measured-value (reserved) yields partially-accepted with a limitation; faithful parts recorded", () => {
+test("UC3 — a measured-value with no unit yields partially-accepted with a missing-unit limitation; faithful parts recorded", () => {
   const { outcome } = run({
     entries: [
       { kind: "subjective-report", words: "felt strong" },
-      { kind: "measured-value", label: "avg power", rawValue: "240", unit: "w" },
+      { kind: "measured-value", label: "avg power", rawValue: "240" }, // no unit — not faithfully representable
     ],
   });
   if (outcome.status === "rejected") return assert.fail("should partially accept");
   assert.equal(outcome.status, "partially-accepted");
-  assert.ok(outcome.limitations.includes("unsupported-field-ignored"));
+  assert.ok(outcome.limitations.includes("missing-unit"));
   assert.equal(outcome.acceptedCount, 1);
 });
 
@@ -131,11 +131,20 @@ test("UC4d — a measured entry smuggling an inferred state as fact is rejected"
   assert.ok(outcome.reasons.includes("inference-smuggled-as-fact"));
 });
 
-test("UC4e — a measured-only submission (no faithful observation) is rejected", () => {
-  const { outcome } = run({ entries: [{ kind: "measured-value", label: "avg power", rawValue: "240", unit: "w" }] });
+test("UC4e — a measured-only submission with no faithfully representable entry is rejected", () => {
+  const { outcome } = run({ entries: [{ kind: "measured-value", label: "avg power", rawValue: "not-a-number", unit: "w" }] });
   assert.equal(outcome.status, "rejected");
   assert.ok(outcome.reasons.includes("no-faithful-observation"));
-  assert.ok(outcome.reasons.includes("unsupported-entry-kind"));
+});
+
+test("UC4f — a valid measured-value submission is accepted as a MeasuredObservation", () => {
+  const { outcome } = run({ entries: [{ kind: "measured-value", label: "avg power", rawValue: "240", unit: "w" }] });
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  assert.equal(outcome.status, "accepted");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.deepEqual(measured.measurement, { quantity: "avg power", magnitude: 240, unit: "w" });
+  assert.equal(measured.quality.status, "complete"); // "avg-power" is a recognized metric label
 });
 
 // UC7 — athlete decision report is observation/context only, never a compliance score --------------

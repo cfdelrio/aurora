@@ -83,8 +83,10 @@ test("the manual-input adapter introduces no LLM/DB/event-bus/scheduler tech", (
 
 test("the closed manual-input catalogs hold exactly the specified values", () => {
   assert.equal(MANUAL_INPUT_REJECTION_REASONS.length, 9);
-  assert.equal(MANUAL_INPUT_LIMITATIONS.length, 7);
+  // Impl 044-A1 added "missing-unit" + "unparseable-numeric-value" (measured-value is no longer reserved).
+  assert.equal(MANUAL_INPUT_LIMITATIONS.length, 9);
   assert.equal(MANUAL_INPUT_QUALITIES.length, 7);
   assert.ok(MANUAL_INPUT_REJECTION_REASONS.includes("no-faithful-observation"));
-  assert.ok(MANUAL_INPUT_LIMITATIONS.includes("unsupported-field-ignored"));
+  assert.ok(MANUAL_INPUT_LIMITATIONS.includes("missing-unit"));
+  assert.ok(MANUAL_INPUT_LIMITATIONS.includes("unparseable-numeric-value"));
 });

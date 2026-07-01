@@ -33,3 +33,8 @@ export type {
   ManualInputQuality,
   ObservationSetRecordedCandidate,
 } from "./application/manual-input-ingestion-outcome.ts";
+
+// Manual/CSV Training-Row Intake (Impl 044-A1) — a pure mapper from already-parsed structured rows into
+// the EXISTING ManualInputSubmission shape. No file I/O, no CSV library, no new observation model.
+export { trainingRowSubmissionToManualInput } from "./application/training-row-submission.ts";
+export type { TrainingSummaryRow, TrainingRowSubmission } from "./application/training-row-submission.ts";
