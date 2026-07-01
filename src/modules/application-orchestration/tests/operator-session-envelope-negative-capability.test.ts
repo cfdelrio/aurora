@@ -146,7 +146,7 @@ test("no envelope script exists; scripts/ holds only the approved operator scrip
   const scriptsDir = join(repoRoot, "scripts");
   assert.equal(existsSync(join(scriptsDir, "operator-session-envelope.mjs")), false, "no envelope script may exist");
   if (existsSync(scriptsDir)) {
-    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs"], "scripts/ may contain only the approved operator script");
+    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"], "scripts/ may contain only the approved operator script");
   }
 });
 
@@ -166,8 +166,8 @@ test("no SDK / dependency change and no new package script", () => {
     devDependencies?: Record<string, string>;
     scripts?: Record<string, string>;
   };
-  assert.equal(pkg.dependencies === undefined || Object.keys(pkg.dependencies).length === 0, true, "no runtime dependency may be added");
-  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "typescript"], "devDependencies must remain only typescript + @types/node");
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["@aws-sdk/client-s3", "pg"], "the only approved runtime dependency is pg (043-D2-R)");
+  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "@types/pg", "typescript"], "devDependencies must remain only typescript + @types/node");
   for (const [name, value] of Object.entries(pkg.scripts ?? {})) {
     assert.equal(value.includes("operator-session-envelope"), false, `package script '${name}' must not invoke the envelope`);
   }

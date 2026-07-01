@@ -6,9 +6,9 @@ import type { Timestamp } from "../../../shared-kernel/time.ts";
 import type { Source } from "../../../shared-kernel/provenance.ts";
 
 /**
- * A single manually-reported entry. Implemented this slice: subjective-report, context-note,
- * athlete-decision-report, missing-data. `measured-value` is RESERVED (no unit interpretation yet) —
- * it is recorded as a limitation or rejection, never mapped to a measured observation here.
+ * A single manually-reported entry. Implemented: subjective-report, context-note,
+ * athlete-decision-report, missing-data, measured-value (Impl 044-A1 — a mechanical numeric mapping,
+ * never unit conversion/catalog validation, never interpretation of what the value means).
  */
 export type ManualInputEntry =
   | { readonly kind: "subjective-report"; readonly words: string; readonly fieldLabel?: string }
@@ -20,7 +20,14 @@ export type ManualInputEntry =
       readonly athleteDecisionRef?: string;
     }
   | { readonly kind: "missing-data"; readonly expected: string; readonly reason?: string }
-  | { readonly kind: "measured-value"; readonly label: string; readonly rawValue: string; readonly unit?: string };
+  | {
+      readonly kind: "measured-value";
+      readonly label: string;
+      readonly rawValue: string;
+      readonly unit?: string;
+      /** optional row/field reference (e.g. a CSV row id), folded into the resulting Provenance.reference only */
+      readonly sourceRowRef?: string;
+    };
 
 export interface ManualInputSubmission {
   /** external reference / id of this submission (becomes part of the provenance reference handle) */

@@ -1,0 +1,13 @@
+# Aurora — container build exclusions (Implementation 043-G1). Keeps secrets, VCS metadata, and local-only
+# artifacts out of the build context; the image bakes no fixtures/ (the caller module is mounted, never baked).
+
+.git
+node_modules
+npm-debug.log
+.env
+.env.*
+coverage
+dist
+.DS_Store
+fixtures
+docs

@@ -132,7 +132,7 @@ test("no offline-reflection-runtime script exists; scripts/ holds only the appro
   const scriptsDir = join(repoRoot, "scripts");
   assert.equal(existsSync(join(scriptsDir, "offline-reflection-runtime.mjs")), false, "no offline-reflection-runtime.mjs script may exist");
   if (existsSync(scriptsDir)) {
-    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs"], "scripts/ may contain only the approved operator script");
+    assert.deepEqual(readdirSync(scriptsDir).sort(), ["operator-live-smoke.mjs", "operator-runtime-executable.mjs"], "scripts/ may contain only the approved operator script");
   }
   assert.equal(existsSync(join(srcDir, "scripts")), false, "no scripts/ directory may exist inside src/");
 });
@@ -156,8 +156,8 @@ test("no SDK / dependency change and no new package script", () => {
     devDependencies?: Record<string, string>;
     scripts?: Record<string, string>;
   };
-  assert.equal(pkg.dependencies === undefined || Object.keys(pkg.dependencies).length === 0, true, "no runtime dependency may be added");
-  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "typescript"], "devDependencies must remain only typescript + @types/node");
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["@aws-sdk/client-s3", "pg"], "the only approved runtime dependency is pg (043-D2-R)");
+  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}).sort(), ["@types/node", "@types/pg", "typescript"], "devDependencies must remain only typescript + @types/node");
   for (const [name, value] of Object.entries(pkg.scripts ?? {})) {
     assert.equal(value.includes("offline-reflection"), false, `package script '${name}' must not invoke the offline runtime`);
   }

@@ -38,7 +38,9 @@ export type ManualInputLimitation =
   | "source-limited"
   | "partial-report"
   | "unverified-self-report"
-  | "unsupported-field-ignored";
+  | "unsupported-field-ignored"
+  | "missing-unit"
+  | "unparseable-numeric-value";
 
 export const MANUAL_INPUT_LIMITATIONS: readonly ManualInputLimitation[] = [
   "missing-duration",
@@ -48,6 +50,8 @@ export const MANUAL_INPUT_LIMITATIONS: readonly ManualInputLimitation[] = [
   "partial-report",
   "unverified-self-report",
   "unsupported-field-ignored",
+  "missing-unit",
+  "unparseable-numeric-value",
 ];
 
 /** Quality of the INPUT as source material — never of the athlete. Maps onto ObservationQuality. */
