@@ -171,14 +171,27 @@ test("10 the container smoke runbook exists and states deployability != recommen
 
 // --- 11. no IaC files added anywhere in the repo -------------------------------------------------------
 
-test("11 no Terraform/CDK/Pulumi/Kubernetes/other IaC file exists anywhere in the repo", () => {
+// 043-H1 scoped approval: exactly ONE build-only CI workflow is approved at this path. No other workflow, and
+// no deployment workflow, is approved anywhere under .github/.
+const APPROVED_WORKFLOW_FILE = "operator-runtime-docker-build.yml";
+
+test("11 no Terraform/CDK/Pulumi/Kubernetes/other IaC file exists anywhere in the repo (the one approved CI workflow is not IaC)", () => {
   const iacPattern = /\.(tf|tfvars)$|(^|\/)(cdk\.json|Pulumi\.ya?ml|serverless\.ya?ml|docker-compose.*\.ya?ml|compose\.ya?ml|k8s|kustomization\.ya?ml)$/i;
   for (const f of collectFiles(repoRoot)) {
     const rel = f.slice(repoRoot.length + 1);
+    if (rel === `.github/workflows/${APPROVED_WORKFLOW_FILE}`) continue;
     assert.equal(iacPattern.test(rel), false, `no IaC file may exist: ${rel}`);
   }
-  // no GitHub Actions deployment workflow was added
-  assert.equal(existsSync(join(repoRoot, ".github", "workflows")), false, "no .github/workflows directory may be added (no CI/CD deployment workflow)");
+  // .github/workflows, if present, holds EXACTLY the one approved build-only workflow — no other workflow
+  const workflowsDir = join(repoRoot, ".github", "workflows");
+  if (existsSync(workflowsDir)) {
+    assert.deepEqual(readdirSync(workflowsDir).sort(), [APPROVED_WORKFLOW_FILE], ".github/workflows may contain only the one approved build-only workflow");
+  }
+  // no other file under .github/ (no CODEOWNERS, no issue templates, no deployment config, etc.)
+  const githubDir = join(repoRoot, ".github");
+  if (existsSync(githubDir)) {
+    assert.deepEqual(readdirSync(githubDir), ["workflows"], ".github/ may contain only the workflows/ directory");
+  }
 });
 
 // --- 12. no package script was added ------------------------------------------------------------------
