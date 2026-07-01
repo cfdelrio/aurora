@@ -55,6 +55,18 @@ test("1 Dockerfile exists at repo root and its CMD/ENTRYPOINT runs the operator 
   assert.equal(/\bRUN\s+(npm\s+run\s+build|tsc\b|npx\s+tsc)/.test(src), false, "Dockerfile must add no build/compile step");
 });
 
+test("1b Dockerfile's FROM pins a Node 22 patch >= 22.18 (native TypeScript stripping unflagged by default)", () => {
+  const src = readFileSync(DOCKERFILE_PATH, "utf8");
+  const fromMatch = src.match(/^FROM\s+node:(\d+)(?:\.(\d+))?/im);
+  assert.ok(fromMatch, "Dockerfile must FROM a node: base image");
+  const major = Number(fromMatch![1]);
+  const minor = fromMatch![2] !== undefined ? Number(fromMatch![2]) : undefined;
+  assert.ok(
+    major > 22 || (major === 22 && (minor === undefined || minor >= 18)),
+    `Dockerfile base image must guarantee Node >= 22.18 for unflagged TypeScript stripping: found node:${fromMatch![0]}`,
+  );
+});
+
 // --- 2. no exposed ports ------------------------------------------------------------------------------
 
 test("2 Dockerfile exposes no port", () => {
@@ -112,6 +124,15 @@ test("7 Dockerfile contains no live-provider / delivery / Garmin mentions", () =
   }
 });
 
+// --- 7b. no remote module/plugin download behavior -----------------------------------------------------
+
+test("7b Dockerfile does not fetch remote modules/plugins (no curl/wget/git clone/npm install <url>)", () => {
+  const src = readFileSync(DOCKERFILE_PATH, "utf8");
+  for (const token of ["curl ", "wget ", "git clone", "git+http", "npm install http", "npm install git"]) {
+    assert.equal(src.toLowerCase().includes(token.toLowerCase()), false, `Dockerfile must not fetch a remote module/plugin ('${token}')`);
+  }
+});
+
 // --- 8. only approved env-key names appear ------------------------------------------------------------
 
 test("8 Dockerfile mentions only the approved AURORA_OPERATOR_* env-key names, if any", () => {
@@ -151,11 +172,13 @@ test("10 the container smoke runbook exists and states deployability != recommen
 // --- 11. no IaC files added anywhere in the repo -------------------------------------------------------
 
 test("11 no Terraform/CDK/Pulumi/Kubernetes/other IaC file exists anywhere in the repo", () => {
-  const iacPattern = /\.(tf|tfvars)$|(^|\/)(cdk\.json|Pulumi\.ya?ml|serverless\.ya?ml|docker-compose.*\.ya?ml|k8s|kustomization\.ya?ml)$/i;
+  const iacPattern = /\.(tf|tfvars)$|(^|\/)(cdk\.json|Pulumi\.ya?ml|serverless\.ya?ml|docker-compose.*\.ya?ml|compose\.ya?ml|k8s|kustomization\.ya?ml)$/i;
   for (const f of collectFiles(repoRoot)) {
     const rel = f.slice(repoRoot.length + 1);
     assert.equal(iacPattern.test(rel), false, `no IaC file may exist: ${rel}`);
   }
+  // no GitHub Actions deployment workflow was added
+  assert.equal(existsSync(join(repoRoot, ".github", "workflows")), false, "no .github/workflows directory may be added (no CI/CD deployment workflow)");
 });
 
 // --- 12. no package script was added ------------------------------------------------------------------
@@ -188,6 +211,17 @@ test("15 no API/UI/server file was added anywhere under src/ or scripts/", () =>
   for (const dir of [srcDir, join(repoRoot, "scripts")]) {
     for (const f of collectFiles(dir)) {
       assert.equal(/\/(api|ui|frontend|server)\//i.test(f), false, `must contain no api/ui/server file: ${f}`);
+    }
+  }
+});
+
+// --- 23. no scheduler/worker loop file was added --------------------------------------------------
+
+test("23 no scheduler/cron/supervisor/worker-loop file was added anywhere under src/ or scripts/", () => {
+  for (const dir of [srcDir, join(repoRoot, "scripts")]) {
+    for (const f of collectFiles(dir)) {
+      assert.equal(/\/(scheduler|cron|supervisor|worker)\//i.test(f), false, `must contain no scheduler/cron/supervisor/worker file: ${f}`);
+      assert.equal(/(^|\/)(scheduler|cron|supervisor|worker-loop)[.-]/i.test(f), false, `must contain no scheduler/cron/supervisor/worker-loop file: ${f}`);
     }
   }
 });

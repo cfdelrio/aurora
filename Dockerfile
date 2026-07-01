@@ -13,7 +13,9 @@
 #   this image ≠ API ≠ SaaS ≠ deployment IaC · container health ≠ session execution ·
 #   assemble-only default ≠ session execution · Aurora advises, the athlete decides.
 
-FROM node:22-slim
+# pinned to a Node 22 patch >= 22.18, where native TypeScript type-stripping runs unflagged by default
+# (verified in this repository's own sandbox at v22.22.2 before this file was written; see the 043-G1 report)
+FROM node:22.22-slim
 
 WORKDIR /app
 

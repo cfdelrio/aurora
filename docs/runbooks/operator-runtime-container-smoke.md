@@ -116,10 +116,13 @@ docker run --rm \
 
 ```text
 container build/run ≠ CI/CD pipeline · container ≠ API/UI/server · container ≠ scheduler/cron/supervisor ·
-container ≠ Terraform/CDK/IaC · caller module mounted ≠ caller module baked · assemble-only ≠ session execution ·
-deployability ≠ recommendation quality · deployability ≠ delivery · deployability ≠ AthleteDecision ·
+container ≠ Terraform/CDK/IaC · caller module mounted ≠ caller module baked · caller module ≠ remote plugin
+system · assemble-only ≠ session execution · container healthy ≠ recommendation quality ·
+deployable unit ≠ product API · deployability ≠ delivery · deployability ≠ AthleteDecision ·
 deployability ≠ Garmin integration · deployability ≠ live-provider validation ·
-Aurora advises; the athlete decides
+OperatorSessionEnvelope ≠ delivered message · delivery withheld ≠ delivery failure ·
+TrainingSessionRecord ≠ Evidence · raw artifact ≠ truth · session run ≠ AthleteDecision ·
+Aurora advises; the athlete decides · Aurora never presents inference as fact
 ```
 
 ## 10. Forbidden behaviors
