@@ -3,7 +3,7 @@
 // It is a faithful SCRIBE, not an interpreter: it validates, mechanically normalizes, and maps clear
 // reports into the EXISTING observation forms (verbatim subjective words; explicit missing data; a
 // well-formed numeric measurement), then records them via recordObservationSet and persists via
-// ObservationSetRepository. It infers nothing, detects no Signal, and calls no downstream module. It
+// ObservationSetRepository. It infers nothing, runs no detection, and calls no downstream module. It
 // imports no event-recording (Decision 2).
 //
 // measured-value mapping (Impl 044-A1): mechanical only — parse a finite number, require a unit, carry

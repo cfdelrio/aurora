@@ -5,7 +5,7 @@
 // by the caller (which owns however the file/manual-summary text was turned into rows). It never calls
 // ingestManualInput itself — that stays the caller's responsibility, exactly as Impl 013 already works.
 //
-//   TrainingSummaryRow ≠ truth · a training row ≠ Evidence · a training row ≠ Signal ·
+//   TrainingSummaryRow ≠ truth · a training row ≠ Evidence · a training row ≠ a detected deviation ·
 //   artifactRef ≠ truth · provenance ≠ proof · mapping success ≠ recommendation quality ·
 //   Aurora advises, the athlete decides; Aurora never presents inference as fact.
 

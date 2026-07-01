@@ -16,6 +16,8 @@ const srcDir = join(modulesDir, ".."); // src
 const repoRoot = join(srcDir, ".."); // repo root
 
 const TARGET_FILE = join(observationDir, "application", "training-row-submission.ts");
+const ADAPTER_FILE = join(observationDir, "application", "manual-input-adapter.ts");
+const operatorRuntimeDir = join(srcDir, "operator-runtime");
 
 function collectTsFiles(dir: string): string[] {
   const out: string[] = [];
@@ -66,14 +68,43 @@ test("4 the mapper never calls ingestManualInput itself (stays a pure mapper; th
   assert.equal(src.includes("ingestManualInput("), false, "the pure mapper must not call ingestManualInput");
 });
 
-test("5 the mapper creates no Evidence/Signal/RenderingRequest and calls no session/delivery seam", () => {
-  const src = readFileSync(TARGET_FILE, "utf8");
-  for (const token of [
-    "EvidenceCase", "createEvidenceCase", "attachSignalAsEvidence", "detectSignals",
-    "RenderingRequest", "runOperatorSession", "invokeOperatorSession", "deliver(",
-    "AthleteDecision", "offlineReflectionRuntime(",
-  ]) {
-    assert.equal(src.includes(token), false, `mapper must not reference '${token}'`);
+test("5 the mapper + adapter create no Evidence/Signal/RenderingRequest and call no session/delivery seam", () => {
+  for (const file of [TARGET_FILE, ADAPTER_FILE]) {
+    const src = readFileSync(file, "utf8");
+    for (const token of [
+      "EvidenceCase", "createEvidenceCase", "attachSignalAsEvidence", "detectSignals",
+      "RenderingRequest", "runOperatorSession", "invokeOperatorSession",
+      "AthleteDecision", "offlineReflectionRuntime(", "reflection-composition",
+    ]) {
+      assert.equal(src.includes(token), false, `${file} must not reference '${token}'`);
+    }
+    // word-boundary checks — these tokens legitimately appear as SUBSTRINGS elsewhere ("delivery",
+    // "fitness"), so a bare substring check would false-positive; whole-word matches are the real signal.
+    for (const word of ["Signal", "signal", "deliver", "fit", "tcx", "garmin"]) {
+      assert.equal(new RegExp(`\\b${word}\\b`).test(src), false, `${file} must not contain the whole word '${word}'`);
+    }
+  }
+});
+
+test("8 the row-submission mapper is exported only from the observation module's own public surface", () => {
+  const publicSurface = readFileSync(join(observationDir, "index.ts"), "utf8");
+  assert.ok(publicSurface.includes("trainingRowSubmissionToManualInput"), "must be exported from observation/index.ts");
+  // no other PRODUCTION file (outside observation/application and its own index.ts) imports it directly
+  const otherProductionFiles = collectTsFiles(modulesDir).filter(
+    (f) => !f.endsWith(".test.ts") && !f.includes("/tests/"),
+  );
+  for (const f of otherProductionFiles) {
+    if (f === join(observationDir, "index.ts") || f.startsWith(join(observationDir, "application"))) continue;
+    const src = readFileSync(f, "utf8");
+    assert.equal(src.includes("training-row-submission"), false, `${f} must not import training-row-submission.ts directly`);
+  }
+});
+
+test("9 operator-runtime does not import the row mapper (no cross-module dependency inversion)", () => {
+  for (const f of collectTsFiles(operatorRuntimeDir)) {
+    const src = readFileSync(f, "utf8");
+    assert.equal(src.includes("training-row-submission"), false, `${f} must not import training-row-submission.ts`);
+    assert.equal(src.includes("trainingRowSubmissionToManualInput"), false, `${f} must not reference trainingRowSubmissionToManualInput`);
   }
 });
 
