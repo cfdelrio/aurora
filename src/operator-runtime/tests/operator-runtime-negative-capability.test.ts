@@ -3,7 +3,9 @@
 // only the application-orchestration PUBLIC index (invokeOperatorSession, OperatorSessionEnvelope) +
 // shared-kernel, runs sessions only behind invokeOperatorSession (never offlineReflectionRuntime), persists
 // only the safe envelope, touches no DB/object-storage/provider/delivery/secret/process-env, and ships no
-// API/UI/CLI/worker/deployment/migration/Dockerfile/IaC. Negative tests are defining. AC20 stays untouched.
+// API/UI/CLI/worker/deployment/migration/IaC. As of 043-G1, exactly the repo-root Dockerfile + .dockerignore
+// are narrowly approved packaging artifacts (see operator-runtime-container-packaging.test.ts); no other IaC.
+// Negative tests are defining. AC20 stays untouched.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -191,7 +193,11 @@ const APPROVED_DEPLOYMENT_CONFIG = [
   "operator-session-module-runner.ts",
 ];
 
-test("16/17/18/19 no Dockerfile / IaC / migrations / API / UI / CLI / worker / deployment EXECUTABLE was created", () => {
+// 043-G1: exactly these three repo-root packaging artifacts are approved (Dockerfile + build-context exclusion
+// + human runbook). No Terraform/CDK/Pulumi/Kubernetes/other IaC file is approved anywhere in the repo.
+const APPROVED_ROOT_PACKAGING_FILES = new Set(["Dockerfile", ".dockerignore"]);
+
+test("16/17/18/19 no IaC / migrations / API / UI / CLI / worker / deployment EXECUTABLE was created (Dockerfile/.dockerignore narrowly approved, 043-G1)", () => {
   // nothing executable/infra-shaped inside the layer (deployment/ may hold the approved config .ts files only)
   for (const entry of collectTsFiles(layerDir)) {
     assert.equal(/\/(api|ui|frontend|server|worker|cli|migrations|infrastructure)\//.test(entry), false, `layer must contain no api/ui/server/worker/cli file: ${entry}`);
@@ -205,15 +211,19 @@ test("16/17/18/19 no Dockerfile / IaC / migrations / API / UI / CLI / worker / d
       assert.equal(/\.(mjs|cjs|js)$/.test(f) || /^(Dockerfile|.*\.tf|.*\.tfvars|serverless\.yml|cdk\.json|pulumi\.yaml)$/.test(f), false, `deployment/ must contain no executable/IaC: ${f}`);
     }
   }
-  // no infra files / dirs at the layer root
+  // no infra files / dirs at the layer root (Dockerfile/.dockerignore live at repo root, not inside the layer)
   for (const f of readdirSync(layerDir)) {
-    assert.equal(/^(Dockerfile|.*\.tf|.*\.tfvars|serverless\.yml|cdk\.json|pulumi\.yaml)$/.test(f), false, `layer must contain no Dockerfile/IaC: ${f}`);
+    assert.equal(/^(Dockerfile|\.dockerignore|.*\.tf|.*\.tfvars|serverless\.yml|cdk\.json|pulumi\.yaml)$/.test(f), false, `layer must contain no Dockerfile/IaC: ${f}`);
   }
-  // no new top-level src dirs of those shapes, no repo-root Dockerfile/IaC
+  // no new top-level src dirs of those shapes
   for (const forbidden of ["api", "server", "ui", "frontend", "db", "database", "migrations", "infrastructure"]) {
     assert.equal(existsSync(join(srcDir, forbidden)), false, `must not create src/${forbidden}`);
   }
-  assert.equal(existsSync(join(repoRoot, "Dockerfile")), false, "must not create a Dockerfile");
+  // repo root: exactly Dockerfile + .dockerignore are approved (043-G1); no other IaC/packaging file
+  for (const f of readdirSync(repoRoot)) {
+    if (APPROVED_ROOT_PACKAGING_FILES.has(f)) continue;
+    assert.equal(/^(Dockerfile.*|.*\.tf|.*\.tfvars|docker-compose.*\.ya?ml|serverless\.ya?ml|cdk\.json|pulumi\.ya?ml|\.terraform.*)$/i.test(f), false, `must not create an unapproved IaC/packaging file at repo root: ${f}`);
+  }
 });
 
 test("D5A application layer stays env-free; only the deployment config loader handles env input (and via injection, not process.env)", () => {
