@@ -51,6 +51,9 @@ const RECOGNIZED_METRICS = new Set([
   "distance",
   "duration",
   "elevation-gain",
+  "swolf",
+  "total-strokes",
+  "calories",
 ]);
 
 function normalizeMetricLabel(label: string): string {

@@ -147,6 +147,36 @@ test("UC4f — a valid measured-value submission is accepted as a MeasuredObserv
   assert.equal(measured.quality.status, "complete"); // "avg-power" is a recognized metric label
 });
 
+// Impl 044-C1A — RECOGNIZED_METRICS grew from 15 to 18 entries: swolf, total-strokes, calories -----------
+test("044-C1A — swolf, total-strokes, and calories are now recognized (complete), each preserving its raw source label verbatim", () => {
+  const { outcome } = run({
+    entries: [
+      { kind: "measured-value", label: "SWOLF", rawValue: "43", unit: "swolf" }, // uppercase source label
+      { kind: "measured-value", label: "total-strokes", rawValue: "485", unit: "strokes" },
+      { kind: "measured-value", label: "calories", rawValue: "179", unit: "kcal" },
+    ],
+  });
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  assert.equal(outcome.status, "accepted");
+  const measured = outcome.observationSet.observations.filter((o) => o.kind === "measured");
+  assert.equal(measured.length, 3);
+  assert.ok(measured.every((o) => o.quality.status === "complete"));
+
+  // raw label preservation: "SWOLF" (uppercase) is preserved VERBATIM in Measurement.quantity — recognition
+  // normalizes only for the catalog lookup, never for what is stored.
+  const swolf = measured.find((o) => o.kind === "measured" && o.measurement.quantity === "SWOLF");
+  assert.ok(swolf, "the raw uppercase label 'SWOLF' must be preserved, not lowercased to 'swolf'");
+});
+
+test("044-C1A — an unrelated, still-unfamiliar metric remains accepted with a suspicious warning (the catalog stays closed)", () => {
+  const { outcome } = run({ entries: [{ kind: "measured-value", label: "vo2max-estimate", rawValue: "52", unit: "ml/kg/min" }] });
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  assert.equal(outcome.status, "accepted");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.equal(measured.quality.status, "suspicious");
+});
+
 // UC7 — athlete decision report is observation/context only, never a compliance score --------------
 test("UC7 — an athlete-decision-report records a subjective observation, not an AthleteDecision/score", () => {
   const entry: ManualInputEntry = {

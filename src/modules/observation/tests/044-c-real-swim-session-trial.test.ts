@@ -60,22 +60,27 @@ test("044-C.3 the raw comma-grouped source value ('1,600') is the row that faile
   assert.deepEqual(magnitudes, [0, 3600]);
 });
 
-// --- unknown metrics: real swim-specific vocabulary (SWOLF, strokes, calories) is unrecognized ------
+// --- unknown metrics: after Impl 044-C1A, swim-specific vocabulary (SWOLF, strokes, calories) is now
+// recognized too — RECOGNIZED_METRICS grew from 15 to 18 entries (Spec 044-C1 / Tech Spec 044-C1A) --------
 
-test("044-C.4 real swim-specific metrics (swolf/total-strokes/calories) are accepted but flagged suspicious; running/cycling-shaped metrics (distance/duration/avg-pace/heart-rate) are recognized", () => {
+test("044-C.4 all 17 real admitted measured observations are recognized (complete) after Impl 044-C1A's vocabulary extension — zero suspicious", () => {
   const { outcome } = runTrial();
   if (outcome.status === "rejected") return assert.fail("should partially accept");
   const measured = outcome.observationSet.observations.filter((o) => o.kind === "measured");
   const suspicious = measured.filter((o) => o.quality.status === "suspicious").map((o) => o.measurement.quantity);
   const complete = measured.filter((o) => o.quality.status === "complete").map((o) => o.measurement.quantity);
 
-  // real finding: every swolf/total-strokes/calories entry is unrecognized (6 of them)
-  assert.equal(suspicious.length, 6);
-  assert.ok(suspicious.every((m) => ["swolf", "total-strokes", "calories"].includes(m)));
+  // real finding (post-044-C1A): swolf/total-strokes/calories are now recognized — zero suspicious remain
+  assert.equal(suspicious.length, 0);
 
-  // real finding: distance/duration/avg-pace/heart-rate ARE recognized (11 of them)
-  assert.equal(complete.length, 11);
-  assert.ok(complete.every((m) => ["distance", "duration", "avg-pace", "avg-heart-rate", "max-heart-rate"].includes(m)));
+  // all 17 admitted measured observations are now "complete" (the 044-C.3-excluded raw "1,600" row is the
+  // only one absent from this set; it never became an observation at all — that gap is untouched)
+  assert.equal(complete.length, 17);
+  assert.ok(
+    complete.every((m) =>
+      ["distance", "duration", "avg-pace", "avg-heart-rate", "max-heart-rate", "swolf", "total-strokes", "calories"].includes(m),
+    ),
+  );
 });
 
 // --- provenance: sourceRowId / artifactRef / deviceLabel all survive into the real observations ------
