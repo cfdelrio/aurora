@@ -54,6 +54,8 @@ const RECOGNIZED_METRICS = new Set([
   "swolf",
   "total-strokes",
   "calories",
+  "optimal-pace",
+  "avg-strokes-per-length",
 ]);
 
 function normalizeMetricLabel(label: string): string {

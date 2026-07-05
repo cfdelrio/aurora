@@ -87,24 +87,26 @@ test("044-D.4 the grouped-thousands rule normalizes both real comma values here 
   assert.ok(summaryStrokes.provenance.reference.includes('raw-numeric:"1,125"'));
 });
 
-// --- two genuinely NEW, distinct, unrecognized metrics — never seen in Trial 044-C -------------------
+// --- Impl 044-D1A: "optimal-pace" and "avg-strokes-per-length" are now recognized (complete) — zero
+// remaining unknown-metric warnings from this trial. Recognizing the LABEL is not a claim that Garmin's
+// exact "Ritmo óptimo" formula is known, nor that avg-strokes-per-length is computed at runtime from
+// total-strokes/lengths — recognition only removes the warning (Spec 044-D1 §2/§7; Tech Spec 044-D1A §1). --
 
-test("044-D.5 'optimal-pace' and 'avg-strokes-per-length' are genuinely new metric labels, admitted but flagged suspicious, never guessed as aliases", () => {
+test("044-D.5 'optimal-pace' and 'avg-strokes-per-length' are now recognized (complete) after Impl 044-D1A's vocabulary extension — zero suspicious", () => {
   const { outcome } = runTrial();
   if (outcome.status === "rejected") return assert.fail("should partially accept");
   const measured = outcome.observationSet.observations.filter((o) => o.kind === "measured");
   const suspicious = measured.filter((o) => o.quality.status === "suspicious");
-  assert.equal(suspicious.length, 6); // optimal-pace x3 + avg-strokes-per-length x3 (the 4th instance failed to parse, see 044-D.3)
+  assert.equal(suspicious.length, 0);
 
-  const optimalPace = suspicious.filter((o) => o.kind === "measured" && o.measurement.quantity === "optimal-pace");
-  const avgStrokesPerLength = suspicious.filter(
+  const optimalPace = measured.filter((o) => o.kind === "measured" && o.measurement.quantity === "optimal-pace");
+  const avgStrokesPerLength = measured.filter(
     (o) => o.kind === "measured" && o.measurement.quantity === "avg-strokes-per-length",
   );
   assert.equal(optimalPace.length, 3);
-  assert.equal(avgStrokesPerLength.length, 3);
-  for (const o of suspicious) {
-    assert.ok(o.kind === "measured" && o.quality.reason.includes("unrecognized metric name"));
-  }
+  assert.equal(avgStrokesPerLength.length, 3); // the 4th real instance (csv-D-5's "--") still never parses — see 044-D.3
+  assert.ok(optimalPace.every((o) => o.kind === "measured" && o.quality.status === "complete"));
+  assert.ok(avgStrokesPerLength.every((o) => o.kind === "measured" && o.quality.status === "complete"));
 });
 
 // --- "optimal-pace" is proven DISTINCT from "avg-pace" by real, differing values — not an alias -------
