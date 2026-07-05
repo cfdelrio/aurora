@@ -239,3 +239,110 @@ test("observationQualityStatusFor maps the input-quality summary onto existing O
   assert.equal(observationQualityStatusFor("conflicting"), "source-conflicted");
   assert.equal(observationQualityStatusFor("low-confidence"), "suspicious");
 });
+
+// --- Impl 044-C2A: grouped-thousands numeric lexical normalization (Spec 044-C2 / Tech Spec 044-C2A) ----
+// parseFiniteNumber is private/unexported — every assertion below drives it only through the real
+// measured-value intake path (mapEntry -> ingestManualInput), exactly like every other adapter test.
+
+function measuredOutcome(rawValue: string, over: Partial<Extract<ManualInputEntry, { kind: "measured-value" }>> = {}) {
+  return run({
+    entries: [{ kind: "measured-value", label: "distance", rawValue, unit: "m", ...over }],
+  }).outcome;
+}
+
+test("044-C2A.1 '1,600' normalizes to numeric 1600 (grouped-thousands, unambiguous)", () => {
+  const outcome = measuredOutcome("1,600");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.equal(measured.measurement.magnitude, 1600);
+});
+
+test("044-C2A.2 '12,345' normalizes to numeric 12345", () => {
+  const outcome = measuredOutcome("12,345");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.equal(measured.measurement.magnitude, 12345);
+});
+
+test("044-C2A.3 '1,234,567' normalizes to numeric 1234567 (multiple grouped-thousands groups)", () => {
+  const outcome = measuredOutcome("1,234,567");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.equal(measured.measurement.magnitude, 1234567);
+});
+
+test("044-C2A.4 '+1,600' and '-1,600' normalize per the signed grouped-thousands grammar", () => {
+  const positive = measuredOutcome("+1,600");
+  const negative = measuredOutcome("-1,600");
+  if (positive.status === "rejected" || negative.status === "rejected") return assert.fail("should accept");
+  const pos = positive.observationSet.observations.find((o) => o.kind === "measured");
+  const neg = negative.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(pos && pos.kind === "measured" && neg && neg.kind === "measured");
+  assert.equal(pos.measurement.magnitude, 1600);
+  assert.equal(neg.measurement.magnitude, -1600);
+});
+
+test("044-C2A.5 ambiguous/malformed comma forms remain rejected as unparseable-numeric-value", () => {
+  for (const ambiguous of ["1,6", "12,34", "1,23,456", "1.234,56", "1,600.5", "1,600,", ",600", "1, 600", "abc"]) {
+    const outcome = measuredOutcome(ambiguous);
+    assert.equal(outcome.status, "rejected", `expected '${ambiguous}' to be rejected`);
+    assert.ok(outcome.reasons.includes("no-faithful-observation"), `expected '${ambiguous}' to yield no-faithful-observation`);
+  }
+});
+
+test("044-C2A.6 existing plain integer, decimal-dot, signed, and zero behavior is unchanged", () => {
+  for (const [rawValue, expected] of [
+    ["240", 240],
+    ["42.5", 42.5],
+    ["-5", -5],
+    ["0", 0],
+  ] as const) {
+    const outcome = measuredOutcome(rawValue);
+    if (outcome.status === "rejected") return assert.fail(`'${rawValue}' should accept`);
+    const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+    assert.ok(measured && measured.kind === "measured");
+    assert.equal(measured.measurement.magnitude, expected);
+  }
+});
+
+test("044-C2A.7 a normalized value keeps quality status complete for a recognized metric, with an honest additive reason note", () => {
+  const outcome = measuredOutcome("1,600"); // "distance" is a recognized metric
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.equal(measured.quality.status, "complete");
+  assert.ok(measured.quality.reason.includes("grouped-thousands"));
+  for (const claim of ["locale", "device-accurate", "guaranteed", "device accuracy"]) {
+    assert.ok(!measured.quality.reason.toLowerCase().includes(claim), `reason must not claim '${claim}'`);
+  }
+});
+
+test("044-C2A.8 a normalized value for an UNRECOGNIZED metric stays suspicious (normalization never suppresses metric-recognition status)", () => {
+  const outcome = measuredOutcome("1,600", { label: "vo2max-estimate" });
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.equal(measured.quality.status, "suspicious");
+  assert.ok(measured.quality.reason.includes("grouped-thousands"));
+  assert.ok(measured.quality.reason.includes("unrecognized metric name"));
+});
+
+test("044-C2A.9 the original raw text ('1,600') is preserved, recoverable, in Provenance.reference on the normalized path", () => {
+  const outcome = measuredOutcome("1,600");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.ok(measured.provenance.reference.includes('raw-numeric:"1,600"'));
+});
+
+test("044-C2A.10 an already-strict-parseable value ('240') gets no normalization note or raw-numeric provenance segment", () => {
+  const outcome = measuredOutcome("240");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(measured && measured.kind === "measured");
+  assert.ok(!measured.quality.reason.includes("normalized"));
+  assert.ok(!measured.provenance.reference.includes("raw-numeric:"));
+});

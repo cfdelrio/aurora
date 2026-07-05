@@ -35,37 +35,55 @@ test("044-C.1 the real fixture has 18 input rows mapping to 21 ManualInputEntry 
   assert.equal(submission.entries.filter((e) => e.kind === "context-note").length, 3);
 });
 
-// --- the real outcome: partially-accepted, exactly one limitation ----------------------------------
+// --- the real outcome: fully accepted after Impl 044-C2A's grouped-thousands normalization ----------
+// (was "partially-accepted" with exactly one limitation, "unparseable-numeric-value", before 044-C2A — see
+// docs/trials/044-C-real-training-intake-trial.md §1/§5 for that original, historical, UNCHANGED finding)
 
-test("044-C.2 the real submission is partially-accepted with exactly one limitation (unparseable-numeric-value)", () => {
+test("044-C.2 the real submission is now fully accepted — Impl 044-C2A's grouped-thousands normalization closes the one original limitation", () => {
   const { outcome } = runTrial();
-  assert.equal(outcome.status, "partially-accepted");
-  assert.equal(outcome.acceptedCount, 20);
-  assert.deepEqual(outcome.limitations, ["unparseable-numeric-value"]);
-  assert.equal(outcome.quality, "partial");
+  assert.equal(outcome.status, "accepted");
+  assert.equal(outcome.acceptedCount, 21);
+  assert.deepEqual(outcome.limitations, []);
+  assert.equal(outcome.quality, "complete");
 });
 
-// --- the ONE real-data failure: Garmin's comma-grouped "1,600" is not parsed as a number -----------
+// --- the row that ORIGINALLY failed: Garmin's comma-grouped "1,600" now normalizes to 1600 -----------
 
-test("044-C.3 the raw comma-grouped source value ('1,600') is the row that failed — a genuine real-data finding", () => {
+test("044-C.3 the raw comma-grouped source value ('1,600') now normalizes to the numeric value 1600 (Impl 044-C2A)", () => {
   const { outcome } = runTrial();
-  if (outcome.status === "rejected") return assert.fail("should partially accept");
+  if (outcome.status === "rejected") return assert.fail("should accept");
   const distances = outcome.observationSet.observations.filter(
     (o) => o.kind === "measured" && o.measurement.quantity === "distance",
   );
-  // only 2 of the 3 real distance rows made it in (csv-2's "0" and csv-134's manually-normalized "3600");
-  // csv-59's raw "1,600" is the one that failed to parse.
-  assert.equal(distances.length, 2);
-  const magnitudes = distances.map((o) => (o.kind === "measured" ? o.measurement.magnitude : undefined)).sort();
-  assert.deepEqual(magnitudes, [0, 3600]);
+  // all 3 real distance rows now made it in: csv-2's "0", csv-59's raw "1,600" (normalized), and
+  // csv-134's manually-normalized "3600".
+  assert.equal(distances.length, 3);
+  const magnitudes = distances
+    .map((o) => (o.kind === "measured" ? o.measurement.magnitude : undefined))
+    .sort((a, b) => (a ?? 0) - (b ?? 0));
+  assert.deepEqual(magnitudes, [0, 1600, 3600]);
+
+  // proof: the specific observation sourced from csv-59's raw "1,600" carries magnitude 1600, "complete"
+  // quality (distance is a recognized metric — normalization itself never causes "suspicious"), and a
+  // quality.reason noting the normalization without claiming locale/device/source truth.
+  const csv59Distance = distances.find((o) => o.provenance.reference.includes("row:csv-59"));
+  assert.ok(csv59Distance && csv59Distance.kind === "measured");
+  assert.equal(csv59Distance.measurement.magnitude, 1600);
+  assert.equal(csv59Distance.quality.status, "complete");
+  assert.ok(csv59Distance.quality.reason.includes("grouped-thousands"));
+  for (const claim of ["locale", "device-accurate", "guaranteed"]) {
+    assert.ok(!csv59Distance.quality.reason.toLowerCase().includes(claim));
+  }
+  // the original raw text remains recoverable in provenance — never silently overwritten.
+  assert.ok(csv59Distance.provenance.reference.includes('raw-numeric:"1,600"'));
 });
 
 // --- unknown metrics: after Impl 044-C1A, swim-specific vocabulary (SWOLF, strokes, calories) is now
 // recognized too — RECOGNIZED_METRICS grew from 15 to 18 entries (Spec 044-C1 / Tech Spec 044-C1A) --------
 
-test("044-C.4 all 17 real admitted measured observations are recognized (complete) after Impl 044-C1A's vocabulary extension — zero suspicious", () => {
+test("044-C.4 all 18 real admitted measured observations are recognized (complete) — zero suspicious", () => {
   const { outcome } = runTrial();
-  if (outcome.status === "rejected") return assert.fail("should partially accept");
+  if (outcome.status === "rejected") return assert.fail("should accept");
   const measured = outcome.observationSet.observations.filter((o) => o.kind === "measured");
   const suspicious = measured.filter((o) => o.quality.status === "suspicious").map((o) => o.measurement.quantity);
   const complete = measured.filter((o) => o.quality.status === "complete").map((o) => o.measurement.quantity);
@@ -73,9 +91,9 @@ test("044-C.4 all 17 real admitted measured observations are recognized (complet
   // real finding (post-044-C1A): swolf/total-strokes/calories are now recognized — zero suspicious remain
   assert.equal(suspicious.length, 0);
 
-  // all 17 admitted measured observations are now "complete" (the 044-C.3-excluded raw "1,600" row is the
-  // only one absent from this set; it never became an observation at all — that gap is untouched)
-  assert.equal(complete.length, 17);
+  // all 18 measured rows are now "complete" — csv-59's raw "1,600" distance (Impl 044-C2A) is no longer
+  // absent from this set; it is admitted like every other recognized-metric row.
+  assert.equal(complete.length, 18);
   assert.ok(
     complete.every((m) =>
       ["distance", "duration", "avg-pace", "avg-heart-rate", "max-heart-rate", "swolf", "total-strokes", "calories"].includes(m),
@@ -87,7 +105,7 @@ test("044-C.4 all 17 real admitted measured observations are recognized (complet
 
 test("044-C.5 sourceRowId, artifactRef, and deviceLabel are all preserved in Provenance.reference on real observations", () => {
   const { outcome } = runTrial();
-  if (outcome.status === "rejected") return assert.fail("should partially accept");
+  if (outcome.status === "rejected") return assert.fail("should accept");
   const bySourceRow = (id: string) =>
     outcome.observationSet.observations.filter((o) => o.provenance.reference.includes(`row:${id}`));
 
@@ -100,12 +118,13 @@ test("044-C.5 sourceRowId, artifactRef, and deviceLabel are all preserved in Pro
     assert.ok(o.provenance.reference.includes("artifact:garmin-activity-23459651624"));
   }
 
-  // deviceLabel was set on BOTH the csv-59 and csv-134 distance rows in the real fixture, but csv-59's
-  // distance row is exactly the one that failed to parse (044-C.3) — so only csv-134's survives here.
+  // deviceLabel was set on BOTH the csv-59 and csv-134 distance rows in the real fixture. Before Impl
+  // 044-C2A, csv-59's distance row was exactly the one that failed to parse, so only csv-134's survived.
+  // Now that "1,600" normalizes successfully, both survive.
   const withDevice = outcome.observationSet.observations.filter((o) =>
     o.provenance.reference.includes("device:Garmin Connect export"),
   );
-  assert.equal(withDevice.length, 1);
+  assert.equal(withDevice.length, 2);
 });
 
 // --- notes: each note became its own separate context-note/subjective observation --------------------

@@ -146,3 +146,38 @@ test("044-C1A no canonical-identity/alias/sport-registry/fuzzy/LLM infrastructur
     assert.equal(src.toLowerCase().includes(token.toLowerCase()), false, `manual-input-adapter.ts must not reference '${token}'`);
   }
 });
+
+// --- Impl 044-C2A: grouped-thousands numeric lexical normalization guard ------------------------------
+// Spec 044-C2 / Tech Spec 044-C2A approved exactly ONE narrow lexical shape, never a locale parser and
+// never blind punctuation stripping. These guards read the source AS TEXT to prove that stays true.
+
+test("044-C2A no locale-parsing library or Intl-based numeric coercion was introduced", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  for (const token of [
+    "Intl.NumberFormat", "new Intl.", "numeral(", "require(\"numeral\")", "from \"numeral\"",
+    "toLocaleString(", "resolvedOptions(",
+  ]) {
+    assert.equal(src.includes(token), false, `manual-input-adapter.ts must not reference '${token}' (no locale-parsing library/mechanism)`);
+  }
+});
+
+test("044-C2A the grouped-thousands regex is the ONLY comma-handling mechanism — no blind punctuation stripping", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  // the sole approved shape (Spec 044-C2 §6 Decision 2 / Tech Spec 044-C2A §6 Decision 2)
+  assert.ok(src.includes("^[+-]?\\d{1,3}(,\\d{3})+$"), "the exact grouped-thousands grammar must be present, unmodified");
+  // exactly one comma-stripping replace call, and it targets commas only (never a broader charset)
+  const commaStrips = [...src.matchAll(/\.replace\(\/,\/g,\s*""\)/g)];
+  assert.equal(commaStrips.length, 1, "expected exactly one '.replace(/,/g, \"\")' comma-stripping call");
+  for (const broad of ["[^\\d", "[^0-9", "replace(/[^", "replace(/\\D"]) {
+    assert.equal(src.includes(broad), false, `manual-input-adapter.ts must not perform broad punctuation stripping ('${broad}')`);
+  }
+});
+
+test("044-C2A NumericParseResult stays a local, unexported discriminated union — no shared-kernel/generic parsing framework", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  assert.ok(/type\s+NumericParseResult\s*=/.test(src), "NumericParseResult must be defined in manual-input-adapter.ts");
+  assert.equal(/export\s+(type|\{[^}]*NumericParseResult)/.test(src), false, "NumericParseResult must not be exported");
+  for (const f of productionFiles(observationDir).filter((f) => f !== ADAPTER_FILE)) {
+    assert.equal(readFileSync(f, "utf8").includes("NumericParseResult"), false, `${f} must not reference NumericParseResult`);
+  }
+});
