@@ -9,7 +9,10 @@
 // measured-value mapping (Impl 044-A1): mechanical only — parse a finite number, require a unit, carry
 // the metric name/row reference through unexamined. An unrecognized metric name is still recorded, only
 // flagged (quality: suspicious) — recognizing a metric's NAME is not the same as judging its correctness,
-// and Aurora owns no canonical metric catalog. No unit conversion, no unit-catalog validation.
+// and Aurora owns no canonical metric catalog. No unit conversion, no unit-catalog validation. A raw value
+// exactly matching the one known missing-value token (Impl 044-D2A) is admitted as the EXISTING
+// MissingDataObservation, never a fabricated numeric value — checked before, and never inferred from, a
+// numeric-parse failure.
 
 import { recordObservationSet } from "./record-observation-set.ts";
 import type { RawObservationInput } from "./record-observation-set.ts";
@@ -51,17 +54,50 @@ const RECOGNIZED_METRICS = new Set([
   "distance",
   "duration",
   "elevation-gain",
+  "swolf",
+  "total-strokes",
+  "calories",
+  "optimal-pace",
+  "avg-strokes-per-length",
+  "elevation-loss",
+  "max-cadence",
+  "avg-stride-length",
+  "moving-time",
+  "avg-moving-pace",
 ]);
 
 function normalizeMetricLabel(label: string): string {
   return label.trim().toLowerCase().replace(/\s+/g, "-");
 }
 
-/** Mechanical parse only — a well-formed finite number, never a unit conversion or magnitude judgment. */
-function parseFiniteNumber(rawValue: string): number | undefined {
-  if (typeof rawValue !== "string" || rawValue.trim().length === 0) return undefined;
-  const parsed = Number(rawValue);
-  return Number.isFinite(parsed) ? parsed : undefined;
+// The one exact literal Spec 044-D2 / Tech Spec 044-D2A approved as a known, source-declared, structurally-
+// evidenced absence (never inferred from a numeric-parse failure, never a family/registry of tokens).
+const KNOWN_MISSING_VALUE = "--";
+
+// The one narrow lexical shape Spec 044-C2 / Tech Spec 044-C2A approved as unambiguous grouped-thousands:
+// one or more comma-separated groups of EXACTLY three digits, optional sign, no decimal point anywhere.
+const GROUPED_THOUSANDS = /^[+-]?\d{1,3}(,\d{3})+$/;
+
+type NumericParseResult =
+  | { readonly status: "parsed"; readonly value: number; readonly normalized: boolean }
+  | { readonly status: "unparseable" };
+
+/**
+ * Mechanical parse only — a well-formed finite number, never a unit conversion or magnitude judgment. The
+ * existing strict native parse runs first and stays authoritative for every already-supported form; only on
+ * strict failure does this fall back to the one narrow grouped-thousands shape above (Spec 044-C2 Option B).
+ * Never infers a locale, never strips punctuation beyond that one exact shape.
+ */
+function parseFiniteNumber(rawValue: string): NumericParseResult {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) return { status: "unparseable" };
+  const strict = Number(rawValue);
+  if (Number.isFinite(strict)) return { status: "parsed", value: strict, normalized: false };
+  const trimmed = rawValue.trim();
+  if (GROUPED_THOUSANDS.test(trimmed)) {
+    const grouped = Number(trimmed.replace(/,/g, ""));
+    if (Number.isFinite(grouped)) return { status: "parsed", value: grouped, normalized: true };
+  }
+  return { status: "unparseable" };
 }
 
 /** Quality reflects how RECOGNIZABLE the recording's label is — never a judgment of the value itself. */
@@ -123,19 +159,51 @@ function mapEntry(
     case "measured-value": {
       if (!nonEmpty(entry.label)) return { limitation: "ambiguous-field" };
       if (!nonEmpty(entry.unit)) return { limitation: "missing-unit" };
-      const magnitude = parseFiniteNumber(entry.rawValue);
-      if (magnitude === undefined) return { limitation: "unparseable-numeric-value" };
+      // Missing-value classification runs BEFORE numeric parsing — a known, source-declared absence is a
+      // different real fact than a generic parse failure; it is never inferred from one (Spec 044-D2).
+      if (typeof entry.rawValue === "string" && entry.rawValue.trim() === KNOWN_MISSING_VALUE) {
+        const rowProvenance: ProvenanceInput =
+          entry.sourceRowRef !== undefined
+            ? { ...prov, reference: `${prov.reference}|${entry.sourceRowRef}` }
+            : prov;
+        return {
+          observation: {
+            kind: "missing-data",
+            provenance: rowProvenance,
+            quality: observationQuality(
+              "missing",
+              `source reported the measured value as unavailable using raw token "${entry.rawValue}"`,
+            ),
+            expected: entry.label,
+          },
+        };
+      }
+      const parsed = parseFiniteNumber(entry.rawValue);
+      if (parsed.status === "unparseable") return { limitation: "unparseable-numeric-value" };
       // fold the row/field reference (if any) into THIS entry's provenance only — never a new Source value.
-      const rowProvenance: ProvenanceInput =
+      let rowProvenance: ProvenanceInput =
         entry.sourceRowRef !== undefined
           ? { ...prov, reference: `${prov.reference}|${entry.sourceRowRef}` }
           : prov;
+      // on the normalized path only, fold the original raw text in too — recoverable, never overwritten.
+      if (parsed.normalized) {
+        rowProvenance = { ...rowProvenance, reference: `${rowProvenance.reference}|raw-numeric:"${entry.rawValue}"` };
+      }
+      const baseQuality = qualityForMetricLabel(entry.label);
+      // normalization itself never changes status (never "suspicious" merely for being normalized); it only
+      // adds an honest note — never a locale/device/source-truth claim — to the existing reason.
+      const quality = parsed.normalized
+        ? observationQuality(
+            baseQuality.status,
+            `${baseQuality.reason}; numeric text normalized from an unambiguous grouped-thousands form (raw: "${entry.rawValue}")`,
+          )
+        : baseQuality;
       return {
         observation: {
           kind: "measured",
           provenance: rowProvenance,
-          quality: qualityForMetricLabel(entry.label),
-          measurement: { quantity: entry.label, magnitude, unit: entry.unit },
+          quality,
+          measurement: { quantity: entry.label, magnitude: parsed.value, unit: entry.unit },
         },
       };
     }

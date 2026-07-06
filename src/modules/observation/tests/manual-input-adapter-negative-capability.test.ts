@@ -90,3 +90,133 @@ test("the closed manual-input catalogs hold exactly the specified values", () =>
   assert.ok(MANUAL_INPUT_LIMITATIONS.includes("missing-unit"));
   assert.ok(MANUAL_INPUT_LIMITATIONS.includes("unparseable-numeric-value"));
 });
+
+// --- Impl 044-C1A / Impl 044-D1A / Impl 044-E1A: RECOGNIZED_METRICS closed-catalog guard -----------------
+// RECOGNIZED_METRICS is intentionally NOT exported (Tech Spec 044-C1A §1/§6) — "a small, explicitly
+// non-authoritative allowlist... a name-recognition aid only." This guard reads the source AS TEXT (no
+// export, no new abstraction) to prove the catalog stays closed, literal, exactly 25 entries (grown from 20
+// by Impl 044-E1A's "elevation-loss"/"max-cadence"/"avg-stride-length"/"moving-time"/"avg-moving-pace"
+// addition), and free of any canonicalization/registry/fuzzy/LLM infrastructure.
+
+const ADAPTER_FILE = join(observationDir, "application", "manual-input-adapter.ts");
+
+function extractRecognizedMetrics(src: string): string[] {
+  const match = src.match(/RECOGNIZED_METRICS\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  assert.ok(match, "RECOGNIZED_METRICS = new Set([...]) literal must exist in manual-input-adapter.ts");
+  return [...match[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+}
+
+test("044-E1A RECOGNIZED_METRICS remains a literal, closed catalog of exactly 25 entries including elevation-loss/max-cadence/avg-stride-length/moving-time/avg-moving-pace", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  const entries = extractRecognizedMetrics(src);
+  assert.equal(entries.length, 25);
+  assert.deepEqual(
+    [...entries].sort(),
+    [
+      "avg-cadence", "avg-heart-rate", "avg-moving-pace", "avg-pace", "avg-power",
+      "avg-speed", "avg-stride-length", "avg-strokes-per-length", "cadence", "calories",
+      "distance", "duration", "elevation-gain", "elevation-loss", "heart-rate",
+      "max-cadence", "max-heart-rate", "max-power", "moving-time", "optimal-pace",
+      "pace", "power", "speed", "swolf", "total-strokes",
+    ].sort(),
+  );
+  assert.ok(entries.includes("swolf"));
+  assert.ok(entries.includes("total-strokes"));
+  assert.ok(entries.includes("calories"));
+  assert.ok(entries.includes("optimal-pace"));
+  assert.ok(entries.includes("avg-strokes-per-length"));
+  assert.ok(entries.includes("elevation-loss"));
+  assert.ok(entries.includes("max-cadence"));
+  assert.ok(entries.includes("avg-stride-length"));
+  assert.ok(entries.includes("moving-time"));
+  assert.ok(entries.includes("avg-moving-pace"));
+});
+
+test("044-C1A RECOGNIZED_METRICS stays unexported, and no dynamic/config/db/network vocabulary source exists", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  assert.equal(/export\s+(const|\{[^}]*RECOGNIZED_METRICS)/.test(src), false, "RECOGNIZED_METRICS must not be exported");
+  for (const token of [
+    "readFileSync", "readFile(", "require(", "import(", "fetch(", "http.get", "https.get",
+    "process.env", "JSON.parse(readFile", ".json\"", ".yaml\"", ".yml\"",
+  ]) {
+    assert.equal(src.includes(token), false, `manual-input-adapter.ts must not reference '${token}' (no config/db/network vocabulary source)`);
+  }
+});
+
+test("044-C1A no canonical-identity/alias/sport-registry/fuzzy/LLM infrastructure was introduced", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  for (const token of [
+    "canonicalMetric", "CanonicalMetric", "metricAlias", "MetricAlias", "aliasMap", "AliasMap",
+    "sportVocabulary", "SportVocabulary", "SportSpecific", "sportRegistry",
+    "levenshtein", "fuzzysort", "fuzzball", "stringSimilarity",
+    "openai", "anthropic", "embedding", "classify(",
+  ]) {
+    assert.equal(src.toLowerCase().includes(token.toLowerCase()), false, `manual-input-adapter.ts must not reference '${token}'`);
+  }
+});
+
+// --- Impl 044-C2A: grouped-thousands numeric lexical normalization guard ------------------------------
+// Spec 044-C2 / Tech Spec 044-C2A approved exactly ONE narrow lexical shape, never a locale parser and
+// never blind punctuation stripping. These guards read the source AS TEXT to prove that stays true.
+
+test("044-C2A no locale-parsing library or Intl-based numeric coercion was introduced", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  for (const token of [
+    "Intl.NumberFormat", "new Intl.", "numeral(", "require(\"numeral\")", "from \"numeral\"",
+    "toLocaleString(", "resolvedOptions(",
+  ]) {
+    assert.equal(src.includes(token), false, `manual-input-adapter.ts must not reference '${token}' (no locale-parsing library/mechanism)`);
+  }
+});
+
+test("044-C2A the grouped-thousands regex is the ONLY comma-handling mechanism — no blind punctuation stripping", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  // the sole approved shape (Spec 044-C2 §6 Decision 2 / Tech Spec 044-C2A §6 Decision 2)
+  assert.ok(src.includes("^[+-]?\\d{1,3}(,\\d{3})+$"), "the exact grouped-thousands grammar must be present, unmodified");
+  // exactly one comma-stripping replace call, and it targets commas only (never a broader charset)
+  const commaStrips = [...src.matchAll(/\.replace\(\/,\/g,\s*""\)/g)];
+  assert.equal(commaStrips.length, 1, "expected exactly one '.replace(/,/g, \"\")' comma-stripping call");
+  for (const broad of ["[^\\d", "[^0-9", "replace(/[^", "replace(/\\D"]) {
+    assert.equal(src.includes(broad), false, `manual-input-adapter.ts must not perform broad punctuation stripping ('${broad}')`);
+  }
+});
+
+test("044-C2A NumericParseResult stays a local, unexported discriminated union — no shared-kernel/generic parsing framework", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  assert.ok(/type\s+NumericParseResult\s*=/.test(src), "NumericParseResult must be defined in manual-input-adapter.ts");
+  assert.equal(/export\s+(type|\{[^}]*NumericParseResult)/.test(src), false, "NumericParseResult must not be exported");
+  for (const f of productionFiles(observationDir).filter((f) => f !== ADAPTER_FILE)) {
+    assert.equal(readFileSync(f, "utf8").includes("NumericParseResult"), false, `${f} must not reference NumericParseResult`);
+  }
+});
+
+// --- Impl 044-D2A: exact known missing-value token guard ----------------------------------------------
+// Spec 044-D2 / Tech Spec 044-D2A approved recognizing exactly ONE literal string ("--") as a known,
+// source-declared absence — a single string-equality check, never a family/registry/config of tokens, and
+// never a source-format-specific branch. These guards read the source AS TEXT to prove that stays true.
+
+test("044-D2A the known missing-value token is a SINGLE string constant, compared by exact equality — no Set/array/regex family", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  assert.ok(/const\s+KNOWN_MISSING_VALUE\s*=\s*"--"/.test(src), "KNOWN_MISSING_VALUE must be the literal string \"--\"");
+  // exactly one comparison against it, and it is a plain equality check, never membership in a collection
+  const comparisons = [...src.matchAll(/===\s*KNOWN_MISSING_VALUE\b/g)];
+  assert.equal(comparisons.length, 1, "expected exactly one '=== KNOWN_MISSING_VALUE' comparison");
+  for (const collectionShape of [
+    "KNOWN_MISSING_VALUES", "MISSING_VALUE_TOKENS", "MISSING_TOKENS", "ABSENCE_TOKENS",
+    "new Set([\"--\"", ".has(entry.rawValue", "missingTokens", "absenceTokens",
+  ]) {
+    assert.equal(src.includes(collectionShape), false, `manual-input-adapter.ts must not reference '${collectionShape}' (no token family/registry)`);
+  }
+});
+
+test("044-D2A no new domain type, config/file/db/remote token source, or source-format-specific branch was introduced", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  for (const token of [
+    "MissingMeasurement", "MissingObservation", "AbsenceToken", "PlaceholderRegistry",
+    "readFileSync", "readFile(", "require(", "import(", "fetch(", "http.get", "https.get",
+    "process.env", ".json\"", ".yaml\"", ".yml\"",
+    "sourceFormat ===", "\"csv-summary\"", "'csv-summary'",
+  ]) {
+    assert.equal(src.includes(token), false, `manual-input-adapter.ts must not reference '${token}'`);
+  }
+});
