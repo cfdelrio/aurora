@@ -113,20 +113,24 @@ test("044-E.6 'avg-cadence' is recognized (complete) — the first real evidence
   assert.ok(cadences.every((o) => o.kind === "measured" && o.quality.status === "complete"));
 });
 
-// --- five genuinely new, running-specific metric labels — admitted, flagged suspicious, never guessed --
+// --- Impl 044-E1A: the five running-specific metric labels are now recognized (complete) — zero remaining
+// unknown-metric warnings from this trial. Recognizing the LABEL is not a claim of a universal metric
+// standard, a canonical identity, a Garmin formula, or a solved temporal-semantics model — recognition only
+// removes the warning (Spec 044-E1 §2/§7; Tech Spec 044-E1A §2). ------------------------------------------
 
-test("044-E.7 five genuinely new running-specific metric labels are admitted but flagged suspicious — never rejected, never guessed as aliases", () => {
+test("044-E.7 five genuinely new running-specific metric labels are now recognized (complete) after Impl 044-E1A's vocabulary extension — zero suspicious", () => {
   const { outcome } = runTrial();
   if (outcome.status === "rejected") return assert.fail("should accept");
   const measured = outcome.observationSet.observations.filter((o) => o.kind === "measured");
   const suspicious = measured.filter((o) => o.quality.status === "suspicious");
+  assert.equal(suspicious.length, 0);
+
   const newLabels = ["elevation-loss", "max-cadence", "avg-stride-length", "moving-time", "avg-moving-pace"];
   for (const label of newLabels) {
-    const observations = suspicious.filter((o) => o.kind === "measured" && o.measurement.quantity === label);
-    assert.equal(observations.length, 5, `expected 5 suspicious '${label}' observations (one per row)`);
-    assert.ok(observations.every((o) => o.kind === "measured" && o.quality.reason.includes("unrecognized metric name")));
+    const observations = measured.filter((o) => o.kind === "measured" && o.measurement.quantity === label);
+    assert.equal(observations.length, 5, `expected 5 '${label}' observations (one per row)`);
+    assert.ok(observations.every((o) => o.kind === "measured" && o.quality.status === "complete"));
   }
-  assert.equal(suspicious.length, newLabels.length * 5);
 });
 
 // --- "moving-time" and "avg-moving-pace" are evidenced as genuinely DISTINCT from "duration"/"avg-pace" -
