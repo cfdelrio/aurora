@@ -346,3 +346,91 @@ test("044-C2A.10 an already-strict-parseable value ('240') gets no normalization
   assert.ok(!measured.quality.reason.includes("normalized"));
   assert.ok(!measured.provenance.reference.includes("raw-numeric:"));
 });
+
+// --- Impl 044-D2A: exact known missing-value token recognition (Spec 044-D2 / Tech Spec 044-D2A) --------
+// A raw value exactly matching "--" (trimmed) is a known, source-declared, structurally-evidenced absence —
+// checked BEFORE parseFiniteNumber, never inferred from a parse failure — and is admitted as the EXISTING
+// MissingDataObservation, never a fabricated MeasuredObservation.
+
+test("044-D2A.1 an exact '--' measured-value entry produces a MissingDataObservation (kind 'missing-data'), not a MeasuredObservation", () => {
+  const outcome = measuredOutcome("--");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const missing = outcome.observationSet.observations.find((o) => o.kind === "missing-data");
+  const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+  assert.ok(missing, "expected a missing-data observation");
+  assert.equal(measured, undefined, "no MeasuredObservation should exist for '--'");
+});
+
+test("044-D2A.2 ' -- ' (padded with whitespace) is recognized the same way, via trim-equivalence", () => {
+  const outcome = measuredOutcome(" -- ");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const missing = outcome.observationSet.observations.find((o) => o.kind === "missing-data");
+  assert.ok(missing);
+});
+
+test("044-D2A.3 '--' produces no numeric magnitude of any kind (no 0, no NaN, no null) and no unparseable-numeric-value limitation", () => {
+  const outcome = measuredOutcome("--");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  assert.deepEqual(outcome.limitations, []);
+  const missing = outcome.observationSet.observations.find((o) => o.kind === "missing-data");
+  assert.ok(missing && !("measurement" in missing), "a missing-data observation must carry no Measurement at all");
+});
+
+test("044-D2A.4 '--' counts as exactly one admitted observation", () => {
+  const outcome = measuredOutcome("--");
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  assert.equal(outcome.status, "accepted");
+  assert.equal(outcome.acceptedCount, 1);
+});
+
+test("044-D2A.5 the resulting missing-data observation states quality.status 'missing', a source-declared-unavailability reason preserving the raw token '--', and no sensor/device/zero/formula claim", () => {
+  const outcome = measuredOutcome("--", { label: "avg-strokes-per-length" });
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const missing = outcome.observationSet.observations.find((o) => o.kind === "missing-data");
+  assert.ok(missing && missing.kind === "missing-data");
+  assert.equal(missing.quality.status, "missing");
+  assert.ok(missing.quality.reason.includes('"--"'));
+  assert.ok(missing.quality.reason.toLowerCase().includes("unavailable"));
+  assert.equal(missing.expected, "avg-strokes-per-length");
+  for (const claim of ["sensor", "device fail", "malfunction", "zero", "formula", "garmin"]) {
+    assert.ok(!missing.quality.reason.toLowerCase().includes(claim), `reason must not claim '${claim}'`);
+  }
+});
+
+test("044-D2A.6 sourceRowRef/provenance traceability is preserved for a recognized missing-data entry, exactly like measured-value's existing fold", () => {
+  const outcome = measuredOutcome("--", { sourceRowRef: "row:probe-1" });
+  if (outcome.status === "rejected") return assert.fail("should accept");
+  const missing = outcome.observationSet.observations.find((o) => o.kind === "missing-data");
+  assert.ok(missing);
+  assert.ok(missing.provenance.reference.includes("row:probe-1"));
+});
+
+test("044-D2A.7 '-', '---', 'N/A', 'NA', 'null', and an empty string are NOT recognized as the missing token — they remain on the existing malformed/unparseable path", () => {
+  for (const unsupported of ["-", "---", "N/A", "NA", "null", ""]) {
+    const outcome = measuredOutcome(unsupported);
+    assert.equal(outcome.status, "rejected", `expected '${unsupported}' to remain rejected (unchanged behavior)`);
+    assert.ok(outcome.reasons.includes("no-faithful-observation"));
+  }
+});
+
+test("044-D2A.8 malformed numeric text ('abc', ambiguous comma forms) remains unparseable-numeric-value, unaffected by missing-value recognition", () => {
+  for (const malformed of ["abc", "1,6", "12,34", "1,23,456", "1.234,56", "1,600.5", "1, 600"]) {
+    const outcome = measuredOutcome(malformed);
+    assert.equal(outcome.status, "rejected", `expected '${malformed}' to remain rejected (unchanged behavior)`);
+    assert.ok(outcome.reasons.includes("no-faithful-observation"));
+  }
+});
+
+test("044-D2A.9 grouped-thousands numeric normalization remains completely unaffected by missing-value recognition", () => {
+  for (const [rawValue, expected] of [
+    ["1,600", 1600],
+    ["3,200", 3200],
+    ["1,125", 1125],
+  ] as const) {
+    const outcome = measuredOutcome(rawValue);
+    if (outcome.status === "rejected") return assert.fail(`'${rawValue}' should accept`);
+    const measured = outcome.observationSet.observations.find((o) => o.kind === "measured");
+    assert.ok(measured && measured.kind === "measured");
+    assert.equal(measured.measurement.magnitude, expected);
+  }
+});

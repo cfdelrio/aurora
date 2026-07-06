@@ -183,3 +183,34 @@ test("044-C2A NumericParseResult stays a local, unexported discriminated union �
     assert.equal(readFileSync(f, "utf8").includes("NumericParseResult"), false, `${f} must not reference NumericParseResult`);
   }
 });
+
+// --- Impl 044-D2A: exact known missing-value token guard ----------------------------------------------
+// Spec 044-D2 / Tech Spec 044-D2A approved recognizing exactly ONE literal string ("--") as a known,
+// source-declared absence — a single string-equality check, never a family/registry/config of tokens, and
+// never a source-format-specific branch. These guards read the source AS TEXT to prove that stays true.
+
+test("044-D2A the known missing-value token is a SINGLE string constant, compared by exact equality — no Set/array/regex family", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  assert.ok(/const\s+KNOWN_MISSING_VALUE\s*=\s*"--"/.test(src), "KNOWN_MISSING_VALUE must be the literal string \"--\"");
+  // exactly one comparison against it, and it is a plain equality check, never membership in a collection
+  const comparisons = [...src.matchAll(/===\s*KNOWN_MISSING_VALUE\b/g)];
+  assert.equal(comparisons.length, 1, "expected exactly one '=== KNOWN_MISSING_VALUE' comparison");
+  for (const collectionShape of [
+    "KNOWN_MISSING_VALUES", "MISSING_VALUE_TOKENS", "MISSING_TOKENS", "ABSENCE_TOKENS",
+    "new Set([\"--\"", ".has(entry.rawValue", "missingTokens", "absenceTokens",
+  ]) {
+    assert.equal(src.includes(collectionShape), false, `manual-input-adapter.ts must not reference '${collectionShape}' (no token family/registry)`);
+  }
+});
+
+test("044-D2A no new domain type, config/file/db/remote token source, or source-format-specific branch was introduced", () => {
+  const src = readFileSync(ADAPTER_FILE, "utf8");
+  for (const token of [
+    "MissingMeasurement", "MissingObservation", "AbsenceToken", "PlaceholderRegistry",
+    "readFileSync", "readFile(", "require(", "import(", "fetch(", "http.get", "https.get",
+    "process.env", ".json\"", ".yaml\"", ".yml\"",
+    "sourceFormat ===", "\"csv-summary\"", "'csv-summary'",
+  ]) {
+    assert.equal(src.includes(token), false, `manual-input-adapter.ts must not reference '${token}'`);
+  }
+});

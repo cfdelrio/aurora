@@ -9,7 +9,10 @@
 // measured-value mapping (Impl 044-A1): mechanical only — parse a finite number, require a unit, carry
 // the metric name/row reference through unexamined. An unrecognized metric name is still recorded, only
 // flagged (quality: suspicious) — recognizing a metric's NAME is not the same as judging its correctness,
-// and Aurora owns no canonical metric catalog. No unit conversion, no unit-catalog validation.
+// and Aurora owns no canonical metric catalog. No unit conversion, no unit-catalog validation. A raw value
+// exactly matching the one known missing-value token (Impl 044-D2A) is admitted as the EXISTING
+// MissingDataObservation, never a fabricated numeric value — checked before, and never inferred from, a
+// numeric-parse failure.
 
 import { recordObservationSet } from "./record-observation-set.ts";
 import type { RawObservationInput } from "./record-observation-set.ts";
@@ -61,6 +64,10 @@ const RECOGNIZED_METRICS = new Set([
 function normalizeMetricLabel(label: string): string {
   return label.trim().toLowerCase().replace(/\s+/g, "-");
 }
+
+// The one exact literal Spec 044-D2 / Tech Spec 044-D2A approved as a known, source-declared, structurally-
+// evidenced absence (never inferred from a numeric-parse failure, never a family/registry of tokens).
+const KNOWN_MISSING_VALUE = "--";
 
 // The one narrow lexical shape Spec 044-C2 / Tech Spec 044-C2A approved as unambiguous grouped-thousands:
 // one or more comma-separated groups of EXACTLY three digits, optional sign, no decimal point anywhere.
@@ -147,6 +154,25 @@ function mapEntry(
     case "measured-value": {
       if (!nonEmpty(entry.label)) return { limitation: "ambiguous-field" };
       if (!nonEmpty(entry.unit)) return { limitation: "missing-unit" };
+      // Missing-value classification runs BEFORE numeric parsing — a known, source-declared absence is a
+      // different real fact than a generic parse failure; it is never inferred from one (Spec 044-D2).
+      if (typeof entry.rawValue === "string" && entry.rawValue.trim() === KNOWN_MISSING_VALUE) {
+        const rowProvenance: ProvenanceInput =
+          entry.sourceRowRef !== undefined
+            ? { ...prov, reference: `${prov.reference}|${entry.sourceRowRef}` }
+            : prov;
+        return {
+          observation: {
+            kind: "missing-data",
+            provenance: rowProvenance,
+            quality: observationQuality(
+              "missing",
+              `source reported the measured value as unavailable using raw token "${entry.rawValue}"`,
+            ),
+            expected: entry.label,
+          },
+        };
+      }
       const parsed = parseFiniteNumber(entry.rawValue);
       if (parsed.status === "unparseable") return { limitation: "unparseable-numeric-value" };
       // fold the row/field reference (if any) into THIS entry's provenance only — never a new Source value.

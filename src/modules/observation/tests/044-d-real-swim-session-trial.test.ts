@@ -37,27 +37,38 @@ test("044-D.1 the second real fixture has 36 input rows mapping to 41 ManualInpu
   assert.equal(submission.entries.filter((e) => e.kind === "context-note").length, 5);
 });
 
-// --- the actual outcome: partially-accepted, one limitation (a real blank "--" placeholder) ----------
+// --- Impl 044-D2A: the real "--" placeholder is now a known, source-declared absence — fully accepted -----
+// (was "partially-accepted" with exactly one limitation, "unparseable-numeric-value", before 044-D2A — see
+// docs/trials/044-D-second-real-swim-session-intake-trial.md §1/§6 for that original, historical, UNCHANGED
+// finding)
 
-test("044-D.2 the second real submission is partially-accepted with exactly one limitation (the real blank '--' avg-strokes-per-length value)", () => {
+test("044-D.2 the second real submission is now fully accepted — Impl 044-D2A's known-missing-value recognition closes the one remaining limitation", () => {
   const { outcome } = runTrial();
-  assert.equal(outcome.status, "partially-accepted");
-  assert.equal(outcome.acceptedCount, 40);
-  assert.deepEqual(outcome.limitations, ["unparseable-numeric-value"]);
-  assert.equal(outcome.quality, "partial");
+  assert.equal(outcome.status, "accepted");
+  assert.equal(outcome.acceptedCount, 41);
+  assert.deepEqual(outcome.limitations, []);
+  assert.equal(outcome.quality, "complete");
 });
 
-// --- the one real failure: Garmin's own "--" blank-field placeholder is not a number ------------------
+// --- the row that ORIGINALLY failed: Garmin's own "--" blank-field placeholder is now a MissingDataObservation
 
-test("044-D.3 the raw '--' placeholder (csv-D-5's avg-strokes-per-length) is the row that failed — a genuine, real, honestly-preserved blank value", () => {
+test("044-D.3 the raw '--' placeholder (csv-D-5's avg-strokes-per-length) now produces the existing MissingDataObservation, not a limitation (Impl 044-D2A)", () => {
   const { outcome } = runTrial();
-  if (outcome.status === "rejected") return assert.fail("should partially accept");
+  if (outcome.status === "rejected") return assert.fail("should accept");
   const csvD5 = outcome.observationSet.observations.filter((o) => o.provenance.reference.includes("row:csv-D-5"));
-  // only measured-value entries fold their row reference into provenance (mapEntry, existing behavior);
-  // csv-D-5 contributed 2 real measured observations (distance, avg-heart-rate) via that path — its
-  // avg-strokes-per-length "--" value never became an observation at all — absent, not a fabricated zero.
-  assert.equal(csvD5.length, 2);
-  assert.ok(!csvD5.some((o) => o.kind === "measured" && o.measurement.quantity === "avg-strokes-per-length"));
+  // csv-D-5 now contributes 3 observations: 2 measured (distance, avg-heart-rate) + 1 missing-data
+  // (avg-strokes-per-length) — no entry is silently dropped, and no numeric magnitude is invented.
+  assert.equal(csvD5.length, 3);
+  const missing = csvD5.find((o) => o.kind === "missing-data");
+  assert.ok(missing && missing.kind === "missing-data");
+  assert.equal(missing.expected, "avg-strokes-per-length");
+  assert.ok(!("measurement" in missing), "a missing-data observation must carry no Measurement/magnitude");
+  assert.equal(missing.quality.status, "missing");
+  assert.ok(missing.quality.reason.includes('"--"'), "the raw source token must remain preserved in the reason");
+  assert.ok(missing.quality.reason.toLowerCase().includes("unavailable"));
+  for (const claim of ["sensor", "malfunction", "device fail", "zero"]) {
+    assert.ok(!missing.quality.reason.toLowerCase().includes(claim), `reason must not claim '${claim}'`);
+  }
 });
 
 // --- the grouped-thousands rule (Impl 044-C2A) generalizes to a SECOND real session and a SECOND metric ---
@@ -200,17 +211,20 @@ test("044-D.10 a real, genuinely-reported zero-distance rest interval is recorde
   assert.equal(restDistance.quality.status, "complete");
 });
 
-// --- no row silently dropped: every attempted measured-value entry either became an observation or ------
-// contributed exactly the one documented limitation -----------------------------------------------------
+// --- no row silently dropped: every attempted measured-value entry became EXACTLY one of measured / -----
+// missing-data / limitation — a three-way partition since Impl 044-D2A (was two-way before it) -----------
 
-test("044-D.11 no row is silently dropped: 36 attempted measured-value entries account for exactly 35 admitted + 1 limitation", () => {
+test("044-D.11 no row is silently dropped: 36 attempted measured-value entries account for exactly 35 measured + 1 missing-data + 0 limitations", () => {
   const { submission, outcome } = runTrial();
-  if (outcome.status === "rejected") return assert.fail("should partially accept");
+  if (outcome.status === "rejected") return assert.fail("should accept");
   const measuredEntries = submission.entries.filter((e) => e.kind === "measured-value").length;
   const admittedMeasured = outcome.observationSet.observations.filter((o) => o.kind === "measured").length;
+  const admittedMissingData = outcome.observationSet.observations.filter((o) => o.kind === "missing-data").length;
   assert.equal(measuredEntries, 36);
   assert.equal(admittedMeasured, 35);
-  assert.equal(measuredEntries, admittedMeasured + outcome.limitations.length);
+  assert.equal(admittedMissingData, 1);
+  assert.equal(outcome.limitations.length, 0);
+  assert.equal(measuredEntries, admittedMeasured + admittedMissingData + outcome.limitations.length);
 });
 
 // --- negative capability: the real trial creates none of the downstream objects it must not ----------
