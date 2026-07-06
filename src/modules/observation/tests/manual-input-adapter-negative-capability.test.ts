@@ -91,12 +91,12 @@ test("the closed manual-input catalogs hold exactly the specified values", () =>
   assert.ok(MANUAL_INPUT_LIMITATIONS.includes("unparseable-numeric-value"));
 });
 
-// --- Impl 044-C1A / Impl 044-D1A / Impl 044-E1A: RECOGNIZED_METRICS closed-catalog guard -----------------
+// --- Impl 044-C1A / Impl 044-D1A / Impl 044-E1A / Impl 044-F1A: RECOGNIZED_METRICS closed-catalog guard ----
 // RECOGNIZED_METRICS is intentionally NOT exported (Tech Spec 044-C1A §1/§6) — "a small, explicitly
 // non-authoritative allowlist... a name-recognition aid only." This guard reads the source AS TEXT (no
-// export, no new abstraction) to prove the catalog stays closed, literal, exactly 25 entries (grown from 20
-// by Impl 044-E1A's "elevation-loss"/"max-cadence"/"avg-stride-length"/"moving-time"/"avg-moving-pace"
-// addition), and free of any canonicalization/registry/fuzzy/LLM infrastructure.
+// export, no new abstraction) to prove the catalog stays closed, literal, exactly 27 entries (grown from 25
+// by Impl 044-F1A's "max-speed"/"avg-moving-speed" addition), and free of any canonicalization/registry/
+// fuzzy/LLM infrastructure.
 
 const ADAPTER_FILE = join(observationDir, "application", "manual-input-adapter.ts");
 
@@ -106,17 +106,17 @@ function extractRecognizedMetrics(src: string): string[] {
   return [...match[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
 }
 
-test("044-E1A RECOGNIZED_METRICS remains a literal, closed catalog of exactly 25 entries including elevation-loss/max-cadence/avg-stride-length/moving-time/avg-moving-pace", () => {
+test("044-F1A RECOGNIZED_METRICS remains a literal, closed catalog of exactly 27 entries including max-speed/avg-moving-speed", () => {
   const src = readFileSync(ADAPTER_FILE, "utf8");
   const entries = extractRecognizedMetrics(src);
-  assert.equal(entries.length, 25);
+  assert.equal(entries.length, 27);
   assert.deepEqual(
     [...entries].sort(),
     [
-      "avg-cadence", "avg-heart-rate", "avg-moving-pace", "avg-pace", "avg-power",
+      "avg-cadence", "avg-heart-rate", "avg-moving-pace", "avg-moving-speed", "avg-pace", "avg-power",
       "avg-speed", "avg-stride-length", "avg-strokes-per-length", "cadence", "calories",
       "distance", "duration", "elevation-gain", "elevation-loss", "heart-rate",
-      "max-cadence", "max-heart-rate", "max-power", "moving-time", "optimal-pace",
+      "max-cadence", "max-heart-rate", "max-power", "max-speed", "moving-time", "optimal-pace",
       "pace", "power", "speed", "swolf", "total-strokes",
     ].sort(),
   );
@@ -130,6 +130,8 @@ test("044-E1A RECOGNIZED_METRICS remains a literal, closed catalog of exactly 25
   assert.ok(entries.includes("avg-stride-length"));
   assert.ok(entries.includes("moving-time"));
   assert.ok(entries.includes("avg-moving-pace"));
+  assert.ok(entries.includes("max-speed"));
+  assert.ok(entries.includes("avg-moving-speed"));
 });
 
 test("044-C1A RECOGNIZED_METRICS stays unexported, and no dynamic/config/db/network vocabulary source exists", () => {

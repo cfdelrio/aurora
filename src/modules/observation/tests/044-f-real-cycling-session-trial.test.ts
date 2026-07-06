@@ -75,18 +75,21 @@ test("044-F.4 metrics already recognized from prior arcs (avg-speed, elevation-g
   }
 });
 
-// --- two genuinely NEW, distinct, unrecognized metrics — never seen in either swim or running trial -----
+// --- Impl 044-F1A: the two cycling-specific metric labels are now recognized (complete) — zero remaining
+// unknown-metric warnings from this trial. Recognizing the LABEL is not a claim of a computed maximum, a
+// Garmin moving-speed formula, or a canonical speed/pace identity — recognition only removes the warning
+// (Spec 044-F1 §2/§8; Tech Spec 044-F1A §2). ---------------------------------------------------------------
 
-test("044-F.5 'max-speed' and 'avg-moving-speed' are genuinely new metric labels, admitted but flagged suspicious, never guessed as aliases", () => {
+test("044-F.5 'max-speed' and 'avg-moving-speed' are now recognized (complete) after Impl 044-F1A's vocabulary extension — zero suspicious", () => {
   const { outcome } = runTrial();
   if (outcome.status === "rejected") return assert.fail("should accept");
   const measured = outcome.observationSet.observations.filter((o) => o.kind === "measured");
   const suspicious = measured.filter((o) => o.quality.status === "suspicious");
-  assert.equal(suspicious.length, 8);
+  assert.equal(suspicious.length, 0);
   for (const label of ["max-speed", "avg-moving-speed"]) {
-    const observations = suspicious.filter((o) => o.kind === "measured" && o.measurement.quantity === label);
-    assert.equal(observations.length, 4, `expected 4 suspicious '${label}' observations (one per row)`);
-    assert.ok(observations.every((o) => o.kind === "measured" && o.quality.reason.includes("unrecognized metric name")));
+    const observations = measured.filter((o) => o.kind === "measured" && o.measurement.quantity === label);
+    assert.equal(observations.length, 4, `expected 4 '${label}' observations (one per row)`);
+    assert.ok(observations.every((o) => o.kind === "measured" && o.quality.status === "complete"));
   }
 });
 
