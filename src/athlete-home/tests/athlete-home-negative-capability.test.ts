@@ -46,6 +46,10 @@ test("UI-001.NC2 no production athlete-home file imports all four core module su
 test("UI-001.NC3 the renderer imports no domain module at all — it can only show what the view model already says", () => {
   const src = readFileSync(join(homeDir, "page", "render-athlete-home.ts"), "utf8");
   assert.equal(/from\s+["'][^"']*\/modules\//.test(src), false, "renderer must not import src/modules");
+  // Impl 045-A reinforcement: nor any runtime seam beyond modules — renderer -> view model ONLY.
+  for (const token of ["operator-runtime", "provider", "delivery"]) {
+    assert.equal(src.includes(token), false, `renderer must not reference '${token}'`);
+  }
 });
 
 test("UI-001.NC4 the assembler consumes public surfaces only (athlete/understanding/decision-support index), never module internals", () => {
@@ -59,20 +63,77 @@ test("UI-001.NC4 the assembler consumes public surfaces only (athlete/understand
   assert.equal(src.includes("reasoning/index"), false, "assembler needs no reasoning surface");
 });
 
-test("UI-001.NC5 the assembler duplicates no domain logic: no gate names, no ceiling mapping, no confidence arithmetic", () => {
-  const src = readFileSync(join(homeDir, "view-model", "assemble-athlete-home.ts"), "utf8");
-  for (const token of [
-    "evidenceGate", "understandingGate", "purposeGate", "riskGate", "agencyGate",
-    "maxVoiceForCeiling", "claimConfidence(", "updateUnderstanding", "detectSignals", "openHypothesis",
-    "Math.", "percent", "score",
-  ]) {
-    assert.equal(src.includes(token), false, `assembler must not re-run domain logic ('${token}')`);
+test("UI-001.NC4b (Impl 045-A) every core import in the view-model files is structurally `import type` — the assembler CANNOT execute domain behavior", () => {
+  for (const file of ["assemble-athlete-home.ts", "athlete-home-view-model.ts"]) {
+    const src = readFileSync(join(homeDir, "view-model", file), "utf8");
+    const coreImportLines = src.split("\n").filter((l) => /from\s+["'][^"']*\/modules\//.test(l));
+    assert.ok(coreImportLines.length >= 1, `${file} consumes real module types`);
+    for (const line of coreImportLines) {
+      assert.ok(line.trimStart().startsWith("import type"), `${file}: core import must be type-only — '${line.trim()}'`);
+    }
   }
 });
 
-test("UI-001.NC6 sample data stays in sample/: no production view-model/page file references the sample scenario", () => {
-  for (const f of productionFiles().filter((f) => !f.includes("/sample/") && !f.endsWith("index.ts"))) {
+test("UI-001.NC5 no non-sample athlete-home file duplicates or executes domain logic: no gates, no ceiling mapping, no call-shaped core execution", () => {
+  const presentationFiles = [
+    join(homeDir, "view-model", "assemble-athlete-home.ts"),
+    join(homeDir, "view-model", "athlete-home-view-model.ts"),
+    join(homeDir, "page", "render-athlete-home.ts"),
+    join(homeDir, "index.ts"),
+  ];
+  for (const f of presentationFiles) {
+    const src = readFileSync(f, "utf8");
+    for (const token of [
+      "evidenceGate", "understandingGate", "purposeGate", "riskGate", "agencyGate",
+      "maxVoiceForCeiling", "claimConfidence(", "updateUnderstanding", "detectSignals", "openHypothesis",
+      "Math.", "percent", "score",
+      // Impl 045-A: call-shaped near-whole-core execution stays confined to the sample harness
+      "recordObservationSet", "UnderstandingProfile.initialize", "openDecisionSupportCase(",
+      "evaluateDecisionSupportCase(",
+    ]) {
+      assert.equal(src.includes(token), false, `${f} must not re-run domain logic ('${token}')`);
+    }
+  }
+});
+
+test("UI-001.NC6 sample data stays in sample/: no production file — INCLUDING the public barrel (Impl 045-A) — references the sample scenario", () => {
+  for (const f of productionFiles().filter((f) => !f.includes("/sample/"))) {
     assert.equal(readFileSync(f, "utf8").includes("sample-scenario"), false, `${f} must not depend on sample data`);
+  }
+});
+
+// --- Impl 045-A (Spec 045 / Tech Spec 045-A): prototype sample isolation guards --------------------
+
+test("UI-001.NC12 (Guard 1) the public barrel exports no sample symbol and no sample module path — the near-whole-core demo harness is never publicly reachable", () => {
+  const src = readFileSync(join(homeDir, "index.ts"), "utf8");
+  assert.equal(src.includes("sampleAthleteHomeViewModel"), false, "index.ts must not export the sample view-model factory");
+  const exportSpecifiers = [...src.matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1]!);
+  for (const spec of exportSpecifiers) {
+    assert.equal(spec.includes("/sample/"), false, `index.ts must not re-export from a sample path ('${spec}')`);
+  }
+});
+
+test("UI-001.NC13 (Guard 2) sample code is importable ONLY from athlete-home's own tests/ and sample/ paths — the exact allowlist Tech Spec 045-A selected", () => {
+  const ALLOWED = [join(homeDir, "tests") + "/", join(homeDir, "sample") + "/"];
+  for (const f of collectTsFiles(srcDir)) {
+    const src = readFileSync(f, "utf8");
+    const importsSample = [...src.matchAll(/from\s+["']([^"']+)["']/g)]
+      .map((m) => m[1]!)
+      .some((spec) => spec.includes("athlete-home-sample-scenario") || spec.includes("athlete-home/sample/"));
+    if (!importsSample) continue;
+    assert.ok(
+      ALLOWED.some((dir) => f.startsWith(dir)),
+      `${f} must not import the athlete-home sample (allowed: athlete-home/tests/**, athlete-home/sample/**)`,
+    );
+  }
+});
+
+test("UI-001.NC14 (Guard 6) no non-test athlete-home file creates an AthleteDecision — click/press/silence never become a decision", () => {
+  for (const f of collectTsFiles(homeDir).filter((f) => !f.includes("/tests/"))) {
+    const src = readFileSync(f, "utf8");
+    for (const token of ["recordAthleteDecision", "amendAthleteDecision", "athleteDecision("]) {
+      assert.equal(src.includes(token), false, `${f} must not create an AthleteDecision ('${token}')`);
+    }
   }
 });
 

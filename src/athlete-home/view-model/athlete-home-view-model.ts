@@ -46,7 +46,7 @@ export interface NotYetModeledSection {
 export interface UnderstandingItemViewModel {
   readonly dimensionLabel: string;
   readonly level: UnderstandingLevel;
-  /** human words for the level — sober, no percentages */
+  /** human words for the level — sober, never numeric */
   readonly confidencePhrase: string;
   readonly isStale: boolean;
   readonly isFragile: boolean;
