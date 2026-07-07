@@ -31,15 +31,13 @@ test("UI-001.13 the ready page is a self-contained responsive document: viewport
   assert.ok(!html.includes("<script"), "no script — this page only shows; it never computes");
 });
 
-test("UI-001.14 the ready page answers the five questions in hierarchy order: direction, attention, understanding, then the honest gaps", () => {
+test("UI-001.14 the ready page answers the five questions in hierarchy order: direction, attention, understanding, then the one consolidated honest gap (Impl 045-D)", () => {
   const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
   const order = [
     "Tu dirección",
     "Merece tu atención",
     "Lo que Aurora entiende de vos",
-    "Cómo parecés estar hoy",
-    "Tu capacidad",
-    "Lo que está cambiando",
+    "Lo que Aurora todavía no mide",
   ].map((t) => html.indexOf(t));
   for (let i = 1; i < order.length; i++) {
     assert.ok(order[i]! > order[i - 1]!, `section ${i} must come after section ${i - 1}`);
@@ -59,12 +57,15 @@ test("UI-001.16 uncertainty is stated in words, not decorated away: the support 
   assert.ok(html.includes("Aurora no decide por vos"));
 });
 
-test("UI-001.17 the not-yet-modeled sections say so plainly and disclose the exact missing model behind a details fold", () => {
+test("UI-001.17 the consolidated not-yet-modeled section says so plainly, lists all three honest gap areas behind one fold, and leaks no internal domain-model name or repository path (Impl 045-D)", () => {
   const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
-  assert.ok(html.includes("Aurora todavía no tiene un modelo para esto"));
-  assert.ok(html.includes("CurrentState"));
-  assert.ok(html.includes("CapacityProfile"));
-  assert.ok(html.includes("ImpactAssessment"));
+  assert.ok(html.includes("Antes que inventar un número, prefiere decírtelo"));
+  assert.ok(html.includes("cómo estás hoy"));
+  assert.ok(html.includes("tu capacidad"));
+  assert.ok(html.includes("cambiando"));
+  for (const leak of ["CurrentState", "CapacityProfile", "ImpactAssessment", "docs/domain-modeling"]) {
+    assert.equal(html.includes(leak), false, `page must not leak '${leak}'`);
+  }
 });
 
 test("UI-001.18 empty world: unknown purpose + no assessments + no output renders honest empty states everywhere", () => {
@@ -103,4 +104,39 @@ test("UI-001.19 language discipline: the rendered page NEVER commands — no imp
 
 test("UI-001.20 escapeHtml neutralizes every HTML-significant character", () => {
   assert.equal(escapeHtml(`<a href="x">&'</a>`), "&lt;a href=&quot;x&quot;&gt;&amp;&#39;&lt;/a&gt;");
+});
+
+// --- Product Design Iteration 045-D — concrete storytelling acceptance criteria --------------------
+
+test("UI-001.21 (AC5) the rendered page leaks no gate name, enum/state-transition syntax, or repository path anywhere — traceability stays semantic", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  for (const leak of [
+    "EvidenceGate", "UnderstandingGate", "PurposeGate", "RiskGate", "AgencyGate",
+    "survived-challenge", "docs/domain-modeling", ".md", "CurrentState", "CapacityProfile",
+    "ImpactAssessment", "sustained work tolerance",
+  ]) {
+    assert.equal(html.includes(leak), false, `page must not leak '${leak}'`);
+  }
+});
+
+test("UI-001.22 (AC7) unavailable concepts remain unavailable — no placeholder score, readiness number, or capacity estimate appears anywhere", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  for (const fabricated of ["/100", "% de capacidad", "puntaje", "score", "readiness"]) {
+    assert.equal(html.includes(fabricated), false, `page must not fabricate '${fabricated}'`);
+  }
+});
+
+test("UI-001.23 (AC8) the not-yet-modeled treatment appears exactly once — repetition no longer dominates the page", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  const occurrences = html.split("Aurora todavía no construyó una forma de leer esto").length - 1;
+  assert.equal(occurrences, 1);
+  // the section title legitimately appears twice (aria-label + <h2>, same as every other section) —
+  // what must NOT repeat is the explanatory paragraph, asserted above.
+  assert.equal(html.split("<h2>Lo que Aurora todavía no mide</h2>").length - 1, 1);
+});
+
+test("UI-001.24 (AC10) agency is still made explicit on the rendered page", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  assert.ok(html.includes("Aurora no decide por vos"));
+  assert.ok(html.includes("La decisión es siempre tuya"));
 });

@@ -70,11 +70,12 @@ export function renderDirection(d: DirectionSection): string {
   }
 }
 
-export function renderNotYetModeled(title: string, s: NotYetModeledSection): string {
+export function renderNotYetModeled(s: NotYetModeledSection): string {
+  const areaList = s.areas.map((a) => `<li class="muted small">${escapeHtml(a.label)}</li>`).join("");
   return section(
-    title,
-    `<p class="muted">Aurora todavía no tiene un modelo para esto. Antes que inventar un número, prefiere decírtelo.</p>
-<details><summary>Por qué</summary><p class="muted small">${escapeHtml(s.whatIsMissing)}</p></details>`,
+    "Lo que Aurora todavía no mide",
+    `<p class="muted">${escapeHtml(s.note)}</p>
+<details><summary>Qué falta</summary><ul>${areaList}</ul></details>`,
   );
 }
 
@@ -114,21 +115,22 @@ export function renderUnderstanding(u: UnderstandingSection): string {
 export function renderAttention(a: AttentionSection): string {
   switch (a.state) {
     case "support": {
-      const reasons =
-        a.reasons.length === 0
-          ? ""
-          : `<details><summary>Entender</summary><ul>${a.reasons
-              .map((r) => `<li class="muted small">${escapeHtml(r)}</li>`)
-              .join("")}</ul></details>`;
+      const purposeRelevance =
+        a.purposeRelevance === undefined ? "" : `<p class="muted">${escapeHtml(a.purposeRelevance)}</p>`;
       const uncertainty = a.uncertaintyVisible
         ? `<p class="muted small">Esto es una interpretación con incertidumbre visible, no una certeza.</p>`
         : "";
+      const revision =
+        a.revisionCondition === undefined
+          ? ""
+          : `<li class="muted small">${escapeHtml(a.revisionCondition)}</li>`;
       return section(
         "Merece tu atención",
-        `<p class="primary">${escapeHtml(a.phrase)}</p>
+        `<p class="primary">${escapeHtml(a.observation)}</p>
+${purposeRelevance}
 ${uncertainty}
 <p class="muted">Aurora no decide por vos. Te muestra lo que ve.</p>
-${reasons}
+<details><summary>Entender</summary><ul><li class="muted small">${escapeHtml(a.traceSummary)}</li>${revision}</ul></details>
 ${epistemicTag(a.epistemic)}`,
       );
     }
@@ -168,9 +170,7 @@ function renderReadyBody(vm: AthleteHomeReady): string {
 ${renderDirection(vm.direction)}
 ${renderAttention(vm.attention)}
 ${renderUnderstanding(vm.understanding)}
-${renderNotYetModeled("Cómo parecés estar hoy", vm.currentState)}
-${renderNotYetModeled("Tu capacidad", vm.capacity)}
-${renderNotYetModeled("Lo que está cambiando", vm.trajectory)}
+${renderNotYetModeled(vm.notYetModeled)}
 </main>
 <footer>
   <p class="muted small">Aurora interpreta; no dictamina. Todo lo inferido puede cambiar con nueva evidencia. La decisión es siempre tuya.</p>
@@ -203,8 +203,8 @@ body{
 .page{max-width:38rem;margin:0 auto}
 header{padding:1.5rem 0 2rem;border-bottom:1px solid var(--line)}
 .brand{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.75rem;letter-spacing:.35em;color:var(--muted)}
-h1{font-size:1.75rem;font-weight:600;margin-top:1.25rem}
-.headline{margin-top:.75rem;font-size:1.125rem}
+h1{font-size:1.375rem;font-weight:600;color:var(--muted);margin-top:1.25rem}
+.headline{margin-top:.75rem;font-size:1.3125rem;font-weight:600;line-height:1.45}
 section{padding:2rem 0;border-bottom:1px solid var(--line)}
 h2{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.8125rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.875rem}
 .primary{font-size:1.1875rem}
@@ -221,7 +221,8 @@ ul{padding-left:1.25rem;margin-top:.375rem}
 footer{padding:2rem 0}
 @media(min-width:48rem){
   body{padding:3rem 2rem}
-  h1{font-size:2rem}
+  h1{font-size:1.5rem}
+  .headline{font-size:1.5rem}
 }
 `;
 

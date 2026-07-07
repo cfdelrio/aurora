@@ -40,15 +40,20 @@ test("UI-001.3 an ambiguous purpose stays first-class ambiguous — declared by 
   assert.equal(vm.direction.epistemic, "declared");
 });
 
-test("UI-001.4 CurrentState / Capacity / Trajectory are honest 'not-yet-modeled' sections naming the exact missing domain model — never silent mocks", () => {
+test("UI-001.4 CurrentState / Capacity / Trajectory are consolidated into one honest 'not-yet-modeled' section naming all three areas — never silent mocks, never repeated three times (Impl 045-D)", () => {
   const vm = assembleAthleteHome({ purposeView: { status: "unknown" }, assessments: [] });
   if (vm.state !== "ready") return assert.fail("should be ready");
-  assert.equal(vm.currentState.state, "not-yet-modeled");
-  assert.ok(vm.currentState.whatIsMissing.includes("CurrentState"));
-  assert.equal(vm.capacity.state, "not-yet-modeled");
-  assert.ok(vm.capacity.whatIsMissing.includes("CapacityProfile"));
-  assert.equal(vm.trajectory.state, "not-yet-modeled");
-  assert.ok(vm.trajectory.whatIsMissing.includes("ImpactAssessment"));
+  assert.equal(vm.notYetModeled.state, "not-yet-modeled");
+  assert.equal(vm.notYetModeled.areas.length, 3);
+  const labels = vm.notYetModeled.areas.map((a) => a.label);
+  assert.ok(labels.some((l) => l.includes("hoy")));
+  assert.ok(labels.some((l) => l.includes("capacidad")));
+  assert.ok(labels.some((l) => l.includes("cambiando")));
+  assert.ok(vm.notYetModeled.note.length > 0);
+  // 045-D AC5: no internal domain-model name or repository path in athlete-facing copy
+  for (const leak of ["CurrentState", "CapacityProfile", "ImpactAssessment", "docs/domain-modeling", ".md"]) {
+    assert.equal(vm.notYetModeled.note.includes(leak), false, `note must not leak '${leak}'`);
+  }
 });
 
 test("UI-001.5 zero assessments map to an honest 'no-dimensions' understanding state (insufficient evidence, said plainly)", () => {
@@ -117,4 +122,55 @@ test("UI-001.10 every inference-bearing item carries the 'inferred' epistemic ma
   }
   if (vm.attention.state === "support") assert.equal(vm.attention.epistemic, "inferred");
   assert.equal(vm.headline.epistemic, "inferred");
+});
+
+// --- Product Design Iteration 045-D — concrete storytelling acceptance criteria --------------------
+
+test("UI-001.21 (AC1) the headline states the concrete interpretation itself — not a meta-statement about having one", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready") return assert.fail("should be ready");
+  assert.ok(vm.headline.text.includes("tolerancia al trabajo sostenido"));
+  assert.equal(vm.headline.text.includes("tiene una interpretación en curso"), false);
+});
+
+test("UI-001.22 (AC2) the attention section names the actual concrete observation, traceable to the evidence reasoningNote", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
+  assert.equal(vm.attention.observation, "HR por encima del rango esperado junto a un reporte subjetivo de pesadez");
+});
+
+test("UI-001.23 (AC3) purpose relevance is visible and phrased as relevance, never as an instruction", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
+  assert.ok(vm.attention.purposeRelevance !== undefined);
+  assert.ok(vm.attention.purposeRelevance!.includes("200 mariposa"));
+  assert.ok(vm.attention.purposeRelevance!.startsWith("Esto podría importar"));
+  for (const imperative of ["deberías", "tenés que", "hacé"]) {
+    assert.equal(vm.attention.purposeRelevance!.toLowerCase().includes(imperative), false);
+  }
+});
+
+test("UI-001.24 (AC4) the concrete interpretation remains visibly defeasible — uncertainty stays explicit, never collapsed to fact", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
+  assert.equal(vm.attention.uncertaintyVisible, true);
+  assert.equal(vm.headline.epistemic, "inferred");
+});
+
+test("UI-001.25 (AC5/AC6) the trace summary is human-readable AND still traceable — no gate names, no enum syntax, but a real reason", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
+  for (const leak of ["Gate:", "EvidenceGate", "UnderstandingGate", "PurposeGate", "RiskGate", "AgencyGate", "pass", "->"]) {
+    assert.equal(vm.attention.traceSummary.includes(leak), false, `traceSummary must not leak '${leak}'`);
+  }
+  assert.ok(vm.attention.traceSummary.length > 20, "traceSummary must carry real content, not a stub");
+  assert.equal(vm.attention.revisionCondition, "Esto podría cambiar si: una respuesta normal de HR en la próxima sesión.");
+});
+
+test("UI-001.26 (AC9) the understanding dimension label is human Spanish — never the raw internal English key", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.understanding.state !== "assessed") return assert.fail("should be assessed");
+  assert.equal(vm.understanding.items[0]?.dimensionLabel, "tolerancia al trabajo sostenido");
+  assert.equal(vm.understanding.items[0]?.reasons.some((r) => r.includes("survived-challenge")), false);
+  assert.ok(vm.understanding.items[0]?.reasons[0]?.length ?? 0 > 10);
 });

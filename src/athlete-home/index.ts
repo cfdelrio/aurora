@@ -19,6 +19,7 @@ export type {
   AthleteHomeReady,
   DirectionSection,
   NotYetModeledSection,
+  NotYetModeledArea,
   UnderstandingSection,
   UnderstandingItemViewModel,
   AttentionSection,

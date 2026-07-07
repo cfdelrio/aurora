@@ -58,6 +58,15 @@ const ATHLETE_REF = "athlete:sample-ui-001";
 const PURPOSE_STATEMENT = "Preparar el 200 mariposa de noviembre";
 const DIMENSION = understandingDimension("sustained-work-tolerance", "threshold sessions");
 
+// Named once so the SAME real domain-output text both drives the domain chain AND is handed,
+// unmodified, to the assembler's caller-supplied substance fields (045-D governing constraint: no
+// athlete-facing sentence requires a new domain truth — these four strings already exist below).
+const HYPOTHESIS_CLAIM =
+  "la tolerancia al trabajo sostenido de este atleta podría estar bajo carga acumulada";
+const OBSERVATION_NOTE = "HR por encima del rango esperado junto a un reporte subjetivo de pesadez";
+const WHY_SUPPORT_MAY_HELP = "un patrón de fatiga no obvio vale la pena mostrarse, no dirigirse";
+const REVISION_CONDITION = "una respuesta normal de HR en la próxima sesión";
+
 function frameFor(observation: Observation): ContextualFrame {
   switch (observation.kind) {
     case "measured":
@@ -122,17 +131,14 @@ export function sampleAthleteHomeViewModel(): AthleteHomeViewModel {
   }
   const hypothesis = attachSignalAsEvidence({
     hypothesis: openHypothesis({
-      claim: hypothesisClaim(
-        "la tolerancia al trabajo sostenido de este atleta podría estar bajo carga acumulada",
-        "response-pattern",
-      ),
+      claim: hypothesisClaim(HYPOTHESIS_CLAIM, "response-pattern"),
       scope: hypothesisScope({ statement: "threshold sessions", timescale: "single session" }),
       athleteRef: ATHLETE_REF,
-      falsifiers: [falsifier({ condition: "una respuesta normal de HR en la próxima sesión", status: "declared" })],
+      falsifiers: [falsifier({ condition: REVISION_CONDITION, status: "declared" })],
     }),
     signal,
     direction: "supports",
-    reasoningNote: "HR por encima del rango esperado junto a un reporte subjetivo de pesadez",
+    reasoningNote: OBSERVATION_NOTE,
     at: T("2026-07-05T09:00:00.000Z"),
   });
 
@@ -158,7 +164,7 @@ export function sampleAthleteHomeViewModel(): AthleteHomeViewModel {
     decisionCase: openDecisionSupportCase({
       opportunity: decisionOpportunity({
         choice: "reflexionar sobre la pesadez vs. buscar intensidad en la próxima sesión",
-        whySupportMayHelp: "un patrón de fatiga no obvio vale la pena mostrarse, no dirigirse",
+        whySupportMayHelp: WHY_SUPPORT_MAY_HELP,
         athleteRef: ATHLETE_REF,
         at: T("2026-07-05T09:10:00.000Z"),
       }),
@@ -171,11 +177,17 @@ export function sampleAthleteHomeViewModel(): AthleteHomeViewModel {
     }),
   });
 
-  // 6 — pure assembly (the only step the page itself depends on)
+  // 6 — pure assembly (the only step the page itself depends on). The four substance fields are
+  // the SAME strings already used to build the domain chain above (§named consts) — nothing new is
+  // derived here, only carried through (045-D governing constraint).
   return assembleAthleteHome({
     purposeView: athlete.currentPurposeView(),
     assessments: assessment === undefined ? [] : [assessment],
     terminalOutput: evaluated.selectedOutput,
     athleteLabel: "atleta de muestra",
+    interpretationSynthesis: HYPOTHESIS_CLAIM,
+    observationNote: OBSERVATION_NOTE,
+    purposeRelevanceNote: WHY_SUPPORT_MAY_HELP,
+    revisionCondition: REVISION_CONDITION,
   });
 }

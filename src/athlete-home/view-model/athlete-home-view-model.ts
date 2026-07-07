@@ -31,25 +31,34 @@ export type DirectionSection =
     }
   | { readonly state: "unknown"; readonly epistemic: "declared" };
 
-// --- Sections whose domain model does not exist yet (honest, documented gap) ---------------------
+// --- Areas whose domain model does not exist yet (honest, documented gap) ------------------------
 // CurrentState / CapacityProfile / ImpactAssessment exist in docs/domain-modeling/*.md but have no
-// implemented domain type. This screen does NOT fake them: it states the gap.
+// implemented domain type. This screen does NOT fake them: it states the gap — consolidated into
+// ONE section (Product Design Iteration 045-D §5) so honest absence never outweighs what Aurora
+// actually knows.
+
+export interface NotYetModeledArea {
+  readonly label: string;
+}
 
 export interface NotYetModeledSection {
   readonly state: "not-yet-modeled";
-  /** what real domain work would need to exist before this section can carry content */
-  readonly whatIsMissing: string;
+  readonly areas: readonly NotYetModeledArea[];
+  /** one shared, athlete-facing reason — never a repository path or domain-model name */
+  readonly note: string;
 }
 
 // --- Understanding (real, from UnderstandingProfile assessments) --------------------------------
 
 export interface UnderstandingItemViewModel {
+  /** already translated to athlete-facing language (Impl 045-D) — never the raw internal key */
   readonly dimensionLabel: string;
   readonly level: UnderstandingLevel;
   /** human words for the level — sober, never numeric */
   readonly confidencePhrase: string;
   readonly isStale: boolean;
   readonly isFragile: boolean;
+  /** already humanized — no enum syntax, no "from -> to" state-transition tokens (Impl 045-D) */
   readonly reasons: readonly string[];
   readonly epistemic: "inferred";
 }
@@ -64,9 +73,14 @@ export type AttentionSection =
   | {
       readonly state: "support";
       readonly voice: VoiceMode;
-      /** defeasible framing sentence — never an order */
-      readonly phrase: string;
-      readonly reasons: readonly string[];
+      /** the concrete thing Aurora noticed — never a meta-statement about having a reading at all */
+      readonly observation: string;
+      /** why this may matter for the athlete's own declared purpose — relevance, never instruction */
+      readonly purposeRelevance?: string;
+      /** what would make Aurora revise this reading (from the hypothesis's own falsifier) */
+      readonly revisionCondition?: string;
+      /** one human sentence replacing raw gate:verdict tokens — semantic traceability, not a dump */
+      readonly traceSummary: string;
       readonly uncertaintyVisible: boolean;
       readonly epistemic: "inferred";
     }
@@ -84,12 +98,10 @@ export type AttentionSection =
 export interface AthleteHomeReady {
   readonly state: "ready";
   readonly athleteLabel?: string;
-  /** one-sentence synthesis of what Aurora understands right now — always epistemic-marked */
+  /** the concrete interpretation itself (when one exists) — never a statement ABOUT having one */
   readonly headline: { readonly text: string; readonly epistemic: Epistemic };
   readonly direction: DirectionSection;
-  readonly currentState: NotYetModeledSection;
-  readonly capacity: NotYetModeledSection;
-  readonly trajectory: NotYetModeledSection;
+  readonly notYetModeled: NotYetModeledSection;
   readonly understanding: UnderstandingSection;
   readonly attention: AttentionSection;
 }
