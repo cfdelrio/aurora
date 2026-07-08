@@ -144,10 +144,32 @@ test("UI-001.23 (AC3) purpose relevance is visible and phrased as relevance, nev
   if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
   assert.ok(vm.attention.purposeRelevance !== undefined);
   assert.ok(vm.attention.purposeRelevance!.includes("200 mariposa"));
-  assert.ok(vm.attention.purposeRelevance!.startsWith("Esto podría importar"));
   for (const imperative of ["deberías", "tenés que", "hacé"]) {
     assert.equal(vm.attention.purposeRelevance!.toLowerCase().includes(imperative), false);
   }
+});
+
+// --- 045-E surgical pass — Finding 1 (voice) and Finding 2 (purpose relevance depth) ---------------
+
+test("UI-001.27 (045-E Finding 1) the headline speaks directly to the athlete — never a detached third-person subject like 'este atleta'/'the athlete'", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready") return assert.fail("should be ready");
+  assert.ok(vm.headline.text.includes("tu tolerancia al trabajo sostenido"));
+  for (const detached of ["este atleta", "the athlete", "this athlete", "el atleta", "la atleta"]) {
+    assert.equal(vm.headline.text.toLowerCase().includes(detached), false, `headline must not contain '${detached}'`);
+  }
+});
+
+test("UI-001.28 (045-E Finding 2) purpose relevance connects the observation to the athlete's OWN preparation, not to Aurora's display policy", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
+  const text = vm.attention.purposeRelevance!;
+  // grounded in already-modeled fields: the hypothesis's own "threshold sessions" scope and the
+  // declared purpose — not in DecisionOpportunity.whySupportMayHelp's display-policy language.
+  assert.ok(text.includes("sesión de umbral") || text.includes("esfuerzo sostenido"));
+  assert.ok(text.includes("200 mariposa"));
+  assert.equal(text.includes("vale la pena mostrarse"), false, "must not be Aurora's own display-policy sentence");
+  assert.equal(text.includes("no dirigirse"), false, "must not be Aurora's own display-policy sentence");
 });
 
 test("UI-001.24 (AC4) the concrete interpretation remains visibly defeasible — uncertainty stays explicit, never collapsed to fact", () => {

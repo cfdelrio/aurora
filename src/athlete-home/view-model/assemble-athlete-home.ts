@@ -37,13 +37,17 @@ export interface AssembleAthleteHomeInput {
   // --- already-available domain substance, caller-supplied as plain strings (Spec 045 Input C
   // shape — independent section inputs, never a whole-home composer). Each is sourced, by the
   // caller, from a real domain output that already exists today (Hypothesis.claim, an
-  // EvidenceCase's reasoningNote, a DecisionOpportunity's whySupportMayHelp, a Falsifier's
-  // condition) — this file never fetches or derives them itself. ------------------------------
+  // EvidenceCase's reasoningNote, a Falsifier's condition) — this file never fetches or derives
+  // them itself. ---------------------------------------------------------------------------------
   /** the hypothesis claim text — what Aurora currently thinks is happening */
   readonly interpretationSynthesis?: string | undefined;
   /** the evidence reasoningNote — the concrete thing Aurora noticed */
   readonly observationNote?: string | undefined;
-  /** why the support opportunity may help — used to phrase purpose relevance */
+  /**
+   * a COMPLETE, athlete-facing sentence explaining why the observation could matter to the
+   * athlete's own preparation — not Aurora's display policy (045-E Finding 2). The caller composes
+   * the full sentence (it holds the athlete-specific context); the assembler renders it verbatim.
+   */
   readonly purposeRelevanceNote?: string | undefined;
   /** the falsifier condition — what would make Aurora revise this reading */
   readonly revisionCondition?: string | undefined;
@@ -209,7 +213,6 @@ function attentionFrom(
     readonly observationNote?: string | undefined;
     readonly purposeRelevanceNote?: string | undefined;
     readonly revisionCondition?: string | undefined;
-    readonly purposeStatement?: string | undefined;
   },
 ): AttentionSection {
   if (output === undefined) {
@@ -220,12 +223,12 @@ function attentionFrom(
       const observation =
         substance.observationNote ??
         (output.voice === "Silence" ? "" : VOICE_FALLBACK_OBSERVATION[output.voice]);
-      const purposeRelevance =
-        substance.purposeRelevanceNote === undefined
-          ? undefined
-          : substance.purposeStatement === undefined
-            ? `Esto podría importar porque ${substance.purposeRelevanceNote}.`
-            : `Esto podría importar para «${substance.purposeStatement}» porque ${substance.purposeRelevanceNote}.`;
+      // 045-D-surgical (045-E Finding 2): the caller composes the COMPLETE relevance sentence —
+      // no auto-wrap template here. A generic "porque {DecisionOpportunity.whySupportMayHelp}"
+      // wrap could only ever restate Aurora's OWN display policy (why it chose to surface
+      // something), never the athlete's preparation relevance; that distinction has to be made by
+      // whoever holds the athlete-specific context (today: the sample), not templated blindly.
+      const purposeRelevance = substance.purposeRelevanceNote;
       const base = {
         state: "support" as const,
         voice: output.voice,
@@ -284,12 +287,10 @@ function headlineFrom(direction: DirectionSection, attention: AttentionSection, 
 /** Pure assembly. Throws nothing domain-shaped; renders whatever the domain actually produced. */
 export function assembleAthleteHome(input: AssembleAthleteHomeInput): AthleteHomeViewModel {
   const direction = directionFrom(input.purposeView);
-  const purposeStatement = direction.state === "declared" ? direction.statement : undefined;
   const attention = attentionFrom(input.terminalOutput, {
     observationNote: input.observationNote,
     purposeRelevanceNote: input.purposeRelevanceNote,
     revisionCondition: input.revisionCondition,
-    purposeStatement,
   });
   const base = {
     state: "ready" as const,

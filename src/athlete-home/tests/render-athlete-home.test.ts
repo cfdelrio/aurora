@@ -140,3 +140,26 @@ test("UI-001.24 (AC10) agency is still made explicit on the rendered page", () =
   assert.ok(html.includes("Aurora no decide por vos"));
   assert.ok(html.includes("La decisión es siempre tuya"));
 });
+
+// --- 045-E surgical pass — Finding 1 (voice) and Finding 2 (purpose relevance depth) ---------------
+
+test("UI-001.25 (045-E Finding 1) the rendered page never addresses the athlete in detached third person anywhere", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  for (const detached of ["este atleta", "the athlete", "this athlete"]) {
+    assert.equal(html.toLowerCase().includes(detached), false, `page must not contain '${detached}'`);
+  }
+  assert.ok(html.includes("tu tolerancia al trabajo sostenido"));
+});
+
+test("UI-001.26 (045-E Finding 2) the rendered purpose-relevance sentence is visible and grounded in the athlete's own preparation, not in Aurora's display policy", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  assert.ok(html.includes("tu preparación") && html.includes("200 mariposa"));
+  assert.equal(html.includes("vale la pena mostrarse"), false);
+});
+
+test("UI-001.27 the concrete observation and the uncertainty boundary both remain visible without opening any fold (045-E collapsed-state test)", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  const beforeFirstDetails = html.split("<details>")[0]!;
+  assert.ok(beforeFirstDetails.includes("HR por encima del rango esperado"));
+  assert.ok(beforeFirstDetails.includes("no una certeza"));
+});

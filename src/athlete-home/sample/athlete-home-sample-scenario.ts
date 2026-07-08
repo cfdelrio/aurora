@@ -60,12 +60,29 @@ const DIMENSION = understandingDimension("sustained-work-tolerance", "threshold 
 
 // Named once so the SAME real domain-output text both drives the domain chain AND is handed,
 // unmodified, to the assembler's caller-supplied substance fields (045-D governing constraint: no
-// athlete-facing sentence requires a new domain truth — these four strings already exist below).
-const HYPOTHESIS_CLAIM =
-  "la tolerancia al trabajo sostenido de este atleta podría estar bajo carga acumulada";
+// athlete-facing sentence requires a new domain truth — these strings already exist below).
+//
+// 045-E surgical pass (Finding 1): phrased in direct second person ("tu tolerancia"), never
+// "este atleta" — the athlete-facing headline reads this verbatim, and the rest of the page
+// consistently addresses the athlete directly.
+const HYPOTHESIS_CLAIM = "tu tolerancia al trabajo sostenido podría estar bajo carga acumulada";
 const OBSERVATION_NOTE = "HR por encima del rango esperado junto a un reporte subjetivo de pesadez";
+// whySupportMayHelp remains a required field of the real DecisionOpportunity domain object — it is
+// Aurora's OWN reasoning about why an opportunity is worth surfacing at all (display policy), and
+// stays exactly that: an input to the real gates, never athlete-facing copy (045-E Finding 2 — that
+// distinction is the whole point of the fix below).
 const WHY_SUPPORT_MAY_HELP = "un patrón de fatiga no obvio vale la pena mostrarse, no dirigirse";
 const REVISION_CONDITION = "una respuesta normal de HR en la próxima sesión";
+// 045-E surgical pass (Finding 2): a COMPLETE, athlete-facing sentence — grounded only in fields
+// already present in this scenario (the hypothesis's own scope, "threshold sessions"; the
+// understanding dimension key, "sustained-work-tolerance"; and the declared purpose statement
+// above) — connecting the observation to the athlete's OWN preparation, not to Aurora's display
+// policy. No physiology, causality, recovery state, readiness, or risk is asserted: a 200m race
+// being a sustained-effort event is definitional, not a claim about this athlete's body.
+const PURPOSE_RELEVANCE_NOTE =
+  "Esto pasó en una sesión de umbral — el mismo tipo de esfuerzo sostenido que tu preparación " +
+  "para el 200 mariposa necesita entrenar. Por eso esta lectura podría ser relevante para cómo " +
+  "se está construyendo esa preparación.";
 
 function frameFor(observation: Observation): ContextualFrame {
   switch (observation.kind) {
@@ -177,9 +194,11 @@ export function sampleAthleteHomeViewModel(): AthleteHomeViewModel {
     }),
   });
 
-  // 6 — pure assembly (the only step the page itself depends on). The four substance fields are
-  // the SAME strings already used to build the domain chain above (§named consts) — nothing new is
-  // derived here, only carried through (045-D governing constraint).
+  // 6 — pure assembly (the only step the page itself depends on). The substance fields are the
+  // SAME strings already used to build the domain chain above (§named consts) — nothing new is
+  // derived here, only carried through (045-D governing constraint). purposeRelevanceNote uses
+  // PURPOSE_RELEVANCE_NOTE, not WHY_SUPPORT_MAY_HELP — the latter stays a domain-object-only input
+  // (045-E Finding 2).
   return assembleAthleteHome({
     purposeView: athlete.currentPurposeView(),
     assessments: assessment === undefined ? [] : [assessment],
@@ -187,7 +206,7 @@ export function sampleAthleteHomeViewModel(): AthleteHomeViewModel {
     athleteLabel: "atleta de muestra",
     interpretationSynthesis: HYPOTHESIS_CLAIM,
     observationNote: OBSERVATION_NOTE,
-    purposeRelevanceNote: WHY_SUPPORT_MAY_HELP,
+    purposeRelevanceNote: PURPOSE_RELEVANCE_NOTE,
     revisionCondition: REVISION_CONDITION,
   });
 }
