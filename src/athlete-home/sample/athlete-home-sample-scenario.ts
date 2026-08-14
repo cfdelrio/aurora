@@ -66,7 +66,12 @@ const DIMENSION = understandingDimension("sustained-work-tolerance", "threshold 
 // "este atleta" — the athlete-facing headline reads this verbatim, and the rest of the page
 // consistently addresses the athlete directly.
 const HYPOTHESIS_CLAIM = "tu tolerancia al trabajo sostenido podría estar bajo carga acumulada";
-const OBSERVATION_NOTE = "HR por encima del rango esperado junto a un reporte subjetivo de pesadez";
+// 045-F surgical pass (A01/Carlos watch item — the observation did not transfer independently in
+// review; he retained the conclusion, not this sentence): spelled out in plain Spanish instead of
+// the "HR" abbreviation and the clinical "reporte subjetivo" framing — same meaning, same
+// evidence, more readable to an athlete without training-data vocabulary.
+const OBSERVATION_NOTE =
+  "frecuencia cardíaca por encima de lo esperado junto con sensación de pesadez";
 // whySupportMayHelp remains a required field of the real DecisionOpportunity domain object — it is
 // Aurora's OWN reasoning about why an opportunity is worth surfacing at all (display policy), and
 // stays exactly that: an input to the real gates, never athlete-facing copy (045-E Finding 2 — that

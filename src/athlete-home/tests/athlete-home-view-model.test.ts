@@ -136,7 +136,7 @@ test("UI-001.21 (AC1) the headline states the concrete interpretation itself —
 test("UI-001.22 (AC2) the attention section names the actual concrete observation, traceable to the evidence reasoningNote", () => {
   const vm = sampleAthleteHomeViewModel();
   if (vm.state !== "ready" || vm.attention.state !== "support") return assert.fail("should be support");
-  assert.equal(vm.attention.observation, "HR por encima del rango esperado junto a un reporte subjetivo de pesadez");
+  assert.equal(vm.attention.observation, "frecuencia cardíaca por encima de lo esperado junto con sensación de pesadez");
 });
 
 test("UI-001.23 (AC3) purpose relevance is visible and phrased as relevance, never as an instruction", () => {
@@ -195,4 +195,15 @@ test("UI-001.26 (AC9) the understanding dimension label is human Spanish — nev
   assert.equal(vm.understanding.items[0]?.dimensionLabel, "tolerancia al trabajo sostenido");
   assert.equal(vm.understanding.items[0]?.reasons.some((r) => r.includes("survived-challenge")), false);
   assert.ok(vm.understanding.items[0]?.reasons[0]?.length ?? 0 > 10);
+});
+
+// --- Impl 045-F — real athlete-review evidence (A01/Carlos) surgical comprehension fix -------------
+
+test("UI-001.32 (045-F) the survived-challenge reason no longer renders the sentence A01/Carlos found hard to understand, and communicates prior-signal support without overclaiming", () => {
+  const vm = sampleAthleteHomeViewModel();
+  if (vm.state !== "ready" || vm.understanding.state !== "assessed") return assert.fail("should be assessed");
+  const reason = vm.understanding.items[0]?.reasons[0] ?? "";
+  assert.notEqual(reason, "Ya viste una situación similar antes, y lo que pasó confirmó esta lectura.");
+  assert.ok(reason.includes("No es la primera vez que aparece una señal parecida"));
+  assert.ok(reason.includes("interpretación, no una certeza"));
 });

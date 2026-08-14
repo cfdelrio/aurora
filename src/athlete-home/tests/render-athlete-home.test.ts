@@ -160,6 +160,37 @@ test("UI-001.26 (045-E Finding 2) the rendered purpose-relevance sentence is vis
 test("UI-001.27 the concrete observation and the uncertainty boundary both remain visible without opening any fold (045-E collapsed-state test)", () => {
   const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
   const beforeFirstDetails = html.split("<details>")[0]!;
-  assert.ok(beforeFirstDetails.includes("HR por encima del rango esperado"));
+  assert.ok(beforeFirstDetails.includes("frecuencia cardíaca por encima de lo esperado"));
   assert.ok(beforeFirstDetails.includes("no una certeza"));
+});
+
+// --- Impl 045-F — real athlete-review evidence (A01/Carlos) surgical comprehension fix -------------
+
+test("UI-001.28 (045-F AC1) the A01-difficult sentence is gone; the replacement is present, human, and still communicates prior-signal support", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  assert.equal(html.includes("Ya viste una situación similar antes, y lo que pasó confirmó esta lectura"), false);
+  assert.ok(html.includes("No es la primera vez que aparece una señal parecida"));
+  assert.ok(html.includes("prestarle atención"));
+});
+
+test("UI-001.29 (045-F AC2/AC5) the replacement sentence does not overclaim — it names itself an interpretation, not a certainty", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  assert.ok(html.includes("sigue siendo una interpretación, no una certeza"));
+});
+
+test("UI-001.30 (045-F AC6) no architecture/gate/enum/path leakage was introduced by the new copy", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  for (const leak of [
+    "EvidenceGate", "UnderstandingGate", "PurposeGate", "RiskGate", "AgencyGate",
+    "survived-challenge", "docs/domain-modeling", ".md", "->",
+  ]) {
+    assert.equal(html.includes(leak), false, `page must not leak '${leak}'`);
+  }
+});
+
+test("UI-001.31 (045-F AC3/AC4) agency and trust-building language remain intact alongside the new sentence", () => {
+  const html = renderAthleteHomePage(sampleAthleteHomeViewModel());
+  assert.ok(html.includes("Aurora no decide por vos"));
+  assert.ok(html.includes("La decisión es siempre tuya"));
+  assert.ok(html.includes("Antes de mostrarte esto, Aurora comprobó que"));
 });

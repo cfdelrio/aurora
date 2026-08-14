@@ -118,7 +118,13 @@ function humanizeDimensionLabel(key: string): string {
 // produced vocabulary into human Spanish — no new domain truth, only a closed-set relabeling.
 const CHANGE_REASON_PHRASES: Record<string, string> = {
   initial: "Aurora recién empieza a formarse una idea en este tema.",
-  "survived-challenge": "Ya viste una situación similar antes, y lo que pasó confirmó esta lectura.",
+  // Impl 045-F (real athlete-review evidence, A01/Carlos: "suena difícil de entender" on the
+  // prior wording). Must communicate: a similar signal appeared before; that prior case is
+  // supporting context, not proof; confidence rises modestly; it remains interpretation.
+  "survived-challenge":
+    "No es la primera vez que aparece una señal parecida. La vez anterior, prestarle atención " +
+    "ayudó a entender mejor cómo venías respondiendo — eso suma confianza a esta lectura, " +
+    "aunque sigue siendo una interpretación, no una certeza.",
   contradiction: "Algo que pasó no encajó con lo que Aurora esperaba, y la confianza bajó.",
   falsification: "Lo que haría dudar de esta idea efectivamente pasó, y Aurora la dejó de lado.",
   surprise: "Algo inesperado ocurrió y Aurora está reconsiderando esta lectura.",
