@@ -64,6 +64,8 @@ const RECOGNIZED_METRICS = new Set([
   "avg-stride-length",
   "moving-time",
   "avg-moving-pace",
+  "max-speed",
+  "avg-moving-speed",
 ]);
 
 function normalizeMetricLabel(label: string): string {
